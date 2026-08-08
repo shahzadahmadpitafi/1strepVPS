@@ -70,7 +70,7 @@ async function sendEmailViaSmtp(to: string, subject: string, htmlBody: string): 
   const password = process.env.SMTP_PASSWORD;
   if (!password) return false;
 
-  const host = process.env.SMTP_HOST || 'mail.123-reg.co.uk';
+  const host = process.env.SMTP_HOST || 'smtp.123-reg.co.uk';
   const port = parseInt(process.env.SMTP_PORT || '465', 10);
   const user = process.env.SMTP_USER || 'info@1strep.com';
 

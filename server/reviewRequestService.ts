@@ -268,7 +268,7 @@ async function sendReviewEmail(order: {
   if (smtpPass) {
     try {
       const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || "mail.123-reg.co.uk",
+        host: process.env.SMTP_HOST || "smtp.123-reg.co.uk",
         port: parseInt(process.env.SMTP_PORT || "465"),
         secure: true,
         auth: {
