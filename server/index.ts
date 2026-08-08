@@ -213,7 +213,7 @@ app.use(session({
   }
 }));
 
-console.log(`🍪 Session configured: secure=${isProduction}, sameSite=lax, saveUninitialized=true`);
+console.log(`🍪 Session configured: secure=${cookieSecure}, sameSite=lax, saveUninitialized=true`);
 
 // Serve attached assets (product images, etc.) with cache headers for performance
 app.use('/attached_assets', express.static(path.resolve(import.meta.dirname, '../attached_assets'), {
