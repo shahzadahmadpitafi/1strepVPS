@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+
+# Block admin and private areas
+Disallow: /admin-portal-secure
+Disallow: /admin/
+Disallow: /api/
+Disallow: /reseller-portal/
+Disallow: /wholesaler-portal/
+Disallow: /account/
+Disallow: /checkout/
+Disallow: /cart/
+Disallow: /epos/
+Disallow: /reseller-epos/
+Disallow: /customer-epos/
+
+# Sitemap location
+Sitemap: https://1strep.com/sitemap.xml

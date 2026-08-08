@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>1stRep Influencer Programme — Complete Guide</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gold: #C9A84C;
+      --gold-light: #E8C96A;
+      --gold-subtle: #2a2210;
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --surface2: #181818;
+      --border: #2a2a2a;
+      --text: #e8e8e8;
+      --muted: #888;
+      --green: #22c55e;
+      --blue: #3b82f6;
+      --orange: #f97316;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    /* ── Layout ── */
+    .page { max-width: 860px; margin: 0 auto; padding: 48px 24px 96px; }
+
+    /* ── Cover ── */
+    .cover {
+      text-align: center;
+      padding: 64px 0 56px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 56px;
+    }
+    .cover-logo {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-size: 22px; font-weight: 800; letter-spacing: -0.5px;
+      color: var(--gold); margin-bottom: 28px;
+    }
+    .cover-logo span { color: var(--text); }
+    .cover h1 {
+      font-size: clamp(28px, 5vw, 44px);
+      font-weight: 800;
+      letter-spacing: -1px;
+      line-height: 1.15;
+      margin-bottom: 16px;
+    }
+    .cover h1 em { color: var(--gold); font-style: normal; }
+    .cover p {
+      font-size: 17px; color: var(--muted);
+      max-width: 520px; margin: 0 auto 32px;
+    }
+    .cover-meta {
+      display: inline-flex; gap: 24px; flex-wrap: wrap; justify-content: center;
+      font-size: 13px; color: var(--muted);
+    }
+    .cover-meta span { display: flex; align-items: center; gap: 6px; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); }
+
+    /* ── TOC ── */
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 32px;
+      margin-bottom: 56px;
+    }
+    .toc h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 16px; }
+    .toc ol { padding-left: 20px; }
+    .toc li { padding: 4px 0; }
+    .toc a { color: var(--gold); text-decoration: none; font-size: 14px; font-weight: 500; }
+    .toc a:hover { text-decoration: underline; }
+
+    /* ── Sections ── */
+    section { margin-bottom: 64px; }
+    .section-header {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 28px; padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-number {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: var(--gold); color: #000;
+      font-weight: 800; font-size: 14px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .section-header h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+
+    h3 { font-size: 17px; font-weight: 600; margin: 28px 0 10px; color: var(--gold-light); }
+    h4 { font-size: 14px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin: 20px 0 8px; }
+    p { margin-bottom: 14px; color: #ccc; }
+    ul, ol { padding-left: 22px; margin-bottom: 14px; color: #ccc; }
+    li { margin-bottom: 6px; }
+    strong { color: var(--text); }
+    code {
+      background: #1e1e1e; border: 1px solid #333;
+      padding: 2px 7px; border-radius: 5px;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 13px; color: var(--gold-light);
+    }
+
+    /* ── Cards / Callouts ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin: 16px 0;
+    }
+    .card.gold { border-color: var(--gold); background: var(--gold-subtle); }
+
+    .callout {
+      display: flex; gap: 12px;
+      border-radius: 10px; padding: 16px 20px; margin: 20px 0;
+      font-size: 14px;
+    }
+    .callout.tip { background: #0d1f17; border: 1px solid #16533a; color: #86efac; }
+    .callout.info { background: #0d1728; border: 1px solid #1d4ed8; color: #93c5fd; }
+    .callout.warning { background: #1c1108; border: 1px solid #92400e; color: #fcd34d; }
+    .callout-icon { font-size: 18px; flex-shrink: 0; line-height: 1.4; }
+
+    /* ── Steps ── */
+    .steps { list-style: none; padding: 0; counter-reset: step; }
+    .steps li {
+      counter-increment: step;
+      display: flex; gap: 16px; margin-bottom: 20px;
+    }
+    .steps li::before {
+      content: counter(step);
+      min-width: 28px; height: 28px;
+      background: var(--gold); color: #000;
+      border-radius: 50%; font-weight: 800; font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 2px; flex-shrink: 0;
+    }
+    .steps .step-body strong { display: block; margin-bottom: 4px; color: var(--text); }
+    .steps .step-body p { margin: 0; font-size: 14px; color: var(--muted); }
+
+    /* ── Table ── */
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+    th {
+      text-align: left; padding: 10px 14px;
+      background: var(--surface2); color: var(--muted);
+      font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
+      border-bottom: 1px solid var(--border);
+    }
+    td { padding: 12px 14px; border-bottom: 1px solid #1e1e1e; color: #ccc; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    .tag {
+      display: inline-flex; align-items: center;
+      padding: 2px 8px; border-radius: 20px;
+      font-size: 12px; font-weight: 600;
+    }
+    .tag.green { background: #14532d; color: #86efac; }
+    .tag.blue  { background: #1e3a5f; color: #93c5fd; }
+    .tag.gold  { background: #3a2d05; color: var(--gold-light); }
+    .tag.gray  { background: #222; color: #aaa; }
+    .tag.orange{ background: #431407; color: #fed7aa; }
+
+    /* ── Credit Math Box ── */
+    .math-box {
+      background: var(--surface2); border: 1px solid var(--gold);
+      border-radius: 12px; padding: 24px 28px; margin: 20px 0;
+    }
+    .math-box h4 { color: var(--gold); margin-top: 0; }
+    .math-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 0; border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+    .math-row:last-child { border-bottom: none; }
+    .math-row .label { color: var(--muted); }
+    .math-row .value { font-weight: 700; color: var(--gold-light); font-size: 16px; }
+
+    /* ── Status flow ── */
+    .flow {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      margin: 16px 0;
+    }
+    .flow-step {
+      padding: 6px 16px; border-radius: 20px;
+      font-size: 13px; font-weight: 600;
+    }
+    .flow-arrow { color: var(--muted); font-size: 18px; }
+    .fs-pending  { background: #1c1108; color: #fcd34d; border: 1px solid #92400e; }
+    .fs-approved { background: #0d1728; color: #93c5fd; border: 1px solid #1d4ed8; }
+    .fs-fulfilled{ background: #0d1f17; color: #86efac; border: 1px solid #16533a; }
+
+    /* ── Footer ── */
+    .footer {
+      margin-top: 80px; padding-top: 32px; border-top: 1px solid var(--border);
+      text-align: center; color: var(--muted); font-size: 13px;
+    }
+    .footer strong { color: var(--gold); }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ── Cover ── -->
+  <div class="cover">
+    <div class="cover-logo">1<sup style="font-size:14px">st</sup><span>REP</span></div>
+    <h1>The <em>Influencer Programme</em><br>Complete Guide</h1>
+    <p>Everything you need to know — from applying and earning credits, to drawing down cash and managing your codes.</p>
+    <div class="cover-meta">
+      <span><span class="dot"></span> For Influencers &amp; Admins</span>
+      <span><span class="dot"></span> Updated July 2026</span>
+      <span><span class="dot"></span> Confidential — Internal Use</span>
+    </div>
+  </div>
+
+  <!-- ── TOC ── -->
+  <div class="toc">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#overview">Programme Overview</a></li>
+      <li><a href="#apply">How to Apply</a></li>
+      <li><a href="#approval">Admin Approval Process</a></li>
+      <li><a href="#dashboard">The Influencer Dashboard</a></li>
+      <li><a href="#codes">Discount Codes &amp; Variants</a></li>
+      <li><a href="#credits">How Credits Work</a></li>
+      <li><a href="#redeem">Redeeming Credits</a></li>
+      <li><a href="#content">Content Submissions</a></li>
+      <li><a href="#garment">Garment Drop</a></li>
+      <li><a href="#tracking">Tracking Links &amp; Referrals</a></li>
+      <li><a href="#admin">Admin Management Reference</a></li>
+      <li><a href="#faq">FAQ</a></li>
+    </ol>
+  </div>
+
+  <!-- ── 1. Overview ── -->
+  <section id="overview">
+    <div class="section-header">
+      <div class="section-number">1</div>
+      <h2>Programme Overview</h2>
+    </div>
+    <p>The 1stRep Influencer Programme is a performance-based partnership designed for athletes, coaches, and fitness creators. When your followers buy using your personal discount code, you earn <strong>flat credits per sale</strong> — which you can convert to cash or store credit at any time.</p>
+
+    <div class="card gold">
+      <h3 style="margin-top:0;color:var(--gold)">The Core Loop</h3>
+      <ul style="margin:0">
+        <li>You get a personal discount code (e.g. <code>SMITH10</code>) to share with your audience.</li>
+        <li>Every time someone uses that code at checkout, you earn a fixed number of credits instantly — no need to chase them.</li>
+        <li>Accumulate credits, then draw them down as <strong>cash (50p per credit)</strong> or exchange them for <strong>store credit at full value (£1 per credit)</strong>.</li>
+      </ul>
+    </div>
+
+    <h3>Key numbers at a glance</h3>
+    <table>
+      <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Welcome credits on joining</td><td><strong>100 credits</strong></td></tr>
+        <tr><td>Minimum redemption</td><td><strong>50 credits</strong></td></tr>
+        <tr><td>Cash draw-down rate</td><td><strong>100 credits = £50</strong> (50p/credit)</td></tr>
+        <tr><td>Store credit rate</td><td><strong>100 credits = £100</strong> (£1/credit)</td></tr>
+        <tr><td>Redemption increments</td><td>Multiples of 50 credits</td></tr>
+        <tr><td>Default codes created on approval</td><td>2 (e.g. <code>SMITH10</code> &amp; <code>SMITH15</code>)</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── 2. Apply ── -->
+  <section id="apply">
+    <div class="section-header">
+      <div class="section-number">2</div>
+      <h2>How to Apply</h2>
+    </div>
+    <p>Any athlete, coach, or fitness creator can apply via the public <strong>Influencer Programme</strong> page on the 1stRep website.</p>
+
+    <ol class="steps">
+      <li>
+        <div class="step-body">
+          <strong>Visit the application page</strong>
+          <p>Navigate to <em>Influencer Programme → Apply Now</em> from the main menu, or go directly to <code>/influencer-login</code> and click the <em>Apply Now</em> tab.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-body">
+          <strong>Fill in your details</strong>
+          <p>You'll be asked for: full name, email address, phone number, sport/discipline, approximate follower count, and links to your Instagram, TikTok, and/or YouTube.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-body">
+          <strong>Write a short message</strong>
+          <p>Tell the team why you'd be a great fit for the programme and how you'd promote 1stRep to your community.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-body">
+          <strong>Submit your application</strong>
+          <p>You'll receive an automatic confirmation email. The 1stRep team will review your application and respond within a few business days.</p>
+        </div>
+      </li>
+    </ol>
+
+    <div class="callout tip">
+      <span class="callout-icon">✅</span>
+      <span>A confirmation email is sent to you immediately after submitting. The admin team is also notified automatically so nothing falls through the cracks.</span>
+    </div>
+  </section>
+
+  <!-- ── 3. Admin Approval ── -->
+  <section id="approval">
+    <div class="section-header">
+      <div class="section-number">3</div>
+      <h2>Admin Approval Process</h2>
+    </div>
+    <p>This section is for the 1stRep team. Here's what happens when an application is reviewed.</p>
+
+    <h3>Reviewing an Application</h3>
+    <p>All pending applications appear under <strong>Admin → Influencer Credits</strong>. Each card shows the applicant's social handles, follower count, and message.</p>
+
+    <ol class="steps">
+      <li>
+        <div class="step-body">
+          <strong>Review the applicant card</strong>
+          <p>Check their follower count, social links, and message to assess fit with the brand.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-body">
+          <strong>Approve or Reject</strong>
+          <p>Click <em>Approve</em> to onboard them, or <em>Reject</em> to decline. Rejected applicants are notified automatically.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-body">
+          <strong>What happens on approval (automatic)</strong>
+          <p>The system creates their user account, generates a unique tracking slug from their name, awards 100 welcome credits, creates two default discount codes (e.g. <code>SMITH10</code> active, <code>SMITH15</code> inactive), and emails them login credentials.</p>
+        </div>
+      </li>
+    </ol>
+
+    <h3>What gets auto-created on Approval</h3>
+    <table>
+      <thead><tr><th>Item</th><th>Detail</th></tr></thead>
+      <tbody>
+        <tr><td>User account</td><td>Role set to <code>athlete</code>; temporary password emailed</td></tr>
+        <tr><td>Athlete profile</td><td>Tracking slug derived from full name (e.g. <code>smith</code>)</td></tr>
+        <tr><td>Welcome credits</td><td>100 credits deposited immediately</td></tr>
+        <tr><td>Default discount code 1</td><td><code>[SLUG]10</code> — 10% customer discount, 10 credits/sale, <span class="tag green">Active</span></td></tr>
+        <tr><td>Default discount code 2</td><td><code>[SLUG]15</code> — 15% customer discount, 10 credits/sale, <span class="tag gray">Inactive</span></td></tr>
+        <tr><td>Personal 50% coupon</td><td>A one-time 50% off coupon for the influencer's own first order</td></tr>
+        <tr><td>Approval email</td><td>Sent with login URL, username, and temporary password</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── 4. Dashboard ── -->
+  <section id="dashboard">
+    <div class="section-header">
+      <div class="section-number">4</div>
+      <h2>The Influencer Dashboard</h2>
+    </div>
+    <p>Once approved, log in at <code>/influencer-login</code> to access your dashboard. It has four main tabs:</p>
+
+    <table>
+      <thead><tr><th>Tab</th><th>What you'll find</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Overview</strong></td>
+          <td>Your active code with a copy button, total sales generated, orders placed, tracking link clicks, and credit balance summary.</td>
+        </tr>
+        <tr>
+          <td><strong>Credits</strong></td>
+          <td>Live credit balance, redemption cards (cash draw-down, store credit, clothing credit), full credit history, and all redemption requests with their status.</td>
+        </tr>
+        <tr>
+          <td><strong>Codes</strong></td>
+          <td>All your discount code variants — see use counts, activate/deactivate them, and create new variants.</td>
+        </tr>
+        <tr>
+          <td><strong>Content</strong></td>
+          <td>Submit posts, reels, stories, or videos for review. Track views, likes, shares, and other engagement metrics.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Overview tab — key metrics</h3>
+    <div class="card">
+      <ul style="margin:0">
+        <li><strong>Active Code</strong> — your current shareable code with a one-click copy button</li>
+        <li><strong>Total Sales Generated</strong> — the cumulative value of all orders placed with your codes</li>
+        <li><strong>Total Orders</strong> — the number of individual orders made using your codes</li>
+        <li><strong>Tracking Link Clicks</strong> — how many people visited the site via your personal referral link</li>
+        <li><strong>Credit Balance</strong> — your current unspent credits with the cash/store-credit equivalents shown</li>
+      </ul>
+    </div>
+
+    <div class="callout info">
+      <span class="callout-icon">ℹ️</span>
+      <span>Your credit balance shows <strong>100 cr = £50 cash / £100 store credit</strong> at all times so you always know exactly what your balance is worth before redeeming.</span>
+    </div>
+  </section>
+
+  <!-- ── 5. Discount Codes ── -->
+  <section id="codes">
+    <div class="section-header">
+      <div class="section-number">5</div>
+      <h2>Discount Codes &amp; Variants</h2>
+    </div>
+    <p>You can hold multiple discount code variants but only <strong>one can be active at a time</strong>. The active code is what you share publicly.</p>
+
+    <h3>How a code is constructed</h3>
+    <div class="card">
+      <p style="margin:0;font-size:15px">Your code = <code style="font-size:15px">[your tracking slug] + [suffix]</code></p>
+      <p style="margin:8px 0 0;color:var(--muted);font-size:13px">Example: tracking slug <code>smith</code>, suffix <code>10</code> → full code <code>SMITH10</code></p>
+    </div>
+
+    <h3>Variant fields</h3>
+    <table>
+      <thead><tr><th>Field</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>Code Suffix</td><td>The part you choose, e.g. <code>10</code>, <code>15</code>, <code>VIP</code>, <code>SUMMER</code></td></tr>
+        <tr><td>Customer Discount %</td><td>How much off the customer gets at checkout (e.g. 10 = "10% off")</td></tr>
+        <tr><td>Fixed Credits Per Sale</td><td>How many credits land in your account each time the code is used (flat, regardless of order value)</td></tr>
+        <tr><td>Active</td><td>Only one variant is active at a time — this is the one to share</td></tr>
+        <tr><td>Use Count</td><td>Total number of times this code has been redeemed</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Creating a new variant</h3>
+    <ol class="steps">
+      <li>
+        <div class="step-body">
+          <strong>Go to the Codes tab</strong>
+          <p>Click <em>New Code</em> in the top right.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-body">
+          <strong>Set your suffix</strong>
+          <p>Pick a memorable suffix. Your full code will be shown as you type — make sure it's easy to say aloud in a post.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-body">
+          <strong>Choose the customer discount</strong>
+          <p>A higher discount drives more conversions but check with the 1stRep team about the maximum you're authorised to offer.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-body">
+          <strong>Set credits per sale</strong>
+          <p>Enter the flat credits you'll earn each time the code is used. This is agreed with the 1stRep team — your default codes already have this pre-set.</p>
+        </div>
+      </li>
+    </ol>
+
+    <div class="callout warning">
+      <span class="callout-icon">⚠️</span>
+      <span>Only the <strong>active</strong> code earns you credits. If you switch to a new variant, make sure to update the code you share publicly. Credits stop accumulating on deactivated codes.</span>
+    </div>
+
+    <h3>Switching active codes</h3>
+    <p>In the Codes tab, click <em>Set Active</em> on any variant to make it your current public code. The previous active code is automatically deactivated.</p>
+  </section>
+
+  <!-- ── 6. Credits ── -->
+  <section id="credits">
+    <div class="section-header">
+      <div class="section-number">6</div>
+      <h2>How Credits Work</h2>
+    </div>
+    <p>Credits are the currency of the programme. They accumulate automatically and never expire.</p>
+
+    <h3>Ways to earn credits</h3>
+    <table>
+      <thead><tr><th>Source</th><th>Amount</th><th>When</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Welcome bonus</td>
+          <td><span class="tag gold">100 credits</span></td>
+          <td>Automatically on account approval</td>
+        </tr>
+        <tr>
+          <td>Sale via discount code</td>
+          <td><span class="tag gold">Fixed per variant</span></td>
+          <td>Instantly when a customer checks out with your code (web, EPOS, or QR checkout)</td>
+        </tr>
+        <tr>
+          <td>Approved content post</td>
+          <td><span class="tag gold">1 credit</span></td>
+          <td>When you submit content that is approved</td>
+        </tr>
+        <tr>
+          <td>Manual adjustment</td>
+          <td>Variable</td>
+          <td>Issued by the 1stRep admin team (e.g. bonus campaign, correction)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Credit maths</h3>
+    <div class="math-box">
+      <h4>💰 Credit Value Reference</h4>
+      <div class="math-row">
+        <span class="label">50 credits (min redemption)</span>
+        <span class="value">£25 cash &nbsp;/&nbsp; £50 store credit</span>
+      </div>
+      <div class="math-row">
+        <span class="label">100 credits</span>
+        <span class="value">£50 cash &nbsp;/&nbsp; £100 store credit</span>
+      </div>
+      <div class="math-row">
+        <span class="label">250 credits</span>
+        <span class="value">£125 cash &nbsp;/&nbsp; £250 store credit</span>
+      </div>
+      <div class="math-row">
+        <span class="label">500 credits</span>
+        <span class="value">£250 cash &nbsp;/&nbsp; £500 store credit</span>
+      </div>
+    </div>
+
+    <h3>Transaction history</h3>
+    <p>Every credit movement — earned, adjusted, or redeemed — is logged in your Credit History (Credits tab → scroll down). Each entry shows the type, date, amount, and a description so you can see exactly where every credit came from.</p>
+
+    <h4>Transaction types you'll see</h4>
+    <table>
+      <thead><tr><th>Type</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>welcome</code></td><td>100 credits awarded when your account was approved</td></tr>
+        <tr><td><code>referral_sale</code></td><td>Credits earned from a customer using your discount code</td></tr>
+        <tr><td><code>post_approved</code></td><td>Credits earned for approved content submission</td></tr>
+        <tr><td><code>manual_adjust</code></td><td>Credits added or removed by the admin team</td></tr>
+        <tr><td><code>redemption</code></td><td>Credits deducted when a redemption request is fulfilled</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── 7. Redeeming ── -->
+  <section id="redeem">
+    <div class="section-header">
+      <div class="section-number">7</div>
+      <h2>Redeeming Credits</h2>
+    </div>
+    <p>You can redeem your credits at any time from the <strong>Credits tab</strong>. Redemption requests go to the 1stRep team who review and fulfil them.</p>
+
+    <h3>Redemption types</h3>
+    <table>
+      <thead><tr><th>Type</th><th>Value</th><th>How it works</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>💰 <strong>Cash Draw-down</strong></td>
+          <td><strong>100 credits = £50</strong></td>
+          <td>Cash paid directly to you (bank transfer or agreed method). Best for influencers who want liquid earnings.</td>
+        </tr>
+        <tr>
+          <td>🛍️ <strong>Store Credit</strong></td>
+          <td><strong>100 credits = £100</strong></td>
+          <td>Applied to your 1stRep account to spend on any products. Best value — full £1 per credit.</td>
+        </tr>
+        <tr>
+          <td>👕 <strong>Clothing Credit</strong></td>
+          <td>Admin arranges</td>
+          <td>Exchanged for 1stRep garments. The team will contact you to agree the items.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout tip">
+      <span class="callout-icon">💡</span>
+      <span><strong>Store credit gives you double the value</strong> of a cash draw-down. If you plan to buy 1stRep products, always choose store credit over cash.</span>
+    </div>
+
+    <h3>How to submit a redemption request</h3>
+    <ol class="steps">
+      <li>
+        <div class="step-body">
+          <strong>Go to Credits tab → Redeem</strong>
+          <p>Click the card for the redemption type you want (Cash Draw-down, Store Credit, or Clothing Credit).</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-body">
+          <strong>Choose the amount</strong>
+          <p>Enter the number of credits in multiples of 50. The cash/credit value is shown live so you know exactly what you'll receive.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-body">
+          <strong>Add optional notes</strong>
+          <p>For cash draw-downs, you may want to include your preferred payment method or bank details in the notes. For clothing credits, describe the items you're interested in.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-body">
+          <strong>Submit</strong>
+          <p>Your request is logged and the team is notified. Credits are held as pending until the request is approved or fulfilled.</p>
+        </div>
+      </li>
+    </ol>
+
+    <h3>Redemption status flow</h3>
+    <div class="flow">
+      <div class="flow-step fs-pending">Pending</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step fs-approved">Approved</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step fs-fulfilled">Fulfilled</div>
+    </div>
+    <table>
+      <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><span class="tag orange">Pending</span></td><td>Request submitted, awaiting admin review</td></tr>
+        <tr><td><span class="tag blue">Approved</span></td><td>Admin has approved the request and is processing payment/credit</td></tr>
+        <tr><td><span class="tag green">Fulfilled</span></td><td>Cash paid out or store credit applied — credits deducted from balance</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout info">
+      <span class="callout-icon">ℹ️</span>
+      <span>Your credit balance does <strong>not</strong> decrease until the request reaches <em>Fulfilled</em> status. You can track all requests in the Credits tab → Redemption History.</span>
+    </div>
+  </section>
+
+  <!-- ── 8. Content ── -->
+  <section id="content">
+    <div class="section-header">
+      <div class="section-number">8</div>
+      <h2>Content Submissions</h2>
+    </div>
+    <p>Submitting your posts lets the 1stRep team track the organic reach you're driving and rewards you with credits for approved content.</p>
+
+    <h3>What you can submit</h3>
+    <table>
+      <thead><tr><th>Content Type</th><th>Platform</th></tr></thead>
+      <tbody>
+        <tr><td>Photo post</td><td rowspan="4">Instagram, TikTok, YouTube</td></tr>
+        <tr><td>Video</td></tr>
+        <tr><td>Reel / Short</td></tr>
+        <tr><td>Story</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Submission process</h3>
+    <ol class="steps">
+      <li>
+        <div class="step-body">
+          <strong>Go to the Content tab</strong>
+          <p>Click <em>Submit Content</em>.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-body">
+          <strong>Paste the URL of your post</strong>
+          <p>Instagram post URL, TikTok video link, or YouTube video URL.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-body">
+          <strong>Select type and platform</strong>
+          <p>Choose from photo, video, reel, or story; and select the platform it was posted on.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-body">
+          <strong>Submit</strong>
+          <p>Submissions are reviewed and, once approved, 1 credit is awarded.</p>
+        </div>
+      </li>
+    </ol>
+
+    <h3>Performance metrics</h3>
+    <p>The team tracks the following engagement metrics on your approved content:</p>
+    <div class="card">
+      <ul style="margin:0;columns:2;gap:24px">
+        <li>👁️ Views</li>
+        <li>❤️ Likes</li>
+        <li>💬 Comments</li>
+        <li>🔁 Shares</li>
+        <li>🔗 Clicks</li>
+        <li>📣 Reach</li>
+      </ul>
+    </div>
+    <p>You can also self-report your own metrics from the Content tab — just click the post and update the numbers. The admin team can update them independently too.</p>
+
+    <h4>Content statuses</h4>
+    <table>
+      <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><span class="tag orange">Pending</span></td><td>Awaiting admin review</td></tr>
+        <tr><td><span class="tag green">Approved</span></td><td>Accepted — 1 credit awarded</td></tr>
+        <tr><td><span class="tag blue">Featured</span></td><td>Highlighted by the team as a standout post</td></tr>
+        <tr><td><span class="tag gray">Rejected</span></td><td>Does not meet submission guidelines</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── 9. Garment Drop ── -->
+  <section id="garment">
+    <div class="section-header">
+      <div class="section-number">9</div>
+      <h2>Garment Drop</h2>
+    </div>
+    <p>Selected influencers are enrolled in the <strong>Garment Drop</strong> programme, which gives them access to new product releases, samples, and exclusive pieces ahead of the general public.</p>
+
+    <h3>Eligibility</h3>
+    <p>Garment drop eligibility is set by the 1stRep admin team and is based on performance, audience engagement, and brand fit. There's no fixed threshold — the team selects influencers on a case-by-case basis.</p>
+
+    <div class="callout info">
+      <span class="callout-icon">ℹ️</span>
+      <span>If you've been made garment-drop eligible, you'll see a <strong>Garment Drop</strong> badge on your profile in the admin panel. The team will reach out directly to arrange fulfilment.</span>
+    </div>
+
+    <h3>For admins</h3>
+    <p>To mark or remove garment drop eligibility for an influencer, go to <strong>Admin → Influencer Credits</strong>, select the influencer, and click the <em>Mark Garment Drop</em> / <em>Remove Garment Drop</em> button in their profile card.</p>
+  </section>
+
+  <!-- ── 10. Tracking Links ── -->
+  <section id="tracking">
+    <div class="section-header">
+      <div class="section-number">10</div>
+      <h2>Tracking Links &amp; Referrals</h2>
+    </div>
+    <p>Every influencer has a unique <strong>tracking link</strong> — a personalised URL that records visits from your audience even if they don't use a discount code at checkout.</p>
+
+    <h3>Your tracking link</h3>
+    <div class="card">
+      <p style="margin:0">Format: <code>https://1strep.com/?ref=<em>[your-slug]</em></code></p>
+      <p style="margin:8px 0 0;font-size:13px;color:var(--muted)">Example: <code>https://1strep.com/?ref=smith</code></p>
+    </div>
+
+    <h3>When to use it</h3>
+    <ul>
+      <li><strong>Bio link</strong> — put it in your Instagram/TikTok bio so all profile visits are tracked</li>
+      <li><strong>Story swipe-up</strong> — use in story links on Instagram</li>
+      <li><strong>YouTube description</strong> — place it at the top of every video description</li>
+    </ul>
+
+    <h3>What gets tracked</h3>
+    <table>
+      <thead><tr><th>Metric</th><th>Detail</th></tr></thead>
+      <tbody>
+        <tr><td>Tracking Link Clicks</td><td>Total visitors who arrived via your personal link, visible on your dashboard overview</td></tr>
+        <tr><td>Code Use Count</td><td>Per-variant use counts on the Codes tab</td></tr>
+        <tr><td>Total Orders Generated</td><td>All orders that used any of your codes</td></tr>
+        <tr><td>Total Sales Generated</td><td>Total order value driven by your codes (£)</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout tip">
+      <span class="callout-icon">💡</span>
+      <span>Combine your tracking link with your discount code for maximum impact: <em>"Visit 1stRep at [link in bio] and use code SMITH10 for 10% off."</em> The link captures the audience, the code drives the purchase.</span>
+    </div>
+  </section>
+
+  <!-- ── 11. Admin Reference ── -->
+  <section id="admin">
+    <div class="section-header">
+      <div class="section-number">11</div>
+      <h2>Admin Management Reference</h2>
+    </div>
+    <p>This section is for the 1stRep internal team. All influencer management is done from <strong>Admin → Influencer Credits</strong>.</p>
+
+    <h3>Dashboard tabs</h3>
+    <table>
+      <thead><tr><th>Tab</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Influencers</strong></td><td>Full roster — search by name, filter active/pending, click any row to open their profile panel</td></tr>
+        <tr><td><strong>Redemptions</strong></td><td>All pending and historic redemption requests across all influencers</td></tr>
+        <tr><td><strong>Performance</strong></td><td>Cross-influencer engagement metrics sorted by reach, clicks, and sales</td></tr>
+        <tr><td><strong>Applications</strong></td><td>New applicants awaiting review</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Influencer profile panel actions</h3>
+    <table>
+      <thead><tr><th>Action</th><th>How</th></tr></thead>
+      <tbody>
+        <tr><td>View credit balance &amp; history</td><td>Opens automatically when you select an influencer</td></tr>
+        <tr><td>Manually adjust credits</td><td>Enter a positive or negative amount with a reason — logged as <code>manual_adjust</code></td></tr>
+        <tr><td>Toggle garment drop</td><td><em>Mark Garment Drop</em> / <em>Remove Garment Drop</em> button</td></tr>
+        <tr><td>Reset password</td><td>Button in their profile card — sends them a reset email</td></tr>
+        <tr><td>View discount variants</td><td>Listed in the profile panel with use counts and active status</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Processing a redemption</h3>
+    <ol class="steps">
+      <li>
+        <div class="step-body">
+          <strong>Go to the Redemptions tab</strong>
+          <p>All requests appear here sorted by date, newest first. Pending requests are highlighted.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-body">
+          <strong>Click Review</strong>
+          <p>A dialog appears showing the influencer, redemption type, amount, and any notes they left.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-body">
+          <strong>Approve → Fulfilled</strong>
+          <p>Move status to <em>Approved</em> first (to indicate processing has started), then <em>Fulfilled</em> once the cash/credit has been transferred. Credits are deducted from the influencer's balance only on <em>Fulfilled</em>.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-body">
+          <strong>Add admin notes</strong>
+          <p>Use the admin notes field to record payment references, tracking details, or any comms with the influencer.</p>
+        </div>
+      </li>
+    </ol>
+
+    <h3>Key stats on the main dashboard</h3>
+    <div class="card">
+      <ul style="margin:0">
+        <li><strong>Total Influencers</strong> — active accounts in the programme</li>
+        <li><strong>Pending Redemptions</strong> — requests awaiting action (shown as a count badge)</li>
+        <li><strong>Garment Drop Eligible</strong> — influencers marked for product drops</li>
+        <li><strong>Content Pending Metrics</strong> — approved/featured posts whose engagement metrics haven't been updated yet</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ── 12. FAQ ── -->
+  <section id="faq">
+    <div class="section-header">
+      <div class="section-number">12</div>
+      <h2>Frequently Asked Questions</h2>
+    </div>
+
+    <h3>Do credits expire?</h3>
+    <p>No. Credits never expire. They stay in your account until you choose to redeem them.</p>
+
+    <h3>Can I have multiple active codes at the same time?</h3>
+    <p>No — only one discount code variant can be active at a time. This is to keep your tracking clean. You can switch between variants at any point, but only the active one earns credits and gives customers a discount.</p>
+
+    <h3>When do my credits appear after a sale?</h3>
+    <p>Credits are awarded automatically and appear in your balance as soon as the order payment is confirmed — typically within seconds of checkout, whether the customer paid online, via EPOS, or via QR.</p>
+
+    <h3>What's the minimum I can redeem?</h3>
+    <p>50 credits (worth £25 cash or £50 store credit). Redemptions must be in multiples of 50.</p>
+
+    <h3>How long does a redemption take to be fulfilled?</h3>
+    <p>The team aims to process all redemption requests within 3–5 business days. You can track the status (Pending → Approved → Fulfilled) in your Credits tab.</p>
+
+    <h3>Can I choose how I get my cash draw-down paid?</h3>
+    <p>Yes — include your preferred payment method (e.g. bank transfer, PayPal) in the notes field when submitting the request. The team will confirm before processing.</p>
+
+    <h3>What happens to my credits if I close my account?</h3>
+    <p>Please contact the 1stRep team before closing your account. Any outstanding credits can be redeemed in advance of closure.</p>
+
+    <h3>Can I create a code with a high customer discount (e.g. 30%)?</h3>
+    <p>Custom discounts above the defaults need to be agreed with the 1stRep team first. The platform allows any value to be set, but please confirm with your account manager before promoting a custom discount level.</p>
+
+    <h3>I submitted content — why haven't I received my credit?</h3>
+    <p>Content credits are awarded when a post is <em>approved</em> by the admin team, not on submission. If your content has been pending for more than 48 hours, reach out to your account manager.</p>
+  </section>
+
+  <div class="footer">
+    <p><strong>1stRep Influencer Programme</strong> — Internal Guide &nbsp;·&nbsp; Version 2.0 &nbsp;·&nbsp; July 2026</p>
+    <p style="margin-top:6px">For support contact your 1stRep account manager or email the team directly.</p>
+  </div>
+
+</div>
+</body>
+</html>

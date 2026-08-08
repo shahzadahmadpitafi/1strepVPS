@@ -1,0 +1,9 @@
+Replace this file with the Apple Pay domain verification file from your PayPal dashboard.
+
+Instructions:
+1. Log in to PayPal Developer Dashboard
+2. Go to Apps & Credentials
+3. Select your app
+4. Enable Apple Pay feature
+5. Download the domain verification file
+6. Replace this file with the downloaded content

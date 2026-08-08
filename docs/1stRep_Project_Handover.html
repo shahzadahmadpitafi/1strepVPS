@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1stRep E-Commerce Platform - Project Handover Document</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #fff;
+            padding: 40px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .cover-page {
+            text-align: center;
+            padding: 100px 40px;
+            page-break-after: always;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border: 3px solid #10B981;
+            margin-bottom: 40px;
+        }
+        
+        .cover-page h1 {
+            font-size: 48px;
+            color: #10B981;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+        
+        .cover-page h2 {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 40px;
+            font-weight: 400;
+        }
+        
+        .cover-page .meta {
+            font-size: 16px;
+            color: #666;
+            margin-top: 60px;
+        }
+        
+        .cover-page .meta p {
+            margin: 8px 0;
+        }
+        
+        .developer-badge {
+            margin-top: 40px;
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #1e3a5f, #2c5282);
+            border-radius: 8px;
+            color: white;
+        }
+        
+        .developer-badge p {
+            margin: 0;
+            font-size: 14px;
+        }
+        
+        .developer-badge .company {
+            font-size: 18px;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+        
+        .logo-placeholder {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, #10B981, #059669);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 30px;
+        }
+        
+        h1, h2, h3, h4 {
+            color: #1a1a1a;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+        
+        h1 {
+            font-size: 32px;
+            border-bottom: 3px solid #10B981;
+            padding-bottom: 10px;
+            page-break-before: always;
+        }
+        
+        h1:first-of-type {
+            page-break-before: avoid;
+        }
+        
+        h2 {
+            font-size: 24px;
+            color: #10B981;
+            margin-top: 25px;
+        }
+        
+        h3 {
+            font-size: 18px;
+            color: #333;
+            margin-top: 20px;
+        }
+        
+        p {
+            margin-bottom: 12px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+        
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        th {
+            background: #10B981;
+            color: white;
+            font-weight: 600;
+        }
+        
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        
+        ul, ol {
+            margin: 15px 0 15px 25px;
+        }
+        
+        li {
+            margin-bottom: 8px;
+        }
+        
+        .highlight-box {
+            background: #f0fdf4;
+            border-left: 4px solid #10B981;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .warning-box {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .feature-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .feature-card h4 {
+            color: #10B981;
+            margin: 0 0 8px 0;
+            font-size: 14px;
+        }
+        
+        .feature-card p {
+            font-size: 13px;
+            margin: 0;
+            color: #666;
+        }
+        
+        .toc {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 8px;
+            margin: 30px 0;
+            page-break-after: always;
+        }
+        
+        .toc h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+        
+        .toc ol {
+            margin: 0;
+        }
+        
+        .toc li {
+            padding: 8px 0;
+            border-bottom: 1px dotted #ddd;
+        }
+        
+        .toc li:last-child {
+            border-bottom: none;
+        }
+        
+        .section-number {
+            display: inline-block;
+            width: 30px;
+            color: #10B981;
+            font-weight: 600;
+        }
+        
+        code {
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+        }
+        
+        .stats-row {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .stat-box {
+            flex: 1;
+            background: linear-gradient(135deg, #10B981, #059669);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-box .number {
+            font-size: 36px;
+            font-weight: 700;
+        }
+        
+        .stat-box .label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .footer {
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 2px solid #10B981;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+        }
+        
+        @media print {
+            body {
+                padding: 20px;
+            }
+            
+            .cover-page {
+                min-height: auto;
+                padding: 60px 20px;
+            }
+            
+            h1 {
+                page-break-before: always;
+            }
+            
+            .no-break {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Cover Page -->
+    <div class="cover-page">
+        <div class="logo-placeholder">1R</div>
+        <h1>1stRep</h1>
+        <h2>Premium Fitness Apparel E-Commerce Platform</h2>
+        <p style="font-size: 20px; color: #10B981; margin-bottom: 20px;">Project Handover Document</p>
+        <div class="meta">
+            <p><strong>Document Version:</strong> 1.0</p>
+            <p><strong>Date:</strong> February 2026</p>
+            <p><strong>Platform URL:</strong> https://1strep.com</p>
+            <p><strong>Status:</strong> Production Ready</p>
+        </div>
+        <div class="developer-badge">
+            <p>Designed & Developed by</p>
+            <p class="company">Qanzak Global</p>
+        </div>
+    </div>
+
+    <!-- Table of Contents -->
+    <div class="toc">
+        <h2>Table of Contents</h2>
+        <ol>
+            <li><span class="section-number">1.</span> Executive Summary</li>
+            <li><span class="section-number">2.</span> Platform Overview</li>
+            <li><span class="section-number">3.</span> Technology Stack</li>
+            <li><span class="section-number">4.</span> Features & Capabilities</li>
+            <li><span class="section-number">5.</span> User Roles & Permissions</li>
+            <li><span class="section-number">6.</span> Payment Processing</li>
+            <li><span class="section-number">7.</span> Business Operations</li>
+            <li><span class="section-number">8.</span> Platform Access</li>
+            <li><span class="section-number">9.</span> Support & Maintenance</li>
+            <li><span class="section-number">10.</span> Appendix</li>
+        </ol>
+    </div>
+
+    <!-- Section 1: Executive Summary -->
+    <h1>1. Executive Summary</h1>
+    
+    <div class="highlight-box">
+        <p><strong>1stRep</strong> is a complete, production-ready e-commerce platform built specifically for your premium fitness apparel business. The platform supports both direct-to-consumer sales and business-to-business operations including resellers, wholesalers, and vendor partners.</p>
+    </div>
+    
+    <div class="stats-row">
+        <div class="stat-box">
+            <div class="number">100+</div>
+            <div class="label">Features</div>
+        </div>
+        <div class="stat-box">
+            <div class="number">70+</div>
+            <div class="label">Pages</div>
+        </div>
+        <div class="stat-box">
+            <div class="number">50+</div>
+            <div class="label">Database Tables</div>
+        </div>
+        <div class="stat-box">
+            <div class="number">5</div>
+            <div class="label">User Types</div>
+        </div>
+    </div>
+    
+    <h2>Key Achievements</h2>
+    <ul>
+        <li><strong>Full E-Commerce Functionality</strong> - Complete shopping experience from browse to checkout</li>
+        <li><strong>Multi-Channel Sales</strong> - Online store, reseller storefronts, and point-of-sale terminals</li>
+        <li><strong>B2B Marketplace</strong> - Reseller and wholesaler management with commission tracking</li>
+        <li><strong>Multiple Payment Options</strong> - Square (cards/Apple Pay/Google Pay), PayPal</li>
+        <li><strong>Automated Operations</strong> - Email notifications, order tracking, inventory alerts</li>
+        <li><strong>Customer Intelligence</strong> - CRM with segmentation and analytics</li>
+    </ul>
+
+    <!-- Section 2: Platform Overview -->
+    <h1>2. Platform Overview</h1>
+    
+    <h2>Business Model</h2>
+    <p>Your platform operates two distinct sales channels:</p>
+    
+    <h3>B2C (Direct to Consumer)</h3>
+    <p>Customers browse your product catalogue, add items to cart, and checkout using card payments or PayPal. They can create accounts to track orders, save wishlists, and manage returns.</p>
+    
+    <h3>B2B (Business to Business)</h3>
+    <p>Three partner types can sell or purchase your products:</p>
+    <ul>
+        <li><strong>Resellers</strong> - Run their own branded storefronts selling your products for commission</li>
+        <li><strong>Wholesalers</strong> - Purchase bulk orders at discounted prices</li>
+        <li><strong>Vendors</strong> - Operate point-of-sale terminals at physical locations</li>
+    </ul>
+    
+    <h2>Target Market</h2>
+    <ul>
+        <li>UK-based fitness enthusiasts</li>
+        <li>Gym owners and personal trainers</li>
+        <li>Fitness apparel retailers</li>
+        <li>Outdoor and tactical gear enthusiasts</li>
+    </ul>
+
+    <!-- Section 3: Technology Stack -->
+    <h1>3. Technology Stack</h1>
+    
+    <div class="highlight-box">
+        <p>Your platform is built using modern, industry-standard technologies that ensure reliability, performance, and long-term maintainability.</p>
+    </div>
+    
+    <h2>Frontend (What Customers See)</h2>
+    <table>
+        <tr>
+            <th>Technology</th>
+            <th>Purpose</th>
+        </tr>
+        <tr>
+            <td>React 18</td>
+            <td>User interface framework</td>
+        </tr>
+        <tr>
+            <td>TypeScript</td>
+            <td>Type-safe code for reliability</td>
+        </tr>
+        <tr>
+            <td>Tailwind CSS</td>
+            <td>Modern styling system</td>
+        </tr>
+        <tr>
+            <td>Framer Motion</td>
+            <td>Smooth animations</td>
+        </tr>
+    </table>
+    
+    <h2>Backend (Server Processing)</h2>
+    <table>
+        <tr>
+            <th>Technology</th>
+            <th>Purpose</th>
+        </tr>
+        <tr>
+            <td>Node.js</td>
+            <td>Server runtime</td>
+        </tr>
+        <tr>
+            <td>Express.js</td>
+            <td>Web framework</td>
+        </tr>
+        <tr>
+            <td>PostgreSQL</td>
+            <td>Database storage</td>
+        </tr>
+        <tr>
+            <td>Socket.IO</td>
+            <td>Real-time updates</td>
+        </tr>
+    </table>
+    
+    <h2>External Services</h2>
+    <table>
+        <tr>
+            <th>Service</th>
+            <th>Purpose</th>
+        </tr>
+        <tr>
+            <td>Square</td>
+            <td>Card payments, Apple Pay, Google Pay</td>
+        </tr>
+        <tr>
+            <td>PayPal</td>
+            <td>Alternative payment method</td>
+        </tr>
+        <tr>
+            <td>Stripe Connect</td>
+            <td>Reseller commission payouts</td>
+        </tr>
+        <tr>
+            <td>Gmail API</td>
+            <td>Automated email notifications</td>
+        </tr>
+        <tr>
+            <td>Google Cloud Storage</td>
+            <td>Product image hosting</td>
+        </tr>
+    </table>
+
+    <!-- Section 4: Features & Capabilities -->
+    <h1>4. Features & Capabilities</h1>
+    
+    <h2>Customer Shopping Experience</h2>
+    <div class="feature-grid">
+        <div class="feature-card">
+            <h4>Product Catalogue</h4>
+            <p>Browse products with filters for size, colour, category, and activity type</p>
+        </div>
+        <div class="feature-card">
+            <h4>Advanced Search</h4>
+            <p>Find products quickly with autocomplete search</p>
+        </div>
+        <div class="feature-card">
+            <h4>Persistent Cart</h4>
+            <p>Cart saves automatically, even if browser closes</p>
+        </div>
+        <div class="feature-card">
+            <h4>Guest Checkout</h4>
+            <p>Purchase without creating an account</p>
+        </div>
+        <div class="feature-card">
+            <h4>Wishlist</h4>
+            <p>Save favourite items for later</p>
+        </div>
+        <div class="feature-card">
+            <h4>Order Tracking</h4>
+            <p>Visual timeline with carrier tracking links</p>
+        </div>
+        <div class="feature-card">
+            <h4>Returns Portal</h4>
+            <p>Self-service return requests within 30 days</p>
+        </div>
+        <div class="feature-card">
+            <h4>AI Chatbot</h4>
+            <p>24/7 automated customer support</p>
+        </div>
+    </div>
+    
+    <h2>Admin Dashboard</h2>
+    <div class="feature-grid">
+        <div class="feature-card">
+            <h4>Sales Analytics</h4>
+            <p>Real-time revenue, orders, and performance metrics</p>
+        </div>
+        <div class="feature-card">
+            <h4>Product Management</h4>
+            <p>Add, edit, and manage your product catalogue</p>
+        </div>
+        <div class="feature-card">
+            <h4>Order Processing</h4>
+            <p>View, update, and fulfil customer orders</p>
+        </div>
+        <div class="feature-card">
+            <h4>Customer CRM</h4>
+            <p>360-degree view with segmentation</p>
+        </div>
+        <div class="feature-card">
+            <h4>Inventory Alerts</h4>
+            <p>Automatic low stock notifications</p>
+        </div>
+        <div class="feature-card">
+            <h4>Coupon Management</h4>
+            <p>Create and manage discount codes</p>
+        </div>
+        <div class="feature-card">
+            <h4>Reseller Management</h4>
+            <p>Approve applications, set commissions</p>
+        </div>
+        <div class="feature-card">
+            <h4>Homepage Control</h4>
+            <p>Switch themes, manage banners</p>
+        </div>
+    </div>
+    
+    <h2>Reseller Features</h2>
+    <ul>
+        <li><strong>Branded Storefront</strong> - Custom logo, colours, and styling</li>
+        <li><strong>Product Selection</strong> - Choose which products to sell</li>
+        <li><strong>Custom Pricing</strong> - Set your own prices</li>
+        <li><strong>Commission Tracking</strong> - View earned commissions in real-time</li>
+        <li><strong>EPOS System</strong> - In-person sales with 5 payment methods</li>
+        <li><strong>Direct Payouts</strong> - Connect bank via Stripe for instant payouts</li>
+    </ul>
+    
+    <h2>Licensing Tiers for Resellers</h2>
+    <table>
+        <tr>
+            <th>Tier</th>
+            <th>Price</th>
+            <th>Products</th>
+            <th>Trial Period</th>
+        </tr>
+        <tr>
+            <td>Trial</td>
+            <td>Free</td>
+            <td>5</td>
+            <td>30 days</td>
+        </tr>
+        <tr>
+            <td>Bronze</td>
+            <td>£29.99/month</td>
+            <td>25</td>
+            <td>-</td>
+        </tr>
+        <tr>
+            <td>Silver</td>
+            <td>£49.99/month</td>
+            <td>100</td>
+            <td>-</td>
+        </tr>
+        <tr>
+            <td>Gold</td>
+            <td>£99.99/month</td>
+            <td>Unlimited</td>
+            <td>-</td>
+        </tr>
+    </table>
+
+    <!-- Section 5: User Roles & Permissions -->
+    <h1>5. User Roles & Permissions</h1>
+    
+    <table>
+        <tr>
+            <th>Role</th>
+            <th>Description</th>
+            <th>Access</th>
+        </tr>
+        <tr>
+            <td><strong>Customer</strong></td>
+            <td>Regular shoppers</td>
+            <td>Shop, checkout, account, orders, wishlist</td>
+        </tr>
+        <tr>
+            <td><strong>Reseller</strong></td>
+            <td>Approved partners</td>
+            <td>Dashboard, storefront, EPOS, commissions</td>
+        </tr>
+        <tr>
+            <td><strong>Wholesaler</strong></td>
+            <td>Bulk buyers</td>
+            <td>Wholesale catalogue, order requests</td>
+        </tr>
+        <tr>
+            <td><strong>Vendor</strong></td>
+            <td>Store operators</td>
+            <td>Vendor EPOS, inventory, orders</td>
+        </tr>
+        <tr>
+            <td><strong>Admin</strong></td>
+            <td>Platform managers</td>
+            <td>Full system access</td>
+        </tr>
+    </table>
+    
+    <h2>Admin Team Management</h2>
+    <p>You can invite team members with access to specific areas:</p>
+    <ul>
+        <li>Products - Manage product catalogue</li>
+        <li>Orders - Process and fulfil orders</li>
+        <li>Customers - CRM and support</li>
+        <li>Resellers - Partner management</li>
+        <li>Support - Support tickets and chat</li>
+        <li>Settings - Site configuration</li>
+    </ul>
+
+    <!-- Section 6: Payment Processing -->
+    <h1>6. Payment Processing</h1>
+    
+    <div class="highlight-box">
+        <p>All payments are securely processed through industry-leading providers. Your platform never stores card details - they're handled entirely by Square and PayPal.</p>
+    </div>
+    
+    <h2>Square (Primary)</h2>
+    <p>Handles all card payments across the platform:</p>
+    <ul>
+        <li>Credit and debit cards (Visa, Mastercard, Amex)</li>
+        <li>Apple Pay</li>
+        <li>Google Pay</li>
+        <li>QR code payments</li>
+    </ul>
+    
+    <h2>PayPal (Alternative)</h2>
+    <p>Offers customers additional payment flexibility:</p>
+    <ul>
+        <li>PayPal account payments</li>
+        <li>PayPal card processing</li>
+        <li>Pay Later options</li>
+    </ul>
+    
+    <h2>Stripe Connect (Reseller Payouts)</h2>
+    <p>Enables direct commission payments to resellers:</p>
+    <ul>
+        <li>Resellers connect bank accounts via Stripe</li>
+        <li>Identity verification for security</li>
+        <li>Instant transfers to bank accounts</li>
+    </ul>
+    
+    <h2>EPOS Payment Methods</h2>
+    <p>Five payment options for in-person sales:</p>
+    <ol>
+        <li><strong>Tap/Insert</strong> - Card reader for contactless or chip</li>
+        <li><strong>Card</strong> - Manual card entry</li>
+        <li><strong>Cash</strong> - Cash payments with change calculation</li>
+        <li><strong>QR Pay</strong> - Customer scans QR code to pay online</li>
+        <li><strong>PayPal</strong> - PayPal payment link</li>
+    </ol>
+
+    <!-- Section 7: Business Operations -->
+    <h1>7. Business Operations</h1>
+    
+    <h2>Order Lifecycle</h2>
+    <table>
+        <tr>
+            <th>Status</th>
+            <th>Description</th>
+            <th>Customer Email</th>
+        </tr>
+        <tr>
+            <td>Pending</td>
+            <td>Payment received, awaiting processing</td>
+            <td>Order confirmation</td>
+        </tr>
+        <tr>
+            <td>Processing</td>
+            <td>Order being prepared</td>
+            <td>-</td>
+        </tr>
+        <tr>
+            <td>Shipped</td>
+            <td>Order dispatched to carrier</td>
+            <td>Shipping notification with tracking</td>
+        </tr>
+        <tr>
+            <td>Delivered</td>
+            <td>Order received by customer</td>
+            <td>Delivery confirmation</td>
+        </tr>
+    </table>
+    
+    <h2>Inventory Management</h2>
+    <ul>
+        <li><strong>Stock Tracking</strong> - Real-time inventory levels per variant</li>
+        <li><strong>Low Stock Alerts</strong> - Automatic notifications when stock is low</li>
+        <li><strong>Multiple Warehouses</strong> - Track stock across locations</li>
+        <li><strong>Stock Transfers</strong> - Move inventory between warehouses</li>
+    </ul>
+    
+    <h2>Automated Emails</h2>
+    <p>The platform automatically sends emails for:</p>
+    <ul>
+        <li>Order confirmation</li>
+        <li>Shipping notifications with tracking links</li>
+        <li>Delivery confirmation with feedback request</li>
+        <li>Password reset requests</li>
+        <li>Reseller application updates</li>
+        <li>Commission payout confirmations</li>
+    </ul>
+
+    <!-- Section 8: Platform Access -->
+    <h1>8. Platform Access</h1>
+    
+    <h2>Live Website</h2>
+    <div class="highlight-box">
+        <p><strong>URL:</strong> https://1strep.com</p>
+        <p>Your live e-commerce store accessible to customers worldwide.</p>
+    </div>
+    
+    <h2>Admin Dashboard</h2>
+    <p>Access the admin dashboard at: <code>https://1strep.com/admin/login</code></p>
+    
+    <h2>Partner Portals</h2>
+    <table>
+        <tr>
+            <th>Portal</th>
+            <th>URL</th>
+        </tr>
+        <tr>
+            <td>Reseller Login</td>
+            <td>/reseller-login</td>
+        </tr>
+        <tr>
+            <td>Wholesaler Login</td>
+            <td>/b2b-login</td>
+        </tr>
+        <tr>
+            <td>Vendor Login</td>
+            <td>/vendor-login</td>
+        </tr>
+    </table>
+    
+    <h2>Hosting Platform</h2>
+    <p>Your platform is hosted on <strong>Replit</strong>, a modern cloud platform that provides:</p>
+    <ul>
+        <li>Automatic SSL/HTTPS security</li>
+        <li>Automatic scaling based on traffic</li>
+        <li>Daily database backups</li>
+        <li>Version control and rollback capability</li>
+    </ul>
+
+    <!-- Section 9: Support & Maintenance -->
+    <h1>9. Support & Maintenance</h1>
+    
+    <h2>Common Admin Tasks</h2>
+    
+    <h3>Adding a New Product</h3>
+    <ol>
+        <li>Go to Admin Dashboard > Products</li>
+        <li>Click "Add Product"</li>
+        <li>Fill in product details (name, description, price)</li>
+        <li>Upload product images</li>
+        <li>Add size/colour variants</li>
+        <li>Set stock levels</li>
+        <li>Save and publish</li>
+    </ol>
+    
+    <h3>Processing an Order</h3>
+    <ol>
+        <li>Go to Admin Dashboard > Orders</li>
+        <li>Find the order</li>
+        <li>Update status to "Processing"</li>
+        <li>When shipped, add tracking number</li>
+        <li>Update status to "Shipped"</li>
+        <li>Customer receives shipping email automatically</li>
+    </ol>
+    
+    <h3>Approving a Reseller</h3>
+    <ol>
+        <li>Go to Admin Dashboard > Resellers</li>
+        <li>View pending applications</li>
+        <li>Review business details</li>
+        <li>Click "Approve" or "Reject"</li>
+        <li>Set commission rate and tier</li>
+    </ol>
+    
+    <h2>Troubleshooting</h2>
+    <table>
+        <tr>
+            <th>Issue</th>
+            <th>Solution</th>
+        </tr>
+        <tr>
+            <td>Payment not processing</td>
+            <td>Check Square/PayPal dashboard for errors</td>
+        </tr>
+        <tr>
+            <td>Images not uploading</td>
+            <td>Ensure images are under 5MB and in JPG/PNG format</td>
+        </tr>
+        <tr>
+            <td>Emails not sending</td>
+            <td>Check Gmail API connection in settings</td>
+        </tr>
+        <tr>
+            <td>Site running slowly</td>
+            <td>Contact hosting support for scaling</td>
+        </tr>
+    </table>
+
+    <!-- Section 10: Appendix -->
+    <h1>10. Appendix</h1>
+    
+    <h2>Glossary of Terms</h2>
+    <table>
+        <tr>
+            <th>Term</th>
+            <th>Definition</th>
+        </tr>
+        <tr>
+            <td>EPOS</td>
+            <td>Electronic Point of Sale - system for in-person payments</td>
+        </tr>
+        <tr>
+            <td>B2B</td>
+            <td>Business-to-Business - sales to other businesses</td>
+        </tr>
+        <tr>
+            <td>B2C</td>
+            <td>Business-to-Consumer - sales to individuals</td>
+        </tr>
+        <tr>
+            <td>CRM</td>
+            <td>Customer Relationship Management - customer tracking</td>
+        </tr>
+        <tr>
+            <td>SKU</td>
+            <td>Stock Keeping Unit - unique product identifier</td>
+        </tr>
+        <tr>
+            <td>API</td>
+            <td>Application Programming Interface - system connections</td>
+        </tr>
+    </table>
+    
+    <h2>Security & Compliance</h2>
+    <ul>
+        <li><strong>PCI Compliant</strong> - Card data handled by Square/PayPal only</li>
+        <li><strong>UK GDPR Compliant</strong> - Cookie consent and privacy policy</li>
+        <li><strong>PECR Compliant</strong> - Marketing consent management</li>
+        <li><strong>HTTPS Encryption</strong> - All traffic encrypted</li>
+        <li><strong>Secure Authentication</strong> - Password hashing and session management</li>
+    </ul>
+    
+    <h2>Document Information</h2>
+    <table>
+        <tr>
+            <th>Item</th>
+            <th>Details</th>
+        </tr>
+        <tr>
+            <td>Document Version</td>
+            <td>1.0</td>
+        </tr>
+        <tr>
+            <td>Date Created</td>
+            <td>February 2026</td>
+        </tr>
+        <tr>
+            <td>Platform Status</td>
+            <td>Production Ready</td>
+        </tr>
+        <tr>
+            <td>Live URL</td>
+            <td>https://1strep.com</td>
+        </tr>
+    </table>
+    
+    <div class="footer">
+        <p><strong>1stRep Premium Fitness Apparel</strong></p>
+        <p>Project Handover Document - February 2026</p>
+        <p style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
+            <strong>Platform Designed & Developed by Qanzak Global</strong><br>
+            <span style="font-size: 11px;">Professional E-Commerce Solutions</span>
+        </p>
+        <p style="margin-top: 10px;">All rights reserved</p>
+    </div>
+
+</body>
+</html>

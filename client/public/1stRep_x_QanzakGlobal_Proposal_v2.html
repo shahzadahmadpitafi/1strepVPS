@@ -1,0 +1,1936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>1stRep × Qanzak Global — Digital Growth Strategy 2026–2028</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800;900&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box;}
+
+:root{
+  --indigo:#6366f1;
+  --emerald:#10b981;
+  --amber:#f59e0b;
+  --rose:#f43f5e;
+  --dark1:#05050f;
+  --dark2:#0a0a1e;
+  --dark3:#0d1428;
+  --dark4:#111827;
+  --white:#ffffff;
+}
+
+body{
+  font-family:'Inter',sans-serif;
+  background:#f0f2f5;
+  color:#1a1a2e;
+  font-size:12.5px;
+  line-height:1.75;
+}
+
+/* ── PRINT BUTTON ── */
+.print-btn{
+  position:fixed;
+  top:20px;right:20px;
+  background:linear-gradient(135deg,var(--indigo),var(--emerald));
+  color:#fff;border:none;
+  padding:11px 22px;border-radius:8px;
+  font-size:13px;font-weight:700;
+  cursor:pointer;z-index:9999;
+  font-family:'Inter',sans-serif;
+  box-shadow:0 4px 20px rgba(99,102,241,0.5);
+  letter-spacing:0.3px;
+}
+.print-btn:hover{opacity:0.88;}
+
+@media print{
+  .print-btn{display:none;}
+  @page{margin:0;size:A4 portrait;}
+  body{-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#fff;}
+}
+
+/* ── PAGE WRAPPER ── */
+.slide{
+  width:210mm;
+  min-height:297mm;
+  margin:0 auto 24px;
+  position:relative;
+  overflow:hidden;
+  background:#ffffff;
+  box-shadow:0 4px 40px rgba(0,0,0,0.12);
+  page-break-after:always;
+  display:flex;
+  flex-direction:column;
+}
+
+/* ── DARK SLIDE ── */
+.slide-dark{
+  background:linear-gradient(145deg,var(--dark1) 0%,var(--dark2) 40%,var(--dark3) 100%);
+  color:#fff;
+}
+
+/* ══════════════════════════════════════════
+   COVER
+══════════════════════════════════════════ */
+.cover{
+  background:linear-gradient(145deg,#040410 0%,#080818 25%,#0a1630 60%,#050d1c 100%);
+  justify-content:space-between;
+  padding:0;
+}
+.cover-bg-grid{
+  position:absolute;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(99,102,241,0.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(99,102,241,0.06) 1px,transparent 1px);
+  background-size:40px 40px;
+}
+.cover-orb1{
+  position:absolute;
+  top:-80px;left:-80px;
+  width:500px;height:500px;
+  background:radial-gradient(circle,rgba(99,102,241,0.25) 0%,transparent 65%);
+  border-radius:50%;
+}
+.cover-orb2{
+  position:absolute;
+  bottom:-100px;right:-60px;
+  width:440px;height:440px;
+  background:radial-gradient(circle,rgba(16,185,129,0.22) 0%,transparent 65%);
+  border-radius:50%;
+}
+.cover-orb3{
+  position:absolute;
+  top:50%;left:60%;
+  width:300px;height:300px;
+  background:radial-gradient(circle,rgba(99,102,241,0.12) 0%,transparent 70%);
+  border-radius:50%;
+  transform:translate(-50%,-50%);
+}
+.cover-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:32px 44px;
+  position:relative;z-index:3;
+  border-bottom:1px solid rgba(255,255,255,0.07);
+}
+.cover-brand{
+  font-size:15px;font-weight:800;
+  color:rgba(255,255,255,0.95);
+  letter-spacing:-0.2px;
+}
+.cover-brand span{color:var(--emerald);}
+.cover-conf{
+  font-size:9.5px;font-weight:600;
+  letter-spacing:2.5px;text-transform:uppercase;
+  color:rgba(255,255,255,0.25);
+}
+.cover-body{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  text-align:center;
+  padding:40px 60px;
+  position:relative;z-index:3;
+}
+.cover-eyebrow{
+  font-size:10px;font-weight:700;
+  letter-spacing:4px;text-transform:uppercase;
+  color:var(--emerald);
+  margin-bottom:20px;
+}
+.cover-eyebrow-line{
+  width:50px;height:2px;
+  background:var(--emerald);
+  display:inline-block;
+  margin:0 12px;
+  vertical-align:middle;
+}
+.cover-h1{
+  font-family:'Playfair Display',serif;
+  font-size:62px;font-weight:900;
+  color:#fff;
+  line-height:1.08;
+  letter-spacing:-2px;
+  margin-bottom:10px;
+}
+.cover-h1 em{
+  font-style:normal;
+  background:linear-gradient(90deg,#818cf8,#10b981);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.cover-sub{
+  font-size:14px;font-weight:300;
+  color:rgba(255,255,255,0.45);
+  margin-bottom:44px;
+  letter-spacing:0.5px;
+}
+.cover-pills{
+  display:flex;flex-wrap:wrap;gap:8px;
+  justify-content:center;
+  margin-bottom:50px;
+}
+.cover-pill{
+  background:rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.12);
+  color:rgba(255,255,255,0.55);
+  font-size:10px;font-weight:600;
+  padding:6px 16px;border-radius:100px;
+  letter-spacing:0.5px;
+}
+.cover-pill.green{
+  background:rgba(16,185,129,0.12);
+  border-color:rgba(16,185,129,0.28);
+  color:#10b981;
+}
+.cover-meta-row{
+  display:flex;
+  gap:0;
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:14px;
+  overflow:hidden;
+  background:rgba(255,255,255,0.04);
+  width:100%;max-width:520px;
+}
+.cover-meta-item{
+  flex:1;
+  padding:16px 20px;
+  border-right:1px solid rgba(255,255,255,0.08);
+  text-align:center;
+}
+.cover-meta-item:last-child{border-right:none;}
+.cover-meta-label{
+  font-size:8.5px;font-weight:600;
+  letter-spacing:1.5px;text-transform:uppercase;
+  color:rgba(255,255,255,0.25);
+  margin-bottom:5px;
+}
+.cover-meta-value{
+  font-size:12px;font-weight:700;
+  color:rgba(255,255,255,0.85);
+}
+.cover-footer{
+  padding:20px 44px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-top:1px solid rgba(255,255,255,0.07);
+  position:relative;z-index:3;
+}
+.cover-footer-left{
+  font-size:9px;color:rgba(255,255,255,0.2);
+  letter-spacing:1.5px;text-transform:uppercase;
+}
+.cover-footer-dots{
+  display:flex;gap:6px;
+}
+.cover-footer-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:rgba(255,255,255,0.15);
+}
+.cover-footer-dot.active{background:var(--emerald);}
+
+/* ══════════════════════════════════════════
+   SECTION DIVIDER SLIDE
+══════════════════════════════════════════ */
+.divider-slide{
+  background:linear-gradient(145deg,#040410 0%,#090920 45%,#0a1430 100%);
+  justify-content:center;
+  align-items:center;
+  text-align:center;
+  padding:60px 70px;
+}
+.divider-slide .bg-grid{
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(99,102,241,0.05) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(99,102,241,0.05) 1px,transparent 1px);
+  background-size:50px 50px;
+}
+.divider-slide .orb1{
+  position:absolute;top:-100px;left:-100px;
+  width:450px;height:450px;
+  background:radial-gradient(circle,rgba(99,102,241,0.2) 0%,transparent 65%);
+  border-radius:50%;
+}
+.divider-slide .orb2{
+  position:absolute;bottom:-80px;right:-80px;
+  width:400px;height:400px;
+  background:radial-gradient(circle,rgba(16,185,129,0.16) 0%,transparent 65%);
+  border-radius:50%;
+}
+.div-num{
+  font-size:120px;font-weight:900;font-family:'Playfair Display',serif;
+  color:rgba(255,255,255,0.04);
+  line-height:1;
+  margin-bottom:-30px;
+  position:relative;z-index:1;
+  letter-spacing:-5px;
+}
+.div-tag{
+  font-size:10px;font-weight:700;
+  letter-spacing:4px;text-transform:uppercase;
+  color:var(--emerald);
+  margin-bottom:18px;
+  position:relative;z-index:2;
+}
+.div-h{
+  font-family:'Playfair Display',serif;
+  font-size:46px;font-weight:900;
+  color:#fff;
+  line-height:1.12;
+  letter-spacing:-1.5px;
+  position:relative;z-index:2;
+  margin-bottom:20px;
+}
+.div-h em{
+  font-style:normal;
+  background:linear-gradient(90deg,#818cf8,#10b981);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.div-sub{
+  font-size:13px;color:rgba(255,255,255,0.38);
+  max-width:380px;line-height:1.85;
+  position:relative;z-index:2;
+}
+.div-line{
+  width:60px;height:3px;
+  background:linear-gradient(90deg,var(--indigo),var(--emerald));
+  border-radius:2px;
+  margin:22px auto;
+  position:relative;z-index:2;
+}
+.div-badge-row{
+  display:flex;gap:8px;justify-content:center;
+  margin-top:28px;
+  position:relative;z-index:2;
+}
+.div-badge{
+  background:rgba(99,102,241,0.12);
+  border:1px solid rgba(99,102,241,0.25);
+  color:rgba(255,255,255,0.5);
+  font-size:10px;font-weight:500;
+  padding:5px 14px;border-radius:100px;
+}
+
+/* ══════════════════════════════════════════
+   STANDARD PAGE
+══════════════════════════════════════════ */
+.page{
+  padding:0;
+  flex:1;
+  display:flex;
+  flex-direction:column;
+}
+.ph{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:22px 44px;
+  border-bottom:1.5px solid #f0f2f7;
+}
+.ph-logo{
+  font-size:13px;font-weight:800;
+  color:#1a1a2e;letter-spacing:-0.2px;
+}
+.ph-logo span{color:var(--emerald);}
+.ph-section{
+  font-size:9px;font-weight:700;
+  letter-spacing:2.5px;text-transform:uppercase;
+  color:var(--indigo);
+  background:rgba(99,102,241,0.08);
+  padding:4px 12px;border-radius:100px;
+}
+.ph-right{display:flex;align-items:center;gap:12px;}
+.ph-pgnum{
+  font-size:10px;font-weight:600;
+  color:#94a3b8;letter-spacing:0.5px;
+}
+
+.pc{
+  flex:1;
+  padding:36px 44px 32px;
+}
+.pc.tight{padding:28px 44px 24px;}
+
+.section-label{
+  font-size:9px;font-weight:700;
+  letter-spacing:3px;text-transform:uppercase;
+  color:var(--indigo);
+  margin-bottom:8px;
+}
+.section-line{
+  display:inline-block;
+  width:30px;height:1.5px;
+  background:var(--indigo);
+  vertical-align:middle;
+  margin-right:8px;
+}
+h2{
+  font-family:'Playfair Display',serif;
+  font-size:30px;font-weight:900;
+  color:#0f0f2a;
+  line-height:1.18;
+  letter-spacing:-0.8px;
+  margin-bottom:14px;
+}
+h2 em{font-style:normal;color:var(--indigo);}
+.intro{
+  font-size:12.5px;color:#64748b;
+  max-width:560px;line-height:1.85;
+  margin-bottom:26px;
+}
+h3{
+  font-size:13.5px;font-weight:700;
+  color:#1e293b;
+  margin:22px 0 8px;
+}
+p{font-size:12px;color:#475569;line-height:1.85;margin-bottom:10px;}
+
+/* ── HIGHLIGHT BOXES ── */
+.hbox{
+  background:linear-gradient(135deg,rgba(99,102,241,0.07),rgba(99,102,241,0.03));
+  border:1px solid rgba(99,102,241,0.18);
+  border-radius:12px;
+  padding:18px 22px;
+  margin:18px 0;
+}
+.hbox p{color:#3b4a6b;font-size:12px;margin:0;}
+.hbox strong{color:#1e293b;}
+.hbox.green{
+  background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(16,185,129,0.03));
+  border-color:rgba(16,185,129,0.2);
+}
+.hbox.green p{color:#065f46;}
+.hbox.amber{
+  background:linear-gradient(135deg,rgba(245,158,11,0.09),rgba(245,158,11,0.03));
+  border-color:rgba(245,158,11,0.22);
+}
+.hbox.amber p{color:#78350f;}
+.hbox.dark{
+  background:linear-gradient(135deg,rgba(15,15,42,0.92),rgba(10,20,40,0.95));
+  border-color:rgba(99,102,241,0.2);
+}
+.hbox.dark p,.hbox.dark strong{color:rgba(255,255,255,0.7);}
+.hbox.dark strong{color:#fff;}
+
+/* ── STAT ROW ── */
+.stat-row{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:14px;
+  margin:20px 0;
+}
+.stat-row.four{grid-template-columns:repeat(4,1fr);}
+.stat{
+  background:linear-gradient(135deg,rgba(99,102,241,0.06),rgba(99,102,241,0.02));
+  border:1px solid rgba(99,102,241,0.14);
+  border-radius:12px;
+  padding:18px 16px;
+  text-align:center;
+}
+.stat.green{
+  background:linear-gradient(135deg,rgba(16,185,129,0.07),rgba(16,185,129,0.02));
+  border-color:rgba(16,185,129,0.16);
+}
+.stat.amber{
+  background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(245,158,11,0.02));
+  border-color:rgba(245,158,11,0.18);
+}
+.stat.rose{
+  background:linear-gradient(135deg,rgba(244,63,94,0.07),rgba(244,63,94,0.02));
+  border-color:rgba(244,63,94,0.16);
+}
+.stat-value{
+  font-size:28px;font-weight:900;
+  color:var(--indigo);
+  letter-spacing:-1px;
+  line-height:1;
+  margin-bottom:6px;
+  font-family:'Playfair Display',serif;
+}
+.stat.green .stat-value{color:var(--emerald);}
+.stat.amber .stat-value{color:var(--amber);}
+.stat.rose .stat-value{color:var(--rose);}
+.stat-label{font-size:10px;color:#64748b;line-height:1.5;}
+
+/* ── CARDS ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0;}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:16px 0;}
+.four-col{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin:16px 0;}
+.card{
+  background:#fafbff;
+  border:1px solid #eef0f8;
+  border-radius:12px;
+  padding:18px 16px;
+}
+.card.dark{
+  background:rgba(255,255,255,0.05);
+  border-color:rgba(255,255,255,0.1);
+}
+.card h4{
+  font-size:12.5px;font-weight:700;
+  color:#1e293b;
+  margin:10px 0 7px;
+}
+.card.dark h4{color:#fff;}
+.card p{font-size:11.5px;color:#64748b;margin:0;}
+.card.dark p{color:rgba(255,255,255,0.5);}
+.card-icon{
+  width:36px;height:36px;border-radius:9px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:17px;
+  background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(99,102,241,0.04));
+  margin-bottom:4px;
+}
+.card-icon.green{background:linear-gradient(135deg,rgba(16,185,129,0.14),rgba(16,185,129,0.04));}
+.card-icon.amber{background:linear-gradient(135deg,rgba(245,158,11,0.13),rgba(245,158,11,0.04));}
+.card-icon.rose{background:linear-gradient(135deg,rgba(244,63,94,0.12),rgba(244,63,94,0.04));}
+
+/* ── PILL ROW ── */
+.pill-row{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0;}
+.pill{
+  background:#f0f2ff;border:1px solid #e0e5ff;
+  color:var(--indigo);
+  font-size:10.5px;font-weight:600;
+  padding:4px 12px;border-radius:100px;
+}
+.pill.green{background:#f0fdf8;border-color:#a7f3d0;color:#059669;}
+.pill.amber{background:#fffbf0;border-color:#fde68a;color:#b45309;}
+.pill.gray{background:#f8fafc;border-color:#e2e8f0;color:#64748b;}
+
+/* ── LIST ── */
+ul.clean{list-style:none;margin:8px 0 14px;padding:0;}
+ul.clean li{
+  font-size:11.5px;color:#475569;
+  padding:5px 0 5px 22px;
+  position:relative;line-height:1.7;
+  border-bottom:1px solid #f1f5f9;
+}
+ul.clean li:last-child{border-bottom:none;}
+ul.clean li::before{
+  content:'→';
+  position:absolute;left:0;
+  color:var(--emerald);font-weight:700;
+  font-size:10px;top:6px;
+}
+ul.clean.dark li{color:rgba(255,255,255,0.55);border-bottom-color:rgba(255,255,255,0.06);}
+ul.clean.dark li::before{color:var(--emerald);}
+
+/* ── TIMELINE ── */
+.timeline{padding:0;margin:16px 0;}
+.tl-item{
+  display:flex;gap:20px;
+  margin-bottom:0;
+  position:relative;
+}
+.tl-item:not(:last-child)::after{
+  content:'';
+  position:absolute;
+  left:18px;top:37px;
+  width:1.5px;
+  height:calc(100% - 10px);
+  background:linear-gradient(to bottom,var(--indigo),rgba(99,102,241,0.1));
+}
+.tl-left{flex-shrink:0;display:flex;flex-direction:column;align-items:center;}
+.tl-dot{
+  width:37px;height:37px;border-radius:50%;
+  background:linear-gradient(135deg,var(--indigo),#818cf8);
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;color:#fff;
+  box-shadow:0 0 0 4px rgba(99,102,241,0.12);
+  flex-shrink:0;
+  margin-bottom:4px;
+}
+.tl-dot.green{background:linear-gradient(135deg,var(--emerald),#34d399);}
+.tl-dot.amber{background:linear-gradient(135deg,var(--amber),#fbbf24);}
+.tl-right{flex:1;padding:8px 0 22px;}
+.tl-phase{
+  font-size:10px;font-weight:700;
+  letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--indigo);margin-bottom:3px;
+}
+.tl-phase.green{color:var(--emerald);}
+.tl-phase.amber{color:var(--amber);}
+.tl-h{font-size:13px;font-weight:700;color:#1e293b;margin-bottom:5px;}
+.tl-p{font-size:11px;color:#64748b;line-height:1.75;}
+
+/* ── FLOW DIAGRAM ── */
+.flow{
+  display:flex;align-items:center;gap:0;
+  margin:20px 0;
+  background:#fafbff;
+  border:1px solid #eef0f8;
+  border-radius:14px;
+  padding:20px 16px;
+}
+.flow-item{
+  flex:1;text-align:center;padding:0 8px;
+}
+.flow-circle{
+  width:54px;height:54px;border-radius:50%;
+  background:linear-gradient(135deg,var(--indigo),#818cf8);
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;margin:0 auto 8px;
+  box-shadow:0 4px 14px rgba(99,102,241,0.28);
+}
+.flow-circle.green{background:linear-gradient(135deg,var(--emerald),#34d399);box-shadow:0 4px 14px rgba(16,185,129,0.28);}
+.flow-circle.amber{background:linear-gradient(135deg,var(--amber),#fbbf24);box-shadow:0 4px 14px rgba(245,158,11,0.28);}
+.flow-label{font-size:11px;font-weight:700;color:#1e293b;}
+.flow-sub{font-size:10px;color:#94a3b8;margin-top:2px;}
+.flow-arrow{
+  font-size:18px;color:#cbd5e1;
+  flex-shrink:0;padding:0 4px;
+  margin-top:-18px;
+}
+
+/* ── CHANNEL ROW ── */
+.channel-row{display:flex;gap:10px;margin:16px 0;}
+.channel{
+  flex:1;
+  border-radius:11px;
+  padding:14px 12px;
+  text-align:center;
+  border:1px solid transparent;
+}
+.channel.ig{background:linear-gradient(135deg,rgba(225,48,108,0.08),rgba(252,175,69,0.06));border-color:rgba(225,48,108,0.15);}
+.channel.tk{background:linear-gradient(135deg,rgba(0,0,0,0.05),rgba(106,17,203,0.06));border-color:rgba(100,100,100,0.15);}
+.channel.gg{background:linear-gradient(135deg,rgba(66,133,244,0.08),rgba(52,168,83,0.06));border-color:rgba(66,133,244,0.15);}
+.channel.fb{background:linear-gradient(135deg,rgba(24,119,242,0.08),rgba(24,119,242,0.04));border-color:rgba(24,119,242,0.16);}
+.channel.em{background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(99,102,241,0.03));border-color:rgba(99,102,241,0.16);}
+.channel-name{font-size:11px;font-weight:700;color:#1e293b;margin:8px 0 3px;}
+.channel-role{font-size:9.5px;color:#94a3b8;}
+.channel-icon{font-size:22px;}
+
+/* ── RATE BLOCK ── */
+.rate-block{
+  background:linear-gradient(145deg,var(--dark1) 0%,var(--dark2) 45%,var(--dark3) 100%);
+  border-radius:18px;
+  padding:40px 48px;
+  text-align:center;
+  position:relative;overflow:hidden;
+  margin:18px 0;
+}
+.rate-block::before{
+  content:'';position:absolute;
+  top:-60px;right:-60px;
+  width:260px;height:260px;
+  background:radial-gradient(circle,rgba(99,102,241,0.3) 0%,transparent 70%);
+  border-radius:50%;
+}
+.rate-block::after{
+  content:'';position:absolute;
+  bottom:-50px;left:-50px;
+  width:220px;height:220px;
+  background:radial-gradient(circle,rgba(16,185,129,0.25) 0%,transparent 70%);
+  border-radius:50%;
+}
+.rate-tag{
+  font-size:10px;font-weight:700;
+  letter-spacing:3px;text-transform:uppercase;
+  color:var(--emerald);
+  position:relative;z-index:1;margin-bottom:14px;
+}
+.rate-num{
+  font-size:76px;font-weight:900;
+  color:#fff;letter-spacing:-4px;
+  line-height:1;
+  font-family:'Playfair Display',serif;
+  position:relative;z-index:1;
+}
+.rate-num sup{font-size:30px;vertical-align:super;letter-spacing:0;color:rgba(255,255,255,0.65);font-family:'Inter',sans-serif;font-weight:600;}
+.rate-period{
+  font-size:14px;color:rgba(255,255,255,0.35);
+  margin-top:6px;font-weight:400;
+  position:relative;z-index:1;
+}
+.rate-note{
+  font-size:11.5px;color:rgba(255,255,255,0.32);
+  margin-top:20px;line-height:1.85;
+  position:relative;z-index:1;
+  max-width:400px;margin-left:auto;margin-right:auto;
+}
+
+/* ── TOC ── */
+.toc-grid{display:flex;flex-direction:column;gap:10px;margin:20px 0;}
+.toc-item{
+  display:flex;align-items:center;gap:16px;
+  background:#fafbff;border:1px solid #eef0f8;
+  border-radius:10px;padding:14px 18px;
+}
+.toc-num{
+  font-size:13px;font-weight:900;
+  color:var(--indigo);font-family:'Playfair Display',serif;
+  width:28px;flex-shrink:0;
+}
+.toc-line{flex:1;height:1px;background:linear-gradient(90deg,#e2e8f0,transparent);}
+.toc-title{font-size:12px;font-weight:600;color:#1e293b;}
+.toc-sub{font-size:10px;color:#94a3b8;margin-top:1px;}
+.toc-page{font-size:11px;font-weight:700;color:#94a3b8;flex-shrink:0;}
+
+/* ── PLATFORM CAPABILITIES ── */
+.capability-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  margin:16px 0;
+}
+.capability-card{
+  background:linear-gradient(135deg,#fafbff,#f4f6ff);
+  border:1px solid #e8ecff;
+  border-radius:12px;
+  padding:16px 18px;
+  display:flex;gap:14px;align-items:flex-start;
+}
+.cap-icon{
+  width:40px;height:40px;border-radius:10px;
+  background:linear-gradient(135deg,var(--indigo),#818cf8);
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;flex-shrink:0;
+}
+.cap-icon.green{background:linear-gradient(135deg,var(--emerald),#34d399);}
+.cap-icon.amber{background:linear-gradient(135deg,var(--amber),#fbbf24);}
+.cap-icon.rose{background:linear-gradient(135deg,var(--rose),#fb7185);}
+.cap-content h4{font-size:12px;font-weight:700;color:#1e293b;margin-bottom:4px;}
+.cap-content p{font-size:11px;color:#64748b;margin:0;line-height:1.65;}
+
+/* ── CLOSING ── */
+.closing{
+  background:linear-gradient(145deg,var(--dark1) 0%,var(--dark2) 45%,var(--dark3) 100%);
+  justify-content:center;align-items:center;text-align:center;
+  padding:60px 70px;
+}
+.closing .bg-grid{
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(99,102,241,0.05) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(99,102,241,0.05) 1px,transparent 1px);
+  background-size:50px 50px;
+}
+.closing .orb1{
+  position:absolute;top:-100px;left:-100px;
+  width:500px;height:500px;
+  background:radial-gradient(circle,rgba(16,185,129,0.18) 0%,transparent 65%);
+  border-radius:50%;
+}
+.closing .orb2{
+  position:absolute;bottom:-80px;right:-80px;
+  width:420px;height:420px;
+  background:radial-gradient(circle,rgba(99,102,241,0.2) 0%,transparent 65%);
+  border-radius:50%;
+}
+.closing-inner{position:relative;z-index:2;}
+.closing-badge-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:36px;}
+.closing-badge{
+  background:rgba(99,102,241,0.12);
+  border:1px solid rgba(99,102,241,0.25);
+  color:rgba(255,255,255,0.55);
+  font-size:10px;font-weight:500;
+  padding:5px 14px;border-radius:100px;
+}
+.closing h2{
+  font-family:'Playfair Display',serif;
+  font-size:48px;font-weight:900;
+  color:#fff;
+  line-height:1.1;letter-spacing:-1.5px;
+  margin-bottom:18px;
+}
+.closing h2 em{
+  font-style:normal;
+  background:linear-gradient(90deg,#818cf8,#10b981);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.closing-sub{
+  font-size:14px;color:rgba(255,255,255,0.4);
+  max-width:380px;margin:0 auto 44px;
+  line-height:1.85;
+}
+.closing-box{
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:16px;
+  padding:30px 52px;
+  display:inline-block;
+}
+.closing-contact-tag{
+  font-size:9px;font-weight:700;
+  letter-spacing:2.5px;text-transform:uppercase;
+  color:var(--emerald);margin-bottom:12px;
+}
+.closing-name{font-size:20px;font-weight:800;color:#fff;margin-bottom:6px;}
+.closing-detail{font-size:12px;color:rgba(255,255,255,0.3);margin:3px 0;}
+.closing-footer{
+  position:absolute;bottom:24px;left:0;right:0;
+  text-align:center;
+  font-size:8.5px;color:rgba(255,255,255,0.1);
+  letter-spacing:2px;text-transform:uppercase;
+}
+
+/* ── WHY US ── */
+.why-row{display:flex;gap:12px;margin:16px 0;}
+.why-card{
+  flex:1;
+  background:linear-gradient(145deg,#fafbff,#f4f6ff);
+  border:1px solid #e8ecff;
+  border-radius:12px;
+  padding:20px 16px;
+  text-align:center;
+}
+.why-icon{font-size:26px;margin-bottom:10px;}
+.why-h{font-size:12.5px;font-weight:700;color:#1e293b;margin-bottom:6px;}
+.why-p{font-size:11px;color:#64748b;line-height:1.7;}
+
+/* ── KPI TABLE ── */
+.kpi-table{width:100%;border-collapse:collapse;margin:16px 0;}
+.kpi-table th{
+  font-size:9px;font-weight:700;
+  letter-spacing:1.5px;text-transform:uppercase;
+  color:#64748b;
+  padding:10px 14px;
+  background:#f8fafc;
+  border-bottom:1.5px solid #e2e8f0;
+  text-align:left;
+}
+.kpi-table td{
+  font-size:11.5px;color:#475569;
+  padding:10px 14px;
+  border-bottom:1px solid #f1f5f9;
+}
+.kpi-table tr:last-child td{border-bottom:none;}
+.kpi-table td:first-child{font-weight:600;color:#1e293b;}
+.kpi-badge{
+  display:inline-block;
+  padding:2px 9px;border-radius:100px;
+  font-size:9.5px;font-weight:700;
+}
+.kpi-badge.green{background:#f0fdf8;color:#059669;border:1px solid #a7f3d0;}
+.kpi-badge.amber{background:#fffbf0;color:#b45309;border:1px solid #fde68a;}
+.kpi-badge.indigo{background:#f0f2ff;color:var(--indigo);border:1px solid #e0e5ff;}
+
+/* ── PHASE STRIP ── */
+.phase-strip{
+  display:flex;
+  gap:0;
+  border-radius:12px;
+  overflow:hidden;
+  margin:16px 0;
+  border:1px solid #e2e8f0;
+}
+.phase-block{
+  flex:1;padding:16px 14px;
+  border-right:1px solid #e2e8f0;
+}
+.phase-block:last-child{border-right:none;}
+.phase-block.active{background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(99,102,241,0.03));}
+.phase-label{
+  font-size:8.5px;font-weight:700;
+  letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--indigo);margin-bottom:6px;
+}
+.phase-period{font-size:11.5px;font-weight:700;color:#1e293b;margin-bottom:6px;}
+.phase-items{font-size:10px;color:#64748b;line-height:1.75;}
+
+/* page footer */
+.page-footer{
+  padding:14px 44px;
+  border-top:1px solid #f0f2f7;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.page-footer-brand{font-size:10px;font-weight:700;color:#cbd5e1;}
+.page-footer-brand span{color:var(--emerald);}
+.page-footer-conf{font-size:9px;color:#e2e8f0;letter-spacing:1.5px;text-transform:uppercase;}
+.page-footer-num{font-size:10px;font-weight:600;color:#cbd5e1;}
+
+/* dark page variants */
+.dark-ph{
+  border-bottom-color:rgba(255,255,255,0.07);
+}
+.dark-ph .ph-logo{color:rgba(255,255,255,0.9);}
+.dark-ph .ph-section{color:var(--emerald);background:rgba(16,185,129,0.1);}
+.dark-ph .ph-pgnum{color:rgba(255,255,255,0.3);}
+.dark-pc h2{color:#fff;}
+.dark-pc .intro{color:rgba(255,255,255,0.45);}
+.dark-pc h3{color:#fff;}
+.dark-pc p{color:rgba(255,255,255,0.5);}
+.dark-pc .section-label{color:var(--emerald);}
+.dark-pf{border-top-color:rgba(255,255,255,0.07);}
+.dark-pf .page-footer-brand{color:rgba(255,255,255,0.2);}
+.dark-pf .page-footer-conf{color:rgba(255,255,255,0.1);}
+.dark-pf .page-footer-num{color:rgba(255,255,255,0.2);}
+
+</style>
+</head>
+<body>
+
+<button class="print-btn" onclick="window.print()">Save as PDF</button>
+
+
+<!-- ════════════════════════════════════════════════
+     COVER
+════════════════════════════════════════════════ -->
+<div class="slide cover">
+  <div class="cover-bg-grid"></div>
+  <div class="cover-orb1"></div>
+  <div class="cover-orb2"></div>
+  <div class="cover-orb3"></div>
+
+  <div class="cover-header">
+    <div class="cover-brand">Qanzak<span>Global</span></div>
+    <div class="cover-conf">Confidential &mdash; 2026</div>
+  </div>
+
+  <div class="cover-body">
+    <div class="cover-eyebrow">
+      <span class="cover-eyebrow-line"></span>
+      Digital Growth Strategy
+      <span class="cover-eyebrow-line"></span>
+    </div>
+
+    <div class="cover-h1">Building <em>1stRep</em><br/>Into a Brand</div>
+    <div class="cover-sub">Brand Awareness &nbsp;&middot;&nbsp; B2C Growth &nbsp;&middot;&nbsp; Reseller Network &nbsp;&middot;&nbsp; EPOS Expansion &nbsp;&middot;&nbsp; EU &amp; MENA Vision</div>
+
+    <div class="cover-pills">
+      <span class="cover-pill">Brand Awareness</span>
+      <span class="cover-pill">Meta &amp; TikTok Ads</span>
+      <span class="cover-pill">Google Shopping</span>
+      <span class="cover-pill green">Reseller Growth</span>
+      <span class="cover-pill green">EPOS Digital</span>
+      <span class="cover-pill green">EU &amp; MENA</span>
+    </div>
+
+    <div class="cover-meta-row">
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">Prepared For</div>
+        <div class="cover-meta-value">1stRep</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">Prepared By</div>
+        <div class="cover-meta-value">Qanzak Global</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">Strategy Period</div>
+        <div class="cover-meta-value">2026 – 2028</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">Markets</div>
+        <div class="cover-meta-value">UK → EU → MENA</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cover-footer">
+    <div class="cover-footer-left">Prepared exclusively for 1stRep Leadership</div>
+    <div class="cover-footer-dots">
+      <div class="cover-footer-dot active"></div>
+      <div class="cover-footer-dot"></div>
+      <div class="cover-footer-dot"></div>
+      <div class="cover-footer-dot"></div>
+      <div class="cover-footer-dot"></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════
+     TABLE OF CONTENTS
+════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="ph">
+    <div class="ph-logo">Qanzak<span>Global</span></div>
+    <div class="ph-right">
+      <div class="ph-section">Contents</div>
+      <div class="ph-pgnum">2 / 15</div>
+    </div>
+  </div>
+
+  <div class="pc">
+    <div class="section-label"><span class="section-line"></span>What's Inside</div>
+    <h2>A Complete Growth<br/><em>Strategy for 1stRep</em></h2>
+    <p class="intro">This proposal covers every pillar of the digital marketing strategy Qanzak Global will build and execute for 1stRep — from UK brand foundations to international expansion.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px;">
+      <div>
+        <div class="toc-item"><div class="toc-num">01</div><div><div class="toc-title">Executive Summary</div><div class="toc-sub">The central thesis &amp; strategy overview</div></div></div>
+        <div class="toc-item"><div class="toc-num">02</div><div><div class="toc-title">The 1stRep Platform</div><div class="toc-sub">Technology, resellers &amp; the unique advantage</div></div></div>
+        <div class="toc-item"><div class="toc-num">03</div><div><div class="toc-title">Brand Awareness Strategy</div><div class="toc-sub">Identity, content &amp; PR</div></div></div>
+        <div class="toc-item"><div class="toc-num">04</div><div><div class="toc-title">B2C Digital Marketing</div><div class="toc-sub">Paid ads, SEO, email &amp; retention</div></div></div>
+        <div class="toc-item"><div class="toc-num">05</div><div><div class="toc-title">Reseller Network Growth</div><div class="toc-sub">Recruitment, empowerment &amp; community</div></div></div>
+        <div class="toc-item"><div class="toc-num">06</div><div><div class="toc-title">EPOS Digital Expansion</div><div class="toc-sub">Digital storefronts &amp; social commerce</div></div></div>
+      </div>
+      <div>
+        <div class="toc-item"><div class="toc-num">07</div><div><div class="toc-title">Influencer &amp; Organic Strategy</div><div class="toc-sub">Micro-influencers, TikTok &amp; Instagram</div></div></div>
+        <div class="toc-item"><div class="toc-num">08</div><div><div class="toc-title">EU &amp; MENA Expansion</div><div class="toc-sub">International market entry strategy</div></div></div>
+        <div class="toc-item"><div class="toc-num">09</div><div><div class="toc-title">24-Month Roadmap</div><div class="toc-sub">Phase-by-phase execution plan</div></div></div>
+        <div class="toc-item"><div class="toc-num">10</div><div><div class="toc-title">Why Qanzak Global</div><div class="toc-sub">Our unique position &amp; capabilities</div></div></div>
+        <div class="toc-item"><div class="toc-num">11</div><div><div class="toc-title">KPIs &amp; Success Metrics</div><div class="toc-sub">How we measure results</div></div></div>
+        <div class="toc-item"><div class="toc-num">12</div><div><div class="toc-title">Investment &amp; Deliverables</div><div class="toc-sub">Pricing, inclusions &amp; how we work</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <div class="page-footer-brand">Qanzak<span>Global</span></div>
+    <div class="page-footer-conf">Confidential</div>
+    <div class="page-footer-num">Page 2</div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════
+     01 — EXECUTIVE SUMMARY
+════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="ph">
+    <div class="ph-logo">Qanzak<span>Global</span></div>
+    <div class="ph-right">
+      <div class="ph-section">01 — Executive Summary</div>
+      <div class="ph-pgnum">3 / 15</div>
+    </div>
+  </div>
+
+  <div class="pc tight">
+    <div class="section-label"><span class="section-line"></span>Our Position</div>
+    <h2>What This Strategy<br/>Delivers for <em>1stRep</em></h2>
+
+    <div class="hbox" style="margin-top:0;">
+      <p><strong>The central thesis:</strong> 1stRep's reseller network is its most powerful marketing asset. Every reseller who sells 1stRep products is also a brand ambassador. Every EPOS terminal in a market, pop-up, or retail unit is a physical touchpoint that builds brand awareness in the real world. Our strategy connects that physical presence to a coordinated digital machine — building 1stRep as a recognised UK fashion brand with a clear path to Europe and MENA.</p>
+    </div>
+
+    <div class="stat-row four" style="margin:16px 0;">
+      <div class="stat">
+        <div class="stat-value">70%</div>
+        <div class="stat-label">Strategy weight on reseller ecosystem growth</div>
+      </div>
+      <div class="stat green">
+        <div class="stat-value">30%</div>
+        <div class="stat-label">Strategy weight on direct B2C consumer sales</div>
+      </div>
+      <div class="stat amber">
+        <div class="stat-value">3</div>
+        <div class="stat-label">Markets targeted: UK now, EU &amp; MENA on horizon</div>
+      </div>
+      <div class="stat rose">
+        <div class="stat-value">24mo</div>
+        <div class="stat-label">Full programme: 12 months UK, 12 months EU &amp; MENA</div>
+      </div>
+    </div>
+
+    <div class="two-col" style="margin-top:16px;">
+      <div>
+        <h3>Why Brand Awareness Comes First</h3>
+        <p>Resellers can only grow when 1stRep is a brand people already recognise. When a customer walks into a reseller's stall or scans a QR code, brand recognition reduces sales resistance and increases average order value. Brand awareness is not vanity — it is the engine that makes every reseller's effort more profitable.</p>
+        <p>Growing a direct-to-consumer audience on social and search also creates organic demand that pulls customers toward resellers — rather than requiring resellers to push harder. The two motions amplify each other.</p>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:12px;">
+          <div class="card-icon">🏗️</div>
+          <h4>Phase One — UK Market (Months 1–12)</h4>
+          <p>Brand identity, reseller community, and digital presence built and scaled across the full UK market. B2C acquisition via paid and organic channels. EPOS firmly established as a visible UK retail touchpoint.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon green">🌍</div>
+          <h4>Phase Two — EU &amp; MENA (Months 13–24)</h4>
+          <p>UK brand equity leveraged to enter EU fashion markets from Month 13. MENA-specific reseller recruitment from Month 16. Fully localised content, influencers, and ad creative for each region.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <div class="page-footer-brand">Qanzak<span>Global</span></div>
+    <div class="page-footer-conf">Confidential</div>
+    <div class="page-footer-num">Page 3</div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════
+     02 — THE 1STREP PLATFORM
+════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="ph">
+    <div class="ph-logo">Qanzak<span>Global</span></div>
+    <div class="ph-right">
+      <div class="ph-section">02 — The 1stRep Platform</div>
+      <div class="ph-pgnum">4 / 15</div>
+    </div>
+  </div>
+
+  <div class="pc tight">
+    <div class="section-label"><span class="section-line"></span>The Competitive Advantage</div>
+    <h2>A Multi-Sided Platform<br/>Unlike Any Other <em>Fashion Brand</em></h2>
+    <p class="intro">1stRep is not simply a fashion label. It is a complete business-in-a-box system for entrepreneurs — combining a wholesale fashion catalogue, EPOS technology, digital storefronts, and a brand worth selling. This technology stack is the competitive advantage that no competitor can easily replicate.</p>
+
+    <div class="capability-grid">
+      <div class="capability-card">
+        <div class="cap-icon">🖥️</div>
+        <div class="cap-content">
+          <h4>EPOS Terminal System</h4>
+          <p>Branded point-of-sale terminals for physical markets, pop-ups, and retail events. Real-time inventory sync, QR payment, and order management built in.</p>
+        </div>
+      </div>
+      <div class="capability-card">
+        <div class="cap-icon green">🛍️</div>
+        <div class="cap-content">
+          <h4>Reseller Digital Storefronts</h4>
+          <p>Each reseller gets a personalised branded online store — connected to the live 1stRep catalogue. Their own URL, their own brand, 24/7 selling.</p>
+        </div>
+      </div>
+      <div class="capability-card">
+        <div class="cap-icon amber">📦</div>
+        <div class="cap-content">
+          <h4>Wholesale Catalogue</h4>
+          <p>Resellers access 1stRep's full product range at wholesale pricing. They can also list and sell their own custom products alongside 1stRep lines.</p>
+        </div>
+      </div>
+      <div class="capability-card">
+        <div class="cap-icon rose">💳</div>
+        <div class="cap-content">
+          <h4>Commission &amp; Earnings Dashboard</h4>
+          <p>Resellers track their earnings in real time. Automated commission calculations, payout requests, and full sales history — all transparent.</p>
+        </div>
+      </div>
+      <div class="capability-card">
+        <div class="cap-icon">📊</div>
+        <div class="cap-content">
+          <h4>Admin &amp; Vendor Management</h4>
+          <p>Full admin dashboard for 1stRep to manage resellers, licences, inventory, orders, payouts, and vendor partnerships from a single interface.</p>
+        </div>
+      </div>
+      <div class="capability-card">
+        <div class="cap-icon green">🌐</div>
+        <div class="cap-content">
+          <h4>Customer-Facing Storefront</h4>
+          <p>A consumer B2C storefront for direct sales — with loyalty programmes, reviews, product discovery, and Stripe-powered checkout.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="hbox green" style="margin-top:8px;">
+      <p><strong>Why this matters for marketing:</strong> The platform is the product. When we recruit resellers, we are selling a complete business system — not just fashion wholesale. This is a fundamentally stronger value proposition than any competitor, and it is the core message in every campaign we run.</p>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <div class="page-footer-brand">Qanzak<span>Global</span></div>
+    <div class="page-footer-conf">Confidential</div>
+    <div class="page-footer-num">Page 4</div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════
+     03 — BRAND AWARENESS
+════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="ph">
+    <div class="ph-logo">Qanzak<span>Global</span></div>
+    <div class="ph-right">
+      <div class="ph-section">03 — Brand Awareness</div>
+      <div class="ph-pgnum">5 / 15</div>
+    </div>
+  </div>
+
+  <div class="pc tight">
+    <div class="section-label"><span class="section-line"></span>Section 01</div>
+    <h2>Making 1stRep a Name<br/>People <em>Know and Trust</em></h2>
+    <p class="intro">Brand awareness is the only thing that makes everything else cheaper over time. When people recognise 1stRep, paid ads convert better, influencer posts land harder, and resellers close sales faster. This section covers how we build that recognition systematically.</p>
+
+    <div class="three-col">
+      <div class="card">
+        <div class="card-icon">🎨</div>
+        <h4>Brand Identity Consistency</h4>
+        <p>Unified visual language across every channel — Instagram, TikTok, Google, influencer content. Same tone, same story, same colours. We audit all existing assets and produce brand guidelines for resellers.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon green">🎬</div>
+        <h4>Content-Led Brand Building</h4>
+        <p>Three content pillars: <strong>Product</strong> (showcase), <strong>Culture</strong> (lifestyle identity), and <strong>Community</strong> (real resellers, real stories). Community content is the most powerful — authentic and unmatched by competitors.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon amber">📰</div>
+        <h4>PR &amp; Press Seeding</h4>
+        <p>UK fashion blogs, independent style media, and entrepreneurship publications. The reseller-network angle is an editorial story no other fashion brand can pitch. Earned media that builds authority paid ads cannot.</p>
+      </div>
+    </div>
+
+    <h3>Social Media Brand Presence — Five Posts Per Week, Minimum</h3>
+    <div class="channel-row">
+      <div class="channel ig">
+        <div class="channel-icon">📸</div>
+        <div class="channel-name">Instagram</div>
+        <div class="channel-role">Editorial brand content, Reels, stories, product launches</div>
+      </div>
+      <div class="channel tk">
+        <div class="channel-icon">🎵</div>
+        <div class="channel-name">TikTok</div>
+        <div class="channel-role">Raw, trend-driven, high-reach content. Product reveals, reseller vlogs</div>
+      </div>
+      <div class="channel fb">
+        <div class="channel-icon">👥</div>
+        <div class="channel-name">Facebook</div>
+        <div class="channel-role">Community content, reseller success stories, group engagement</div>
+      </div>
+      <div class="channel gg">
+        <div class="channel-icon">🔍</div>
+        <div class="channel-name">Google</div>
+        <div class="channel-role">Brand search ownership, Shopping, Knowledge Panel, Maps</div>
+      </div>
+    </div>
+
+    <div class="hbox green">
+      <p><strong>The brand story for UK consumers:</strong> 1stRep is quality fashion built on a community of entrepreneurs. When you buy from a reseller or from 1stRep directly, you are part of something bigger — a network of independent sellers who believe in quality clothing at real prices. This story is told consistently across every channel.</p>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <div class="page-footer-brand">Qanzak<span>Global</span></div>
+    <div class="page-footer-conf">Confidential</div>
+    <div class="page-footer-num">Page 5</div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════
+     04 — B2C DIGITAL MARKETING
+════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="ph">
+    <div class="ph-logo">Qanzak<span>Global</span></div>
+    <div class="ph-right">
+      <div class="ph-section">04 — B2C Digital Marketing</div>
+      <div class="ph-pgnum">6 / 15</div>
+    </div>
+  </div>
+
+  <div class="pc tight">
+    <div class="section-label"><span class="section-line"></span>Section 02</div>
+    <h2>Acquiring and Converting<br/><em>UK Fashion Consumers</em></h2>
+    <p class="intro">The B2C machine — paid ads, organic social, SEO, and email — works together to acquire customers, convert them, and retain them for repeat purchases. Retained B2C customers are also the highest-quality pipeline for reseller recruitment.</p>
+
+    <div class="four-col">
+      <div class="card">
+        <div class="card-icon">📱</div>
+        <h4>Meta Ads</h4>
+        <p>Cold prospecting, warm retargeting, lookalike audiences, dynamic product ads, and seasonal campaigns tied to the UK retail calendar.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon green">🎵</div>
+        <h4>TikTok Ads</h4>
+        <p>In-Feed and performance ads. TikTok's UK fashion audience is enormous with lower CPRs than Meta. Amplifies organic content that is already performing.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon amber">🛒</div>
+        <h4>Google Shopping</h4>
+        <p>Product listings at the top of search when buyers are actively shopping. Performance Max campaigns + targeted search for key categories.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon rose">🔍</div>
+        <h4>SEO</h4>
+        <p>Keyword research, on-page optimisation, and monthly blog content. Domain authority built over 6–12 months for long-term organic traffic.</p>
+      </div>
+    </div>
+
+    <div class="two-col" style="margin-top:4px;">
+      <div class="card">
+        <div class="card-icon">📧</div>
+        <h4>Email Marketing — Customer Lifecycle</h4>
+        <p>Welcome sequence for new customers. Abandoned cart recovery (3-email sequence). Post-purchase follow-up and repeat purchase campaigns. UK retail calendar campaigns. <strong>Target: 25%+ open rates, 15%+ cart recovery.</strong></p>
+      </div>
+      <div class="card">
+        <div class="card-icon green">🔁</div>
+        <h4>Customer Retention Strategy</h4>
+        <p>Loyalty touchpoints, exclusive new arrival previews for past customers, personalised email recommendations, and a structured repeat purchase sequence. Retained customers also generate referrals — the lowest-cost acquisition channel.</p>
+      </div>
+    </div>
+
+    <div class="hbox amber" style="margin-top:10px;">
+      <p><strong>Key insight:</strong> A consumer who has bought from 1stRep directly is the highest-quality lead for the reseller programme — they already trust the brand. Our B2C email and social flows include a soft reseller recruitment track, showing repeat buyers that they can earn income selling the brand they already love.</p>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <div class="page-footer-brand">Qanzak<span>Global</span></div>
+    <div class="page-footer-conf">Confidential</div>
+    <div class="page-footer-num">Page 6</div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════
+     05 — RESELLER NETWORK
+════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="ph">
+    <div class="ph-logo">Qanzak<span>Global</span></div>
+    <div class="ph-right">
+      <div class="ph-section">05 — Reseller Network</div>
+      <div class="ph-pgnum">7 / 15</div>
+    </div>
+  </div>
+
+  <div class="pc tight">
+    <div class="section-label"><span class="section-line"></span>Section 03</div>
+    <h2>Growing and Empowering<br/>the <em>Reseller Network</em></h2>
+    <p class="intro">The reseller network is 1stRep's most scalable growth lever. Every reseller who joins is a new distribution point, a new marketing presence, and a new revenue stream. Growing the network is not just about recruiting more resellers — it is about giving existing ones better tools and a stronger brand, so they earn more and stay longer.</p>
+
+    <div class="two-col">
+      <div>
+        <h3>Reseller Recruitment Campaigns</h3>
+        <p>Dedicated campaigns entirely separate from consumer ads — different creative, audiences, and messaging. Target: UK entrepreneurs, side-hustlers, market traders, and fashion/retail professionals.</p>
+        <div class="pill-row">
+          <span class="pill">Meta Recruitment Ads</span>
+          <span class="pill green">TikTok Hustle Content</span>
+          <span class="pill amber">Google Search — "fashion reseller UK"</span>
+        </div>
+
+        <h3>Reseller Empowerment — Content Toolkit</h3>
+        <p>Branded post templates, product imagery, caption guides, and story templates for resellers to use on their own social channels. Every piece of content the reseller publishes is another touchpoint for the 1stRep brand in the market.</p>
+      </div>
+
+      <div>
+        <div class="hbox green">
+          <p><strong>The reseller value proposition:</strong> Access to a quality UK fashion brand, a complete EPOS terminal system, a wholesale catalogue, and a support network — all under the 1stRep brand. You are not just selling clothes. You are running your own fashion business backed by a real brand.</p>
+        </div>
+
+        <h3>Reseller Community Building</h3>
+        <p>A private 1stRep Reseller Community — resellers share results, celebrate wins, and access exclusive content. Monthly reseller spotlights published on 1stRep's social channels give resellers recognition and prospects a compelling reason to join.</p>
+      </div>
+    </div>
+
+    <div class="three-col" style="margin-top:8px;">
+      <div class="card">
+        <div class="card-icon">📦</div>
+        <h4>Reseller Onboarding Flow</h4>
+        <p>Welcome email sequence, brand asset pack, EPOS setup guide, first order support, and a 30-day check-in. Set up for success from day one.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon green">📊</div>
+        <h4>Performance Content</h4>
+        <p>Monthly "Reseller Earnings" content on TikTok and Instagram — anonymised success stories, income reveals, and market vlogs that make the opportunity feel real.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon amber">🏆</div>
+        <h4>Incentive Campaigns</h4>
+        <p>Seasonal incentives — top sellers featured on 1stRep channels, exclusive product drops for high performers, and bonus commissions for resellers who recruit others.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <div class="page-footer-brand">Qanzak<span>Global</span></div>
+    <div class="page-footer-conf">Confidential</div>
+    <div class="page-footer-num">Page 7</div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════
+     06 — EPOS DIGITAL EXPANSION
+════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="ph">
+    <div class="ph-logo">Qanzak<span>Global</span></div>
+    <div class="ph-right">
+      <div class="ph-section">06 — EPOS Digital Expansion</div>
+      <div class="ph-pgnum">8 / 15</div>
+    </div>
+  </div>
+
+  <div class="pc tight">
+    <div class="section-label"><span class="section-line"></span>Section 04</div>
+    <h2>Taking the 1stRep EPOS<br/>Into the <em>Digital Market</em></h2>
+    <p class="intro">The 1stRep EPOS terminal is already a powerful tool for resellers at physical events. The opportunity is to extend that system into the digital world — making 1stRep products purchasable online through every reseller's digital presence, not just their physical stall.</p>
+
+    <div class="hbox amber">
+      <p><strong>The current state:</strong> Resellers use EPOS terminals at markets and events. When they are not physically present, they cannot sell. <strong>The opportunity:</strong> Give every reseller a digital storefront that works like their EPOS — connected to the same inventory, same pricing, same brand — accessible to customers 24 hours a day.</p>
+    </div>
+
+    <div class="flow">
+      <div class="flow-item">
+        <div class="flow-circle">🏪</div>
+        <div class="flow-label">Physical EPOS</div>
+        <div class="flow-sub">Markets &amp; events</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item">
+        <div class="flow-circle green">📱</div>
+        <div class="flow-label">QR Code</div>
+        <div class="flow-sub">On packaging &amp; signage</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item">
+        <div class="flow-circle amber">🛍️</div>
+        <div class="flow-label">Digital Storefront</div>
+        <div class="flow-sub">24/7 branded URL</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item">
+        <div class="flow-circle">📲</div>
+        <div class="flow-label">Social Commerce</div>
+        <div class="flow-sub">TikTok Shop &amp; Instagram</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item">
+        <div class="flow-circle green">💰</div>
+        <div class="flow-label">Daily Revenue</div>
+        <div class="flow-sub">Not just market days</div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-icon">📱</div>
+        <h4>What Resellers Get — Digital EPOS</h4>
+        <ul class="clean">
+          <li>Personal branded storefront URL</li>
+          <li>Full 1stRep product catalogue online</li>
+          <li>QR code for physical-to-digital conversion</li>
+          <li>Instagram and TikTok Shop integration</li>
+          <li>Digital payment processing (Card, PayPal, QR)</li>
+          <li>Real-time inventory and order tracking</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-icon green">📣</div>
+        <h4>How We Market the Digital EPOS</h4>
+        <ul class="clean">
+          <li>TikTok content — resellers showing their storefront live</li>
+          <li>Instagram Reels — "How I run my online fashion store"</li>
+          <li>Reseller tutorial content and onboarding emails</li>
+          <li>Paid ads targeting market traders and side-hustlers</li>
+          <li>Google ads — "Start selling fashion online UK"</li>
+          <li>Influencer case studies showing real reseller income</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <div class="page-footer-brand">Qanzak<span>Global</span></div>
+    <div class="page-footer-conf">Confidential</div>
+    <div class="page-footer-num">Page 8</div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════
+     07 — INFLUENCER & ORGANIC
+════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="ph">
+    <div class="ph-logo">Qanzak<span>Global</span></div>
+    <div class="ph-right">
+      <div class="ph-section">07 — Influencer &amp; Organic</div>
+      <div class="ph-pgnum">9 / 15</div>
+    </div>
+  </div>
+
+  <div class="pc tight">
+    <div class="section-label"><span class="section-line"></span>Section 05</div>
+    <h2>Influencer Marketing &amp;<br/><em>Organic Growth Engine</em></h2>
+    <p class="intro">Influencer partnerships and organic content build brand equity — the kind of recognition and trust that makes every other marketing channel more effective over time. Together they are what makes 1stRep feel like a real brand, not just a product on an ad.</p>
+
+    <div class="two-col">
+      <div>
+        <h3>Micro-Influencer Strategy</h3>
+        <p>UK-based fashion and lifestyle micro-influencers (10,000–150,000 followers). Micro-influencers consistently outperform macro-influencers for brands like 1stRep — their audiences trust their recommendations and CPE is significantly lower.</p>
+
+        <div class="pill-row">
+          <span class="pill">Fashion &amp; Styling</span>
+          <span class="pill green">UK Modest Fashion</span>
+          <span class="pill">18–35 Lifestyle</span>
+          <span class="pill amber">Market Traders</span>
+          <span class="pill gray">Entrepreneurship</span>
+        </div>
+
+        <h3>Influencer-to-Reseller Pipeline</h3>
+        <p>Fashion micro-influencers who review 1stRep products also represent an ideal reseller pipeline. Someone who has already promoted the brand, seen engagement, and likes the product is a natural candidate for becoming a reseller who earns ongoing income. We build this transition into the influencer relationship from the outset.</p>
+      </div>
+
+      <div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="card-icon">🎬</div>
+          <h4>Product Content</h4>
+          <p>Try-ons, hauls, styling videos, and outfit-of-the-day posts featuring 1stRep products. Direct consumer audience. Drives immediate product interest and traffic.</p>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="card-icon green">💼</div>
+          <h4>Reseller Content</h4>
+          <p>"I started a fashion business with 1stRep" — earnings reveals, market day vlogs, and honest reviews of the reseller experience. Drives sign-up enquiries.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon amber">📲</div>
+          <h4>EPOS Content</h4>
+          <p>Showing the EPOS terminal and digital storefront in action — a unique angle no fashion brand competitor can match.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="hbox" style="margin-top:10px;">
+      <p><strong>The compounding effect:</strong> A consumer who sees an influencer wear 1stRep, then sees a paid ad with the same product, then sees it on 1stRep's Instagram, then searches Google and finds the brand there too — is a converted customer. This multi-touchpoint approach is what builds brands. It is what we build for 1stRep.</p>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <div class="page-footer-brand">Qanzak<span>Global</span></div>
+    <div class="page-footer-conf">Confidential</div>
+    <div class="page-footer-num">Page 9</div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════
+     08 — EU & MENA EXPANSION
+════════════════════════════════════════════════ -->
+<div class="slide slide-dark">
+  <div class="ph dark-ph">
+    <div class="ph-logo">Qanzak<span>Global</span></div>
+    <div class="ph-right">
+      <div class="ph-section">08 — International Expansion</div>
+      <div class="ph-pgnum">10 / 15</div>
+    </div>
+  </div>
+
+  <div class="pc tight dark-pc">
+    <div class="section-label"><span class="section-line"></span>Section 06</div>
+    <h2>The International<br/><em>Expansion Path</em></h2>
+    <p class="intro" style="color:rgba(255,255,255,0.45);">The UK is the proof of concept. Once 1stRep has a proven brand, a functioning reseller network, and a working digital sales system in the UK, the same model exports directly to EU and MENA markets — where the opportunity is significantly larger.</p>
+
+    <div class="stat-row" style="margin:16px 0;">
+      <div class="stat" style="background:rgba(99,102,241,0.1);border-color:rgba(99,102,241,0.2);">
+        <div class="stat-value" style="color:#818cf8;">€500B+</div>
+        <div class="stat-label" style="color:rgba(255,255,255,0.4);">EU fashion market annual value</div>
+      </div>
+      <div class="stat green" style="background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.2);">
+        <div class="stat-value" style="color:#10b981;">$60B+</div>
+        <div class="stat-label" style="color:rgba(255,255,255,0.4);">MENA modest fashion market by 2026</div>
+      </div>
+      <div class="stat amber" style="background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.2);">
+        <div class="stat-value" style="color:#f59e0b;">40%</div>
+        <div class="stat-label" style="color:rgba(255,255,255,0.4);">Annual modest fashion market growth rate</div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="card dark">
+        <div class="card-icon" style="background:rgba(99,102,241,0.2);">🇪🇺</div>
+        <h4>European Union — Why and When</h4>
+        <p>Germany, Netherlands, and France have large modest-fashion demographics that align directly with 1stRep's product positioning. The reseller model works identically — local entrepreneurs want the same opportunity. EU entry from Month 13 after UK is fully established.</p>
+      </div>
+      <div class="card dark">
+        <div class="card-icon" style="background:rgba(16,185,129,0.15);">🌙</div>
+        <h4>MENA Region — The Strategic Opportunity</h4>
+        <p>Saudi Arabia, UAE, Qatar, Egypt, and Morocco. Modest fashion is mainstream. Entrepreneurial culture is strong. The reseller model is particularly compelling here. MENA entry from Month 17 with UAE and Saudi Arabia as anchor markets.</p>
+      </div>
+    </div>
+
+    <div class="hbox dark" style="margin-top:14px;background:rgba(99,102,241,0.08);border-color:rgba(99,102,241,0.2);">
+      <p style="color:rgba(255,255,255,0.7);"><strong style="color:#fff;">The EPOS as a Global Competitive Advantage:</strong> Most fashion wholesale programmes offer products and a wholesale price. 1stRep offers a complete business system — products, brand, technology, and support. In EU and MENA markets where fashion reseller infrastructure is less developed, this is an enormous competitive advantage. A reseller in Riyadh or Berlin who gets their own EPOS terminal and digital storefront from day one is operating at a level their competitors cannot match.</p>
+    </div>
+  </div>
+
+  <div class="page-footer dark-pf">
+    <div class="page-footer-brand">Qanzak<span>Global</span></div>
+    <div class="page-footer-conf">Confidential</div>
+    <div class="page-footer-num">Page 10</div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════
+     09 — 18-MONTH ROADMAP
+════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="ph">
+    <div class="ph-logo">Qanzak<span>Global</span></div>
+    <div class="ph-right">
+      <div class="ph-section">09 — 24-Month Roadmap</div>
+      <div class="ph-pgnum">11 / 15</div>
+    </div>
+  </div>
+
+  <div class="pc tight">
+    <div class="section-label"><span class="section-line"></span>Section 07</div>
+    <h2>How This Gets Built —<br/><em>24 Months, Two Phases</em></h2>
+    <p class="intro">12 months dedicated to building 1stRep as the dominant UK fashion reseller brand. Then 12 months of controlled international expansion into EU and MENA markets — using the UK as the proven playbook.</p>
+
+    <div style="display:flex;gap:10px;margin:14px 0;">
+      <div style="flex:1;background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(99,102,241,0.03));border:1px solid rgba(99,102,241,0.18);border-radius:10px;padding:10px 14px;text-align:center;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--indigo);margin-bottom:4px;">Phase 1 — UK</div>
+        <div style="font-size:13px;font-weight:800;color:#1e293b;">Months 1–12</div>
+        <div style="font-size:10px;color:#64748b;margin-top:2px;">Foundation → Activation → Scale</div>
+      </div>
+      <div style="flex:1;background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(16,185,129,0.03));border:1px solid rgba(16,185,129,0.18);border-radius:10px;padding:10px 14px;text-align:center;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--emerald);margin-bottom:4px;">Phase 2 — EU &amp; MENA</div>
+        <div style="font-size:13px;font-weight:800;color:#1e293b;">Months 13–24</div>
+        <div style="font-size:10px;color:#64748b;margin-top:2px;">EU Entry → MENA Activation → International Scale</div>
+      </div>
+    </div>
+
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="tl-left"><div class="tl-dot">1</div></div>
+        <div class="tl-right">
+          <div class="tl-phase">Months 1–2 &mdash; Foundation (UK)</div>
+          <div class="tl-h">Brand audit, account setup, pixel tracking, influencer outreach begins</div>
+          <div class="tl-p">Brand guidelines established. Social accounts optimised. Ad accounts and pixel fully set up. Email platform connected with welcome sequences live. Reseller content toolkit created and distributed to existing resellers.</div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-left"><div class="tl-dot">2</div></div>
+        <div class="tl-right">
+          <div class="tl-phase">Months 3–5 &mdash; UK Activation</div>
+          <div class="tl-h">All paid campaigns live — Meta, TikTok, Google Shopping</div>
+          <div class="tl-p">Organic content programme at full pace. First influencer partnerships active. Reseller recruitment campaigns running separately. Email flows sending weekly. First monthly performance report delivered.</div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-left"><div class="tl-dot">3</div></div>
+        <div class="tl-right">
+          <div class="tl-phase">Months 6–8 &mdash; Optimise &amp; EPOS Push (UK)</div>
+          <div class="tl-h">Data-driven optimisation, digital storefront marketing &amp; reseller community</div>
+          <div class="tl-p">Top-performing creative scaled. QR code marketing materials produced. Reseller community officially launched. SEO producing measurable search traffic growth. Digital EPOS storefront content driving 24/7 online sales.</div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-left"><div class="tl-dot green">4</div></div>
+        <div class="tl-right">
+          <div class="tl-phase green">Months 9–12 &mdash; UK Dominance &amp; International Prep</div>
+          <div class="tl-h">UK at full scale — EU &amp; MENA strategy finalised and ready to launch</div>
+          <div class="tl-p">UK channels at peak performance. TikTok Shop and Instagram Shopping live. EU market research complete. MENA influencer network identified. Localised creative assets produced for launch. Year 1 review and Year 2 strategy delivered.</div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-left"><div class="tl-dot amber">5</div></div>
+        <div class="tl-right">
+          <div class="tl-phase amber">Months 13–16 &mdash; EU Market Entry</div>
+          <div class="tl-h">Germany, Netherlands &amp; France reseller campaigns launch</div>
+          <div class="tl-p">Local EU influencer partnerships begin. Meta and TikTok campaigns localised for each EU market. EU reseller onboarding materials and content toolkits ready from day one.</div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-left"><div class="tl-dot amber">6</div></div>
+        <div class="tl-right">
+          <div class="tl-phase amber">Months 17–20 &mdash; MENA Activation</div>
+          <div class="tl-h">UAE and Saudi Arabia campaigns launch with full Arabic-language content</div>
+          <div class="tl-p">Ramadan and Eid campaigns running as priority marketing moments. MENA influencer partnerships active. MENA reseller recruitment running with culturally localised messaging.</div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-left"><div class="tl-dot green">7</div></div>
+        <div class="tl-right">
+          <div class="tl-phase green">Months 21–24 &mdash; International Scale</div>
+          <div class="tl-h">1stRep established as a recognised international fashion brand</div>
+          <div class="tl-p">UK, EU and MENA reseller networks growing simultaneously. International influencer programme running. TikTok Shop integrated across all markets. 1stRep positioned as a genuinely global fashion brand built on empowered local resellers.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <div class="page-footer-brand">Qanzak<span>Global</span></div>
+    <div class="page-footer-conf">Confidential</div>
+    <div class="page-footer-num">Page 11</div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════
+     10 — WHY QANZAK GLOBAL
+════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="ph">
+    <div class="ph-logo">Qanzak<span>Global</span></div>
+    <div class="ph-right">
+      <div class="ph-section">10 — Why Qanzak Global</div>
+      <div class="ph-pgnum">12 / 15</div>
+    </div>
+  </div>
+
+  <div class="pc tight">
+    <div class="section-label"><span class="section-line"></span>Our Differentiators</div>
+    <h2>Why <em>Qanzak Global</em><br/>for 1stRep</h2>
+    <p class="intro">Most agencies treat a fashion brand as a product-first challenge. We treat 1stRep as what it actually is: a multi-sided platform with a reseller network, a technology stack, and an international ambition. That understanding is the foundation of everything we build.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:16px 0;">
+      <div class="why-card">
+        <div class="why-icon">🧭</div>
+        <div class="why-h">Platform-First Thinking</div>
+        <div class="why-p">We understand multi-sided platforms. We do not treat the reseller network and B2C as separate problems — we treat them as the same flywheel turning in the same direction.</div>
+      </div>
+      <div class="why-card">
+        <div class="why-icon">🌍</div>
+        <div class="why-h">Global Market Experience</div>
+        <div class="why-p">Qanzak Global has direct experience in UK, EU, and MENA markets — including Arabic-language content creation and MENA influencer networks that most UK agencies simply do not have access to.</div>
+      </div>
+      <div class="why-card">
+        <div class="why-icon">🤝</div>
+        <div class="why-h">Full Transparency</div>
+        <div class="why-p">All ad accounts owned by 1stRep. All ad budgets agreed in advance. All content approved before publishing. Full data access at all times. One point of contact. No surprises.</div>
+      </div>
+      <div class="why-card">
+        <div class="why-icon">⚡</div>
+        <div class="why-h">Technology-Aligned Strategy</div>
+        <div class="why-p">We are building marketing around the 1stRep EPOS and digital storefront technology — not generic fashion marketing. This means every campaign supports and amplifies the technology investment 1stRep has already made.</div>
+      </div>
+      <div class="why-card">
+        <div class="why-icon">📈</div>
+        <div class="why-h">Results-Driven Approach</div>
+        <div class="why-p">We do not just manage campaigns — we manage outcomes. Monthly performance reports delivered on the 5th of each month. Quarterly strategy reviews with clear KPIs and accountability.</div>
+      </div>
+      <div class="why-card">
+        <div class="why-icon">🕌</div>
+        <div class="why-h">Cultural Competence</div>
+        <div class="why-p">The modest fashion market in the UK, EU, and MENA is significant and requires genuine cultural alignment — not tokenistic marketing. We have the network and knowledge to do this correctly.</div>
+      </div>
+    </div>
+
+    <div class="hbox green">
+      <p><strong>The bottom line:</strong> Qanzak Global brings the market knowledge, creative capability, paid media expertise, and platform understanding to make 1stRep's marketing as powerful as its technology. We are not an agency you manage — we are the marketing partner who manages the results.</p>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <div class="page-footer-brand">Qanzak<span>Global</span></div>
+    <div class="page-footer-conf">Confidential</div>
+    <div class="page-footer-num">Page 12</div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════
+     11 — KPIs & SUCCESS METRICS
+════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="ph">
+    <div class="ph-logo">Qanzak<span>Global</span></div>
+    <div class="ph-right">
+      <div class="ph-section">11 — KPIs &amp; Metrics</div>
+      <div class="ph-pgnum">13 / 15</div>
+    </div>
+  </div>
+
+  <div class="pc tight">
+    <div class="section-label"><span class="section-line"></span>How We Measure Success</div>
+    <h2>Clear KPIs.<br/><em>Measurable Outcomes.</em></h2>
+    <p class="intro">Every strategy is only as good as its measurement. From month one, we track a clear set of KPIs across every channel — and we are accountable to them in every monthly report and quarterly review.</p>
+
+    <table class="kpi-table">
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>Channel</th>
+          <th>Month 6 Target</th>
+          <th>Month 12 Target</th>
+          <th>Month 24 Target</th>
+          <th>Priority</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>New Reseller Sign-Ups</td>
+          <td>All channels</td>
+          <td>3–6 / mo</td>
+          <td>8–15 / mo</td>
+          <td>20–35 / mo</td>
+          <td><span class="kpi-badge green">High</span></td>
+        </tr>
+        <tr>
+          <td>B2C Website Sessions</td>
+          <td>Paid + Organic</td>
+          <td>1,500 / mo</td>
+          <td>5,000 / mo</td>
+          <td>15,000+ / mo</td>
+          <td><span class="kpi-badge green">High</span></td>
+        </tr>
+        <tr>
+          <td>Meta ROAS</td>
+          <td>Facebook &amp; Instagram Ads</td>
+          <td>1.5×</td>
+          <td>2.0×</td>
+          <td>3.0×+</td>
+          <td><span class="kpi-badge green">High</span></td>
+        </tr>
+        <tr>
+          <td>TikTok Organic Reach</td>
+          <td>TikTok</td>
+          <td>10k views / mo</td>
+          <td>40k views / mo</td>
+          <td>120k+ views / mo</td>
+          <td><span class="kpi-badge indigo">Medium</span></td>
+        </tr>
+        <tr>
+          <td>Email Open Rate</td>
+          <td>Email Marketing</td>
+          <td>18%+</td>
+          <td>22%+</td>
+          <td>25%+</td>
+          <td><span class="kpi-badge indigo">Medium</span></td>
+        </tr>
+        <tr>
+          <td>Abandoned Cart Recovery</td>
+          <td>Email</td>
+          <td>6%+</td>
+          <td>10%+</td>
+          <td>13%+</td>
+          <td><span class="kpi-badge green">High</span></td>
+        </tr>
+        <tr>
+          <td>Influencer Partnerships Active</td>
+          <td>Influencer</td>
+          <td>1–2</td>
+          <td>3–5</td>
+          <td>8–12</td>
+          <td><span class="kpi-badge indigo">Medium</span></td>
+        </tr>
+        <tr>
+          <td>Google Shopping Impressions</td>
+          <td>Google</td>
+          <td>8,000 / mo</td>
+          <td>30,000 / mo</td>
+          <td>90,000+ / mo</td>
+          <td><span class="kpi-badge amber">Monitor</span></td>
+        </tr>
+        <tr>
+          <td>Social Followers (Combined)</td>
+          <td>Instagram + TikTok</td>
+          <td>500+</td>
+          <td>2,000+</td>
+          <td>8,000+</td>
+          <td><span class="kpi-badge indigo">Medium</span></td>
+        </tr>
+        <tr>
+          <td>EU Reseller Sign-Ups (Month 13+)</td>
+          <td>International</td>
+          <td>—</td>
+          <td>—</td>
+          <td>15–25 total</td>
+          <td><span class="kpi-badge amber">Monitor</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="hbox">
+      <p>All KPIs are reviewed monthly and reported on the 5th of each month. Quarterly reviews reassess targets based on performance data and scale budgets toward the highest-performing channels. Every pound of ad spend is tracked, reported, and optimised.</p>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <div class="page-footer-brand">Qanzak<span>Global</span></div>
+    <div class="page-footer-conf">Confidential</div>
+    <div class="page-footer-num">Page 13</div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════
+     12 — INVESTMENT & DELIVERABLES
+════════════════════════════════════════════════ -->
+<div class="slide">
+  <div class="ph">
+    <div class="ph-logo">Qanzak<span>Global</span></div>
+    <div class="ph-right">
+      <div class="ph-section">12 — Investment</div>
+      <div class="ph-pgnum">14 / 15</div>
+    </div>
+  </div>
+
+  <div class="pc tight">
+    <div class="section-label"><span class="section-line"></span>Simple, Transparent Pricing</div>
+    <h2>One Retainer.<br/><em>Everything Included.</em></h2>
+    <p class="intro">One monthly retainer covers the complete Qanzak Global strategy — brand management, organic content, paid advertising across all channels, influencer relationships, email marketing, and international expansion planning. No hidden costs. No surprises.</p>
+
+    <div class="rate-block">
+      <div class="rate-tag">Monthly Retainer — All Services Included</div>
+      <div class="rate-num"><sup>£</sup>1,750</div>
+      <div class="rate-period">per month &nbsp;·&nbsp; 3-month minimum engagement</div>
+      <div class="rate-note">Ad spend, influencer fees, and platform costs are separate — agreed in advance and approved by 1stRep before anything runs. Recommended starting ad budget: £1,500–£2,500 / month for UK campaigns, scaled based on results.</div>
+    </div>
+
+    <div class="two-col" style="margin-top:16px;">
+      <div class="card">
+        <div class="card-icon">✅</div>
+        <h4>Everything Included in the Retainer</h4>
+        <ul class="clean">
+          <li>Brand guidelines &amp; asset management</li>
+          <li>Instagram, TikTok &amp; Facebook management</li>
+          <li>Google Ads — Shopping, Search &amp; Performance Max</li>
+          <li>Meta Ads — Facebook &amp; Instagram campaigns</li>
+          <li>TikTok Ads management</li>
+          <li>SEO &amp; monthly blog content (4 articles / mo)</li>
+          <li>Email marketing — all flows &amp; weekly newsletters</li>
+          <li>Influencer outreach &amp; relationship management</li>
+          <li>Reseller content toolkit creation &amp; updates</li>
+          <li>Reseller community management</li>
+          <li>Digital EPOS marketing strategy</li>
+          <li>EU &amp; MENA expansion planning (from Month 13)</li>
+          <li>Monthly performance report — delivered 5th of each month</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-icon green">🤝</div>
+        <h4>How We Work Together</h4>
+        <ul class="clean">
+          <li>3-month minimum engagement to begin</li>
+          <li>All ad accounts owned by 1stRep — full transparency</li>
+          <li>Weekly WhatsApp or email check-in</li>
+          <li>All influencer content approved by 1stRep before publishing</li>
+          <li>All ad budgets agreed before any spend</li>
+          <li>Full data access — ad accounts, analytics, email platform</li>
+          <li>Dedicated account manager — one point of contact</li>
+          <li>Content calendar shared 2 weeks in advance each month</li>
+          <li>Quarterly strategy review meetings</li>
+          <li>No lock-in after initial 3-month period</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <div class="page-footer-brand">Qanzak<span>Global</span></div>
+    <div class="page-footer-conf">Confidential</div>
+    <div class="page-footer-num">Page 14</div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════
+     CLOSING
+════════════════════════════════════════════════ -->
+<div class="slide closing">
+  <div class="bg-grid"></div>
+  <div class="orb1"></div>
+  <div class="orb2"></div>
+
+  <div class="closing-inner">
+    <div class="closing-badge-row">
+      <span class="closing-badge">Brand Awareness</span>
+      <span class="closing-badge">B2C Growth</span>
+      <span class="closing-badge">Reseller Network</span>
+      <span class="closing-badge">EPOS Digital</span>
+      <span class="closing-badge">EU Expansion</span>
+      <span class="closing-badge">MENA Vision</span>
+    </div>
+
+    <h2>Let's Build<br/><em>1stRep</em> Together</h2>
+
+    <div class="closing-sub">The strategy is ready. The markets are ready. The platform is ready.<br/>All that remains is the decision to start building the brand that 1stRep is capable of becoming.</div>
+
+    <div class="closing-box">
+      <div class="closing-contact-tag">Get In Touch</div>
+      <div class="closing-name">Qanzak Global</div>
+      <div class="closing-detail">qanzakglobal.com</div>
+      <div class="closing-detail" style="margin-top:12px;color:rgba(255,255,255,0.18);font-size:10px;letter-spacing:0.5px;">Marketing Strategy &nbsp;·&nbsp; Digital Growth &nbsp;·&nbsp; Brand Building</div>
+    </div>
+  </div>
+
+  <div class="closing-footer">Confidential &nbsp;— &nbsp;Prepared exclusively by Qanzak Global for 1stRep Leadership &nbsp;·&nbsp; 2026</div>
+</div>
+
+
+</body>
+</html>
