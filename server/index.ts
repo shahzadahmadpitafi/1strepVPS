@@ -96,7 +96,10 @@ app.use(helmet({
       baseUri: ["'self'"],
       formAction: ["'self'", "https://*.paypal.com"],
       frameAncestors: ["'self'"],
-      ...(forceHttps ? { upgradeInsecureRequests: [] } : {}),
+      // Omitting this key doesn't disable it — Helmet merges provided
+      // directives with its own defaults, which include this one. Must
+      // explicitly null it out to actually turn it off.
+      upgradeInsecureRequests: forceHttps ? [] : null,
     },
   },
   // Strict Transport Security - forces HTTPS. Only safe to send once this
