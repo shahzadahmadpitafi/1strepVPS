@@ -71,6 +71,15 @@ const app = express();
 // Trust proxy for secure cookies behind reverse proxy (Replit deployments)
 app.set('trust proxy', 1);
 
+// Same COOKIE_SECURE escape hatch used for the session cookie below: until a
+// domain + TLS cert is set up in front of this server, forcing HTTPS via CSP's
+// upgradeInsecureRequests and via HSTS makes browsers refuse to load anything
+// over plain http:// — including the very next request on the same page,
+// which breaks the site rather than protecting it. Set COOKIE_SECURE=false
+// during that bootstrap window; leave it unset (the secure default) once
+// HTTPS is live.
+const forceHttps = process.env.COOKIE_SECURE !== 'false';
+
 // Security headers with Helmet - configured for high Mozilla Observatory score
 app.use(helmet({
   // Content Security Policy - protects against XSS
@@ -87,15 +96,14 @@ app.use(helmet({
       baseUri: ["'self'"],
       formAction: ["'self'", "https://*.paypal.com"],
       frameAncestors: ["'self'"],
-      upgradeInsecureRequests: [],
+      ...(forceHttps ? { upgradeInsecureRequests: [] } : {}),
     },
   },
-  // Strict Transport Security - forces HTTPS
-  strictTransportSecurity: {
-    maxAge: 31536000, // 1 year
-    includeSubDomains: true,
-    preload: true,
-  },
+  // Strict Transport Security - forces HTTPS. Only safe to send once this
+  // server is actually reachable over HTTPS (see forceHttps above).
+  strictTransportSecurity: forceHttps
+    ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+    : false,
   // Prevent clickjacking
   xFrameOptions: { action: 'deny' },
   // Prevent MIME type sniffing
@@ -107,6 +115,16 @@ app.use(helmet({
   crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
+
+// If a client already cached an HSTS policy from before forceHttps was
+// false (e.g. testing against this same host earlier), actively clear it —
+// otherwise that browser keeps refusing plain http:// on its own.
+if (!forceHttps) {
+  app.use((req, res, next) => {
+    res.setHeader('Strict-Transport-Security', 'max-age=0');
+    next();
+  });
+}
 
 // Permissions Policy header (not included in Helmet by default)
 app.use((req, res, next) => {
@@ -194,9 +212,9 @@ const pgSessionStore = new PgSession({
   },
 });
 
-// COOKIE_SECURE lets this be forced off for pre-HTTPS testing (e.g. a raw
-// http://ip:port link) without changing default production behavior.
-const cookieSecure = process.env.COOKIE_SECURE === 'false' ? false : isProduction;
+// Same forceHttps flag used for CSP/HSTS above — keeps cookies, HSTS, and
+// upgrade-insecure-requests all switching together on the one COOKIE_SECURE knob.
+const cookieSecure = forceHttps && isProduction;
 
 app.use(session({
   store: pgSessionStore,
