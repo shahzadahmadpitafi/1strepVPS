@@ -778,7 +778,19 @@ export default function VendorEPOS() {
       });
       return;
     }
-    
+
+    // Without this, the order gets created with no vendor attribution — it
+    // still charges the customer correctly, but the sale becomes invisible
+    // in both the admin panel and this vendor's own history.
+    if (!vendorProfile?.id) {
+      toast({
+        title: "Reconnecting your account",
+        description: "Your session hasn't finished loading — please wait a moment and try again. If this keeps happening, refresh the page.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsPaymentProcessing(true);
     
     try {

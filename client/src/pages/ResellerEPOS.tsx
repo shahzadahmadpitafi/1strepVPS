@@ -944,7 +944,19 @@ export default function ResellerEPOS() {
       });
       return;
     }
-    
+
+    // Without this, the order gets created with no reseller attribution —
+    // it still charges the customer correctly, but the sale becomes
+    // invisible in both the admin panel and this reseller's own history.
+    if (!resellerProfile?.id) {
+      toast({
+        title: "Reconnecting your account",
+        description: "Your session hasn't finished loading — please wait a moment and try again. If this keeps happening, refresh the page.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (deliveryMethod === 'collection' && !selectedStore) {
       toast({
         title: "Store Required",
