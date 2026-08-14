@@ -152,6 +152,7 @@ interface Order {
   vendorName?: string;
   eposTerminalId?: string;
   customerPhone?: string;
+  ownSquarePaid?: boolean;
 }
 
 interface OrderSummary {
@@ -1259,6 +1260,14 @@ export default function AdminOrders() {
                           {order.resellerName && (
                             <span className="text-xs text-muted-foreground font-medium">{order.resellerName}</span>
                           )}
+                          {(order.resellerId || order.vendorId) && order.paymentMethod !== 'cash' && (
+                            <span
+                              className={`text-xs font-medium ${order.ownSquarePaid ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}
+                              data-testid={`text-square-destination-${order.orderNumber}`}
+                            >
+                              {order.ownSquarePaid ? '→ Their own Square' : '→ 1stRep Square'}
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -1568,6 +1577,16 @@ export default function AdminOrders() {
                           {selectedOrder.resellerName || selectedOrder.vendorName
                             ? `${selectedOrder.resellerName || selectedOrder.vendorName} — in-store EPOS`
                             : 'In-store EPOS (account not linked — early test order)'}
+                        </p>
+                      </div>
+                    )}
+                    {(selectedOrder.resellerId || selectedOrder.vendorId) && selectedOrder.paymentMethod !== 'cash' && (
+                      <div className="col-span-2">
+                        <p className="text-muted-foreground">Payment received into</p>
+                        <p className={`font-semibold ${selectedOrder.ownSquarePaid ? 'text-amber-600 dark:text-amber-400' : 'text-foreground'}`}>
+                          {selectedOrder.ownSquarePaid
+                            ? `${selectedOrder.resellerName || selectedOrder.vendorName || 'Their'}'s own connected Square account`
+                            : "1stRep's platform Square account"}
                         </p>
                       </div>
                     )}
