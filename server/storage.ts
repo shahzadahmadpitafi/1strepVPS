@@ -1250,6 +1250,10 @@ export class DatabaseStorage implements IStorage {
         rejectionReason: resellers.rejectionReason,
         lastOrderDate: resellers.lastOrderDate,
         email: users.email,
+        // Timestamp only — never select ownSquareAccessTokenEnc for a list
+        // endpoint like this one; the frontend only needs to know whether
+        // it's connected, not the credential itself.
+        ownSquareSetupAt: resellers.ownSquareSetupAt,
       })
       .from(resellers)
       .leftJoin(users, eq(resellers.userId, users.id))

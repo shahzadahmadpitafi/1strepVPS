@@ -779,13 +779,25 @@ export default function AdminResellerManagement() {
                                   {reseller.approvalStatus}
                                 </Badge>
                                 {isResellerVendor(reseller.id, reseller.userId) && (
-                                  <Badge 
+                                  <Badge
                                     className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
                                     data-testid={`badge-vendor-${reseller.id}`}
                                   >
                                     Wholesaler
                                   </Badge>
                                 )}
+                                <Badge
+                                  variant="outline"
+                                  className={reseller.ownSquareSetupAt
+                                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700"
+                                    : "text-muted-foreground"}
+                                  title={reseller.ownSquareSetupAt
+                                    ? `Own Square connected ${new Date(reseller.ownSquareSetupAt).toLocaleDateString()}`
+                                    : "Own-product sales go through 1stRep's platform Square account"}
+                                  data-testid={`badge-own-square-${reseller.id}`}
+                                >
+                                  {reseller.ownSquareSetupAt ? "Own Square connected" : "Own Square not connected"}
+                                </Badge>
                               </div>
                             </div>
                             <div className="flex gap-2">
