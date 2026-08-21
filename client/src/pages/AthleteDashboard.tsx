@@ -57,6 +57,7 @@ import {
   UserCircle2,
   Pencil,
   Upload,
+  MousePointerClick,
 } from "lucide-react";
 import { SiTiktok } from "react-icons/si";
 import { apiRequest, queryClient } from "@/lib/queryClient";
