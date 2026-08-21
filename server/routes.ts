@@ -126,6 +126,7 @@ import {
   sendSubscriptionRenewalEmail,
   sendInfluencerApplicationReceivedEmail,
   sendInfluencerApprovedEmail,
+  sendInfluencerRejectedEmail,
   sendInfluencerApplicationAdminNotificationEmail
 } from "./email";
 import {
@@ -27402,7 +27403,21 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
         });
         smsInfluencerApproved(application.phone || null, application.full_name, trackingSlug);
       }
-      
+
+      // Rejection previously updated the record silently with no notification
+      // to the applicant — they'd never find out unless they checked back.
+      if (status === 'rejected' && application.status !== 'rejected') {
+        sendInfluencerRejectedEmail({
+          email: application.email,
+          name: application.full_name,
+        }).then(sent => {
+          if (sent) console.log(`Influencer rejection email sent to ${application.email}`);
+          else console.warn(`Influencer rejection email failed for ${application.email}`);
+        }).catch(err => {
+          console.error('Failed to send influencer rejection email:', err);
+        });
+      }
+
       // Update application status
       await db.execute(sql`
         UPDATE athlete_applications 

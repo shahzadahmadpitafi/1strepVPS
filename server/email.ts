@@ -1182,6 +1182,42 @@ export async function sendInfluencerApprovedEmail(details: {
   return sendEmail(details.email, 'You\'re Approved — Welcome to Team 1stRep', wrapEmailTemplate(content));
 }
 
+export async function sendInfluencerRejectedEmail(details: {
+  email: string;
+  name: string;
+}): Promise<boolean> {
+  const content = `
+    <tr>
+      <td style="padding: 40px 40px 0;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 28px;">
+          <tr>
+            <td style="border:1px solid #3A3A3A; padding-left: 16px;">
+              <p style="color:#FAFAF8; margin: 0 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 3px; font-weight: 700;">Influencer Programme</p>
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 900; line-height: 1.1;">Your Application</h1>
+              <p style="color: #6E6E6E; margin: 6px 0 0; font-size: 14px;">Hi ${details.name},</p>
+            </td>
+          </tr>
+        </table>
+
+        <p style="color: #B0B0B0; line-height: 1.7; margin: 0 0 8px; font-size: 15px;">
+          Thanks for applying to the <strong style="color: #ffffff;">1stRep Influencer Programme</strong>. After review, we're not able to bring you on board at this time.
+        </p>
+        <p style="color: #B0B0B0; line-height: 1.7; margin: 16px 0 0; font-size: 15px;">
+          This isn't a reflection of you or your platform — we simply can't accept every application right now. We'd genuinely encourage you to apply again in the future.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 32px 40px 40px;">
+        <p style="color: #4b5563; font-size: 13px; margin: 0; line-height: 1.6;">
+          Questions about this decision? Just reply to this email — a real person will get back to you.
+        </p>
+      </td>
+    </tr>
+  `;
+  return sendEmail(details.email, 'Your 1stRep Influencer Programme Application', wrapEmailTemplate(content));
+}
+
 export async function sendInfluencerApplicationAdminNotificationEmail(details: {
   name: string;
   email: string;
