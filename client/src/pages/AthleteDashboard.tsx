@@ -237,7 +237,21 @@ export default function AthleteDashboard() {
       toast({ title: "Variant Created", description: "New discount code variant created." });
     },
     onError: async (err: any) => {
-      toast({ title: "Error", description: "Failed to create variant", variant: "destructive" });
+      // err.message is "<status>: <raw response text>" (see throwIfResNotOk in
+      // queryClient.ts) — the server already sends a specific, useful reason
+      // (e.g. "This code suffix is already in use"); show that instead of a
+      // generic message so the influencer knows what to actually fix.
+      let description = "Failed to create variant";
+      const raw = typeof err?.message === "string" ? err.message.replace(/^\d+:\s*/, "") : "";
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          description = parsed?.error || raw;
+        } catch {
+          description = raw;
+        }
+      }
+      toast({ title: "Error", description, variant: "destructive" });
     },
   });
 
