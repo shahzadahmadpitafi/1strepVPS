@@ -28399,9 +28399,28 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
     try {
       const { id } = req.params;
       const { status, adminNotes } = req.body;
-      const validStatuses = ['pending', 'approved', 'fulfilled'];
+      const validStatuses = ['pending', 'approved', 'fulfilled', 'rejected'];
       if (!status || !validStatuses.includes(status)) {
-        return res.status(400).json({ error: "Valid status required: pending, approved, or fulfilled" });
+        return res.status(400).json({ error: "Valid status required: pending, approved, fulfilled, or rejected" });
+      }
+
+      const existing = await db.execute(sql`SELECT * FROM influencer_redemptions WHERE id = ${id}`);
+      if (existing.rows.length === 0) return res.status(404).json({ error: "Redemption not found" });
+      const current = existing.rows[0] as any;
+
+      // Credits are deducted the moment an influencer *requests* a redemption
+      // (see POST /api/influencer/redemptions), not when it's approved — so
+      // rejecting one has to hand those credits back. Guarded on the current
+      // status so re-saving an already-rejected request can't double-refund.
+      if (status === 'rejected' && current.status !== 'rejected') {
+        await db.execute(sql`
+          UPDATE athlete_profiles SET credit_balance = credit_balance + ${current.credit_amount}
+          WHERE id = ${current.athlete_profile_id}
+        `);
+        await db.execute(sql`
+          INSERT INTO influencer_credit_transactions (athlete_profile_id, type, amount, description, created_by)
+          VALUES (${current.athlete_profile_id}, 'redemption_reversed', ${current.credit_amount}, ${'Redemption request declined — credits refunded' + (adminNotes ? ': ' + adminNotes : '')}, ${req.user!.id})
+        `);
       }
 
       const result = await db.execute(sql`
@@ -28412,7 +28431,6 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
         RETURNING *
       `);
 
-      if (result.rows.length === 0) return res.status(404).json({ error: "Redemption not found" });
       res.json(result.rows[0]);
     } catch (error) {
       console.error("Update redemption error:", error);

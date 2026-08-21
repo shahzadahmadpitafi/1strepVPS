@@ -601,7 +601,7 @@ export default function AdminInfluencerCredits() {
                                   <p className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString("en-GB")}</p>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <Badge variant={r.status === "fulfilled" ? "default" : r.status === "approved" ? "secondary" : "outline"}>
+                                  <Badge variant={r.status === "fulfilled" ? "default" : r.status === "approved" ? "secondary" : r.status === "rejected" ? "destructive" : "outline"}>
                                     {r.status}
                                   </Badge>
                                   {r.status !== "fulfilled" && (
@@ -659,7 +659,7 @@ export default function AdminInfluencerCredits() {
                           {new Date(r.created_at).toLocaleDateString("en-GB")}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={r.status === "fulfilled" ? "default" : r.status === "approved" ? "secondary" : "outline"}>
+                          <Badge variant={r.status === "fulfilled" ? "default" : r.status === "approved" ? "secondary" : r.status === "rejected" ? "destructive" : "outline"}>
                             {r.status}
                           </Badge>
                         </TableCell>
@@ -1018,6 +1018,7 @@ export default function AdminInfluencerCredits() {
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="approved">Approved</SelectItem>
                   <SelectItem value="fulfilled">Fulfilled</SelectItem>
+                  <SelectItem value="rejected">Rejected — refunds the credits</SelectItem>
                 </SelectContent>
               </Select>
             </div>
