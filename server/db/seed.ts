@@ -474,6 +474,16 @@ async function ensureCriticalTablesExist() {
     console.error("❌ Error creating order_email_log table:", error);
   }
 
+  // Add fixed_credits_per_order column to influencer_discount_variants if missing
+  // (present in shared/schema.ts but was never migrated onto the live DB —
+  // broke creating any new discount variant with a 500 error)
+  try {
+    await pool.query(`ALTER TABLE influencer_discount_variants ADD COLUMN IF NOT EXISTS fixed_credits_per_order integer NOT NULL DEFAULT 0`);
+    console.log("✅ influencer_discount_variants.fixed_credits_per_order column ensured");
+  } catch (error) {
+    console.error("❌ Error ensuring influencer_discount_variants.fixed_credits_per_order column:", error);
+  }
+
   // Ensure stock_alert_subscriptions table exists
   try {
     await pool.query(`
