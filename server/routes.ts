@@ -28187,12 +28187,23 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
       await db.execute(sql`UPDATE influencer_discount_variants SET is_active = false WHERE athlete_profile_id = ${profileId}`);
       await db.execute(sql`UPDATE influencer_discount_variants SET is_active = true WHERE id = ${id}`);
 
-      // Update coupons: disable all influencer coupons for this athlete, enable this one
-      const allVariants = await db.execute(sql`SELECT full_code FROM influencer_discount_variants WHERE athlete_profile_id = ${profileId}`);
+      // Update coupons: disable all influencer coupons for this athlete, enable this one.
+      // Upsert rather than plain UPDATE — a plain UPDATE silently does nothing
+      // if the coupons row doesn't exist yet (e.g. legacy variants created
+      // before coupon-sync existed), leaving the code "active" in the
+      // influencer's dashboard while permanently rejected at checkout.
+      const allVariants = await db.execute(sql`SELECT full_code, customer_discount_pct FROM influencer_discount_variants WHERE athlete_profile_id = ${profileId}`);
+      const oneYearFromNow = new Date();
+      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
       for (const v of allVariants.rows) {
         const code = (v as any).full_code;
+        const discPct = (v as any).customer_discount_pct;
         const isActive = code === variantData.full_code;
-        await db.execute(sql`UPDATE coupons SET is_active = ${isActive} WHERE code = ${code}`);
+        await db.execute(sql`
+          INSERT INTO coupons (id, code, description, type, value, minimum_order_total, max_global_uses, start_date, end_date, is_active)
+          VALUES (gen_random_uuid(), ${code}, ${'Influencer code - ' + discPct + '% discount'}, 'percentage', ${discPct.toString()}, '0', NULL, NOW(), ${oneYearFromNow.toISOString()}, ${isActive})
+          ON CONFLICT (code) DO UPDATE SET is_active = ${isActive}
+        `);
       }
 
       res.json({ success: true, activatedCode: variantData.full_code });
