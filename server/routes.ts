@@ -28120,6 +28120,11 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
       if (isNaN(fixedCredits) || fixedCredits < 0) {
         return res.status(400).json({ error: "Fixed credits per order must be 0 or more" });
       }
+      // Cap credits per sale at 1x the discount % offered, so a code can never
+      // pay out more in credits than the discount itself is costing.
+      if (fixedCredits > discPct) {
+        return res.status(400).json({ error: `Credits per sale can't exceed your discount % — max ${discPct} for a ${discPct}% discount` });
+      }
 
       const profile = await db.execute(sql`SELECT id, discount_code FROM athlete_profiles WHERE user_id = ${req.user!.id}`);
       if (profile.rows.length === 0) {

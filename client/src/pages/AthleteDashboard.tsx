@@ -187,6 +187,12 @@ export default function AthleteDashboard() {
     customerDiscountPct: "",
     fixedCreditsPerOrder: "",
   });
+  // Credits per sale can't exceed the discount % — keeps payouts from ever
+  // costing more than the discount itself.
+  const creditsExceedCap =
+    !!variantForm.fixedCreditsPerOrder &&
+    !!variantForm.customerDiscountPct &&
+    parseInt(variantForm.fixedCreditsPerOrder) > parseInt(variantForm.customerDiscountPct);
 
   const { data: influencerData, isLoading: loadingProfile, isError } = useQuery<InfluencerData>({
     queryKey: ["/api/influencer/profile"],
@@ -1158,13 +1164,15 @@ export default function AthleteDashboard() {
             <div className="space-y-2">
               <Label>Your Credits Per Sale (fixed)</Label>
               <Input
-                type="number" min={0} placeholder="e.g. 10"
+                type="number" min={0} max={parseInt(variantForm.customerDiscountPct) || undefined} placeholder="e.g. 10"
                 value={variantForm.fixedCreditsPerOrder}
                 onChange={(e) => setVariantForm(p => ({ ...p, fixedCreditsPerOrder: e.target.value }))}
                 data-testid="input-credits-per-order"
               />
-              <p className="text-xs text-muted-foreground">
-                Flat credits you earn each time someone uses this code. 100 credits = £50 cash or £100 store credit.
+              <p className={`text-xs ${creditsExceedCap ? "text-destructive" : "text-muted-foreground"}`}>
+                {creditsExceedCap
+                  ? `Can't exceed your discount % — max ${variantForm.customerDiscountPct} for a ${variantForm.customerDiscountPct}% discount`
+                  : `Flat credits you earn each time someone uses this code. Capped at your discount % (max ${variantForm.customerDiscountPct || "?"} here) so credits never cost more than the discount. 100 credits = £50 cash or £100 store credit.`}
               </p>
             </div>
           </div>
@@ -1172,7 +1180,7 @@ export default function AthleteDashboard() {
             <Button variant="outline" onClick={() => setShowVariantDialog(false)}>Cancel</Button>
             <Button
               onClick={() => createVariantMutation.mutate(variantForm)}
-              disabled={!variantForm.codeSuffix || !variantForm.customerDiscountPct || createVariantMutation.isPending}
+              disabled={!variantForm.codeSuffix || !variantForm.customerDiscountPct || creditsExceedCap || createVariantMutation.isPending}
               data-testid="button-create-variant"
             >
               {createVariantMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
