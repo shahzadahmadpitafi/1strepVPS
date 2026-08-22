@@ -14,7 +14,7 @@ export function normalisePhone(raw: string): string {
   return `+44${trimmed}`;
 }
 
-async function sendSMS(to: string, body: string): Promise<boolean> {
+export async function sendSMS(to: string, body: string): Promise<boolean> {
   const sid   = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
   const from  = process.env.TWILIO_FROM_NUMBER;

@@ -233,6 +233,7 @@ export default function AdminOrders() {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
+  const [smsComposeText, setSmsComposeText] = useState("");
   const [activePanel, setActivePanel] = useState<'all' | '1strep' | 'own_products'>('all');
 
   // Manual order creation (for recovering ghost payments)
@@ -512,6 +513,31 @@ export default function AdminOrders() {
         description: "Failed to send email",
         variant: "destructive",
       });
+    },
+  });
+
+  const sendSmsMutation = useMutation({
+    mutationFn: (data: { id: string; message: string }) =>
+      apiRequest("POST", `/api/admin/orders/${data.id}/sms`, { message: data.message }),
+    onSuccess: () => {
+      setSmsComposeText("");
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/orders", selectedOrder?.id, "sms-thread"] });
+      toast({ title: "SMS sent", description: "Message has been sent to the customer" });
+    },
+    onError: (err: any) => {
+      // Same pattern as the influencer discount-code fix — show the server's
+      // actual reason instead of a generic message.
+      let description = "Failed to send SMS";
+      const raw = typeof err?.message === "string" ? err.message.replace(/^\d+:\s*/, "") : "";
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          description = parsed?.error || raw;
+        } catch {
+          description = raw;
+        }
+      }
+      toast({ title: "Error", description, variant: "destructive" });
     },
   });
 
@@ -1681,6 +1707,27 @@ export default function AdminOrders() {
                           </div>
                         </div>
                       ))}
+                    </div>
+                  )}
+                  {smsThread?.configured !== false && (
+                    <div className="flex gap-2 mt-2">
+                      <Textarea
+                        value={smsComposeText}
+                        onChange={(e) => setSmsComposeText(e.target.value)}
+                        placeholder="Type a message to text the customer..."
+                        rows={2}
+                        className="text-sm resize-none"
+                        data-testid="textarea-sms-compose"
+                      />
+                      <Button
+                        size="sm"
+                        className="self-end"
+                        disabled={!smsComposeText.trim() || sendSmsMutation.isPending}
+                        onClick={() => selectedOrder && sendSmsMutation.mutate({ id: selectedOrder.id, message: smsComposeText.trim() })}
+                        data-testid="button-send-sms"
+                      >
+                        {sendSmsMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : "Send"}
+                      </Button>
                     </div>
                   )}
                 </div>

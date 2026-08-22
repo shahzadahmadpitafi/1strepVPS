@@ -140,7 +140,8 @@ import {
   smsInfluencerApplicationReceived,
   smsInfluencerApproved,
   smsPasswordReset,
-  normalisePhone
+  normalisePhone,
+  sendSMS
 } from "./sms";
 import { CommissionService } from "./services/commissionService";
 import { emailService } from "./services/emailService";
@@ -16417,6 +16418,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('SMS thread error:', error);
       res.status(500).json({ error: 'Failed to fetch SMS thread' });
+    }
+  });
+
+  // Send a custom SMS to the customer on an order (admin only)
+  app.post("/api/admin/orders/:id/sms", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { message } = req.body;
+      if (!message || typeof message !== 'string' || !message.trim()) {
+        return res.status(400).json({ error: "Message is required" });
+      }
+
+      const [order] = await db.select().from(customerOrders).where(eq(customerOrders.id, id));
+      if (!order) return res.status(404).json({ error: "Order not found" });
+
+      let rawPhone = order.customerPhone;
+      if (!rawPhone && order.userId) {
+        const [u] = await db.select({ phoneNumber: users.phoneNumber }).from(users).where(eq(users.id, order.userId));
+        rawPhone = u?.phoneNumber || null;
+      }
+      if (!rawPhone) return res.status(400).json({ error: "No phone number on file for this customer" });
+
+      const sent = await sendSMS(rawPhone, message.trim());
+      if (!sent) {
+        return res.status(502).json({ error: "SMS could not be sent — check Twilio is configured and the number is valid" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Send order SMS error:', error);
+      res.status(500).json({ error: 'Failed to send SMS' });
     }
   });
 
