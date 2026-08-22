@@ -42,6 +42,7 @@ export default function BarcodeGenerator() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<{ done: number; total: number } | null>(null);
 
   const { data: productsData = [], isLoading } = useQuery<ProductWithVariants[]>({
     queryKey: ["/api/admin/products/barcodes/list"],
@@ -199,7 +200,15 @@ export default function BarcodeGenerator() {
       return;
     }
 
+    const allVariants: { item: ProductWithVariants; variant: Variant }[] = [];
+    for (const item of filteredData) {
+      for (const variant of item.variants) {
+        allVariants.push({ item, variant });
+      }
+    }
+
     setIsDownloading(true);
+    setDownloadProgress({ done: 0, total: allVariants.length });
 
     try {
       const doc = new jsPDF({
@@ -210,32 +219,43 @@ export default function BarcodeGenerator() {
 
       let yPosition = 10;
       let successCount = 0;
-      let isFirstPage = true;
+      let doneCount = 0;
+      const CONCURRENCY = 8;
 
-      for (const item of filteredData) {
-        for (const variant of item.variants) {
+      for (let i = 0; i < allVariants.length; i += CONCURRENCY) {
+        const batch = allVariants.slice(i, i + CONCURRENCY);
+        const images = await Promise.all(batch.map(async ({ variant }) => {
+          try {
+            const svgText = await fetchBarcodeSVG(variant.id);
+            const canvas = await svgToCanvas(svgText);
+            return canvas.toDataURL('image/png');
+          } catch (err) {
+            console.error(`Failed to process barcode for ${variant.sku}:`, err);
+            return null;
+          }
+        }));
+
+        for (let j = 0; j < batch.length; j++) {
+          const { item, variant } = batch[j];
+          const imgData = images[j];
+          doneCount++;
+          setDownloadProgress({ done: doneCount, total: allVariants.length });
+
+          if (!imgData) continue;
+
           if (yPosition > 230) {
             doc.addPage();
             yPosition = 10;
           }
 
-          try {
-            const svgText = await fetchBarcodeSVG(variant.id);
-            const canvas = await svgToCanvas(svgText);
-            const imgData = canvas.toDataURL('image/png');
+          doc.setFontSize(9);
+          doc.text(`${item.product.name}`, 10, yPosition);
+          doc.setFontSize(7);
+          doc.text(`SKU: ${variant.sku}${variant.packQuantity && variant.packQuantity > 1 ? ` | Pack: ${variant.packQuantity}` : ''}`, 10, yPosition + 5);
 
-            doc.setFontSize(9);
-            doc.text(`${item.product.name}`, 10, yPosition);
-            doc.setFontSize(7);
-            doc.text(`SKU: ${variant.sku}${variant.packQuantity && variant.packQuantity > 1 ? ` | Pack: ${variant.packQuantity}` : ''}`, 10, yPosition + 5);
-
-            doc.addImage(imgData, 'PNG', 10, yPosition + 10, 190, 40);
-            yPosition += 55;
-            successCount++;
-          } catch (err) {
-            console.error(`Failed to process barcode for ${variant.sku}:`, err);
-            continue;
-          }
+          doc.addImage(imgData, 'PNG', 10, yPosition + 10, 190, 40);
+          yPosition += 55;
+          successCount++;
         }
       }
 
@@ -261,6 +281,7 @@ export default function BarcodeGenerator() {
       });
     } finally {
       setIsDownloading(false);
+      setDownloadProgress(null);
     }
   };
 
@@ -310,16 +331,28 @@ export default function BarcodeGenerator() {
           </div>
 
           {filteredData.length > 0 && (
-            <Button
-              onClick={handleDownloadMultiplePDF}
-              className="w-full"
-              variant="default"
-              disabled={isDownloading}
-              data-testid="button-download-batch"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              {isDownloading ? "Generating PDF..." : `Download All as PDF (${filteredData.reduce((acc, item) => acc + item.variants.length, 0)} barcodes)`}
-            </Button>
+            <div className="space-y-2">
+              <Button
+                onClick={handleDownloadMultiplePDF}
+                className="w-full"
+                variant="default"
+                disabled={isDownloading}
+                data-testid="button-download-batch"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                {isDownloading
+                  ? `Generating PDF... ${downloadProgress ? `${downloadProgress.done}/${downloadProgress.total}` : ""}`
+                  : `Download All as PDF (${filteredData.reduce((acc, item) => acc + item.variants.length, 0)} barcodes)`}
+              </Button>
+              {isDownloading && downloadProgress && downloadProgress.total > 0 && (
+                <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all"
+                    style={{ width: `${Math.round((downloadProgress.done / downloadProgress.total) * 100)}%` }}
+                  />
+                </div>
+              )}
+            </div>
           )}
 
           <div className="space-y-4 max-h-[500px] overflow-y-auto">
