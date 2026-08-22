@@ -139,7 +139,8 @@ import {
   smsSubscriptionActivated,
   smsInfluencerApplicationReceived,
   smsInfluencerApproved,
-  smsPasswordReset
+  smsPasswordReset,
+  normalisePhone
 } from "./sms";
 import { CommissionService } from "./services/commissionService";
 import { emailService } from "./services/emailService";
@@ -16361,6 +16362,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Email thread error:', error);
       res.status(500).json({ error: 'Failed to fetch email thread' });
+    }
+  });
+
+  // Get SMS conversation for an order (both directions, admin only) — pulled
+  // live from Twilio rather than stored locally, since outbound sends were
+  // never logged to our own DB (fire-and-forget in sms.ts).
+  app.get("/api/admin/orders/:id/sms-thread", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const [order] = await db.select().from(customerOrders).where(eq(customerOrders.id, id));
+      if (!order) return res.status(404).json({ error: "Order not found" });
+
+      const sid = process.env.TWILIO_ACCOUNT_SID;
+      const token = process.env.TWILIO_AUTH_TOKEN;
+      const ourNumber = process.env.TWILIO_FROM_NUMBER;
+      if (!sid || !token || !ourNumber) {
+        return res.json({ messages: [], configured: false });
+      }
+
+      let rawPhone = order.customerPhone;
+      if (!rawPhone && order.userId) {
+        const [u] = await db.select({ phoneNumber: users.phoneNumber }).from(users).where(eq(users.id, order.userId));
+        rawPhone = u?.phoneNumber || null;
+      }
+      if (!rawPhone) return res.json({ messages: [], configured: true });
+
+      const customerPhone = normalisePhone(rawPhone);
+      const auth = Buffer.from(`${sid}:${token}`).toString('base64');
+      const fetchDirection = async (params: string) => {
+        const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json?${params}&PageSize=50`, {
+          headers: { Authorization: `Basic ${auth}` },
+        });
+        if (!resp.ok) return [];
+        const data = await resp.json() as any;
+        return (data.messages || []) as any[];
+      };
+
+      const [outbound, inbound] = await Promise.all([
+        fetchDirection(`From=${encodeURIComponent(ourNumber)}&To=${encodeURIComponent(customerPhone)}`),
+        fetchDirection(`From=${encodeURIComponent(customerPhone)}&To=${encodeURIComponent(ourNumber)}`),
+      ]);
+
+      const messages = [...outbound, ...inbound]
+        .map((m: any) => ({
+          direction: m.direction === 'inbound' ? 'inbound' : 'outbound',
+          body: m.body,
+          status: m.status,
+          date: m.date_created,
+        }))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      res.json({ messages, configured: true, phone: customerPhone });
+    } catch (error: any) {
+      console.error('SMS thread error:', error);
+      res.status(500).json({ error: 'Failed to fetch SMS thread' });
     }
   });
 

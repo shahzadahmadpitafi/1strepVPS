@@ -117,6 +117,13 @@ interface EmailThreadMessage {
   snippet: string;
 }
 
+interface SmsThreadMessage {
+  direction: 'inbound' | 'outbound';
+  body: string;
+  status: string;
+  date: string;
+}
+
 interface Order {
   id: string;
   orderNumber: string;
@@ -443,6 +450,23 @@ export default function AdminOrders() {
         credentials: "include",
       });
       if (!res.ok) return { messages: [] };
+      return res.json();
+    },
+    enabled: !!selectedOrder?.id,
+    refetchInterval: 30000,
+    staleTime: 25000,
+  });
+
+  // Fetch SMS thread (pulled live from Twilio — outbound sends aren't logged
+  // locally, so there's no local table to query instead)
+  const { data: smsThread, isLoading: smsThreadLoading } = useQuery<{ messages: SmsThreadMessage[]; configured: boolean }>({
+    queryKey: ["/api/admin/orders", selectedOrder?.id, "sms-thread"],
+    queryFn: async () => {
+      if (!selectedOrder?.id) return { messages: [], configured: true };
+      const res = await fetch(`/api/admin/orders/${selectedOrder.id}/sms-thread`, {
+        credentials: "include",
+      });
+      if (!res.ok) return { messages: [], configured: true };
       return res.json();
     },
     enabled: !!selectedOrder?.id,
@@ -1624,6 +1648,43 @@ export default function AdminOrders() {
                   </div>
                 </div>
               </div>
+
+              {/* SMS Thread — pulled live from Twilio, both directions */}
+              {(selectedOrder.customerPhone || selectedOrder.phoneNumber) && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="font-semibold">SMS Messages</h3>
+                    {smsThreadLoading && <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground" />}
+                  </div>
+                  {(smsThread?.messages?.length ?? 0) === 0 ? (
+                    <p className="text-sm text-muted-foreground italic">
+                      {smsThread?.configured === false
+                        ? "SMS isn't configured on this server."
+                        : "No SMS messages sent or received for this order yet."}
+                    </p>
+                  ) : (
+                    <div className="space-y-2 max-h-72 overflow-y-auto rounded-lg border p-3 bg-muted/30">
+                      {smsThread!.messages.map((m, i) => (
+                        <div key={i} className={`flex ${m.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
+                          <div
+                            className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+                              m.direction === 'outbound'
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-background border'
+                            }`}
+                            data-testid={`sms-message-${i}`}
+                          >
+                            <p className="whitespace-pre-wrap">{m.body}</p>
+                            <p className={`text-[10px] mt-1 ${m.direction === 'outbound' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                              {new Date(m.date).toLocaleString("en-GB")} &middot; {m.direction === 'outbound' ? '1stRep' : 'Customer'}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Shipping Address */}
               {(() => {

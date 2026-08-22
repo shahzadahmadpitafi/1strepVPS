@@ -5,7 +5,7 @@
  * SMS is simply activated once the secrets are added.
  */
 
-function normalisePhone(raw: string): string {
+export function normalisePhone(raw: string): string {
   const trimmed = raw.replace(/\s+/g, '');
   if (trimmed.startsWith('+')) return trimmed;
   // UK default: strip leading 0 and prepend +44
