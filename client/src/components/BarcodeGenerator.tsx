@@ -210,60 +210,84 @@ export default function BarcodeGenerator() {
     setIsDownloading(true);
     setDownloadProgress({ done: 0, total: allVariants.length });
 
+    // jsPDF holds every embedded image in one in-memory document string; past
+    // ~150-200 images that string exceeds the JS engine's max string length
+    // and doc.save() throws "RangeError: Invalid string length". Splitting
+    // into multiple smaller PDFs keeps each file well under that ceiling.
+    const CHUNK_SIZE = 60;
+    const CONCURRENCY = 8;
+    const chunks: { item: ProductWithVariants; variant: Variant }[][] = [];
+    for (let i = 0; i < allVariants.length; i += CHUNK_SIZE) {
+      chunks.push(allVariants.slice(i, i + CHUNK_SIZE));
+    }
+
+    let doneCount = 0;
+    let successCount = 0;
+    let fileCount = 0;
+
     try {
-      const doc = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4"
-      });
+      for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+        const chunk = chunks[chunkIndex];
+        const doc = new jsPDF({
+          orientation: "portrait",
+          unit: "mm",
+          format: "a4"
+        });
 
-      let yPosition = 10;
-      let successCount = 0;
-      let doneCount = 0;
-      const CONCURRENCY = 8;
+        let yPosition = 10;
+        let chunkSuccessCount = 0;
 
-      for (let i = 0; i < allVariants.length; i += CONCURRENCY) {
-        const batch = allVariants.slice(i, i + CONCURRENCY);
-        const images = await Promise.all(batch.map(async ({ variant }) => {
-          try {
-            const svgText = await fetchBarcodeSVG(variant.id);
-            const canvas = await svgToCanvas(svgText);
-            return canvas.toDataURL('image/png');
-          } catch (err) {
-            console.error(`Failed to process barcode for ${variant.sku}:`, err);
-            return null;
+        for (let i = 0; i < chunk.length; i += CONCURRENCY) {
+          const batch = chunk.slice(i, i + CONCURRENCY);
+          const images = await Promise.all(batch.map(async ({ variant }) => {
+            try {
+              const svgText = await fetchBarcodeSVG(variant.id);
+              const canvas = await svgToCanvas(svgText);
+              return canvas.toDataURL('image/png');
+            } catch (err) {
+              console.error(`Failed to process barcode for ${variant.sku}:`, err);
+              return null;
+            }
+          }));
+
+          for (let j = 0; j < batch.length; j++) {
+            const { item, variant } = batch[j];
+            const imgData = images[j];
+            doneCount++;
+            setDownloadProgress({ done: doneCount, total: allVariants.length });
+
+            if (!imgData) continue;
+
+            if (yPosition > 230) {
+              doc.addPage();
+              yPosition = 10;
+            }
+
+            doc.setFontSize(9);
+            doc.text(`${item.product.name}`, 10, yPosition);
+            doc.setFontSize(7);
+            doc.text(`SKU: ${variant.sku}${variant.packQuantity && variant.packQuantity > 1 ? ` | Pack: ${variant.packQuantity}` : ''}`, 10, yPosition + 5);
+
+            doc.addImage(imgData, 'PNG', 10, yPosition + 10, 190, 40);
+            yPosition += 55;
+            chunkSuccessCount++;
+            successCount++;
           }
-        }));
+        }
 
-        for (let j = 0; j < batch.length; j++) {
-          const { item, variant } = batch[j];
-          const imgData = images[j];
-          doneCount++;
-          setDownloadProgress({ done: doneCount, total: allVariants.length });
-
-          if (!imgData) continue;
-
-          if (yPosition > 230) {
-            doc.addPage();
-            yPosition = 10;
-          }
-
-          doc.setFontSize(9);
-          doc.text(`${item.product.name}`, 10, yPosition);
-          doc.setFontSize(7);
-          doc.text(`SKU: ${variant.sku}${variant.packQuantity && variant.packQuantity > 1 ? ` | Pack: ${variant.packQuantity}` : ''}`, 10, yPosition + 5);
-
-          doc.addImage(imgData, 'PNG', 10, yPosition + 10, 190, 40);
-          yPosition += 55;
-          successCount++;
+        if (chunkSuccessCount > 0) {
+          fileCount++;
+          const suffix = chunks.length > 1 ? `-part${chunkIndex + 1}of${chunks.length}` : "";
+          doc.save(`barcodes-batch${suffix}.pdf`);
         }
       }
 
       if (successCount > 0) {
-        doc.save("barcodes-batch.pdf");
         toast({
           title: "Success",
-          description: `Downloaded ${successCount} barcode(s) as PDF`
+          description: fileCount > 1
+            ? `Downloaded ${successCount} barcode(s) across ${fileCount} PDF files`
+            : `Downloaded ${successCount} barcode(s) as PDF`
         });
       } else {
         toast({
