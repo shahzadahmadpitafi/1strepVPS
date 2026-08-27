@@ -153,6 +153,16 @@ import fs from "fs";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { createPaypalOrder, capturePaypalOrder, loadPaypalDefault, isPayPalConfigured } from "./paypal";
 
+/** "Peak Oversized T" / "2x Peak Oversized T" / "Peak Oversized T + 2 more items" — for SMS product detail */
+function summariseOrderItems(items: { name: string; quantity: number }[]): string {
+  if (items.length === 0) return "your items";
+  const first = items[0];
+  const firstLabel = first.quantity > 1 ? `${first.quantity}x ${first.name}` : first.name;
+  if (items.length === 1) return firstLabel;
+  const extra = items.length - 1;
+  return `${firstLabel} + ${extra} more item${extra === 1 ? '' : 's'}`;
+}
+
 // Initialize Stripe only if the secret key is available
 let stripe: Stripe | null = null;
 if (process.env.STRIPE_SECRET_KEY) {
@@ -6817,7 +6827,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (emailError) {
           console.error('Failed to send order confirmation email:', emailError);
         }
-        smsOrderConfirmed(customerInfo.phone, `${customerInfo.firstName} ${customerInfo.lastName}`, order[0].orderNumber, finalTotal, (message) => {
+        const orderItemSummary = summariseOrderItems(validatedCartItems.map((item: any) => ({ name: item.name, quantity: item.quantity })));
+        smsOrderConfirmed(customerInfo.phone, `${customerInfo.firstName} ${customerInfo.lastName}`, order[0].orderNumber, finalTotal, orderItemSummary, (message) => {
           db.update(customerOrders).set({ smsLastError: message, smsLastErrorAt: new Date() }).where(eq(customerOrders.id, order[0].id)).catch(e => console.error('Failed to record SMS error:', e));
         });
 
@@ -16150,10 +16161,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (emailError) {
           console.error('Failed to send shipping notification:', emailError);
         }
+        const shippedItems = await db.select().from(customerOrderItems).where(eq(customerOrderItems.orderId, updatedOrder.id));
+        const shippedItemSummary = summariseOrderItems(shippedItems.map(item => ({ name: item.productName, quantity: item.quantity })));
         smsOrderShipped(
           (updatedOrder as any).customerPhone || null,
           `${updatedOrder.customerFirstName} ${updatedOrder.customerLastName}`,
           updatedOrder.orderNumber,
+          shippedItemSummary,
           updatedOrder.trackingNumber || null,
           (message) => {
             db.update(customerOrders).set({ smsLastError: message, smsLastErrorAt: new Date() }).where(eq(customerOrders.id, updatedOrder.id)).catch(e => console.error('Failed to record SMS error:', e));

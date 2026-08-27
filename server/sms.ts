@@ -85,14 +85,14 @@ export function smsResellerRejected(phone: string | null | undefined, name: stri
   smsAsync(phone, `Hi ${name}, thanks for your interest in the 1stRep reseller programme. We're unable to approve your application right now, but you're welcome to reapply as your business grows — and to shop with us as a customer in the meantime. – 1stRep`, onError);
 }
 
-export function smsOrderConfirmed(phone: string | null | undefined, name: string, orderNumber: string, total: string | number, onError?: (message: string) => void): void {
-  smsAsync(phone, `Hi ${name}, your 1stRep order #${orderNumber} is confirmed — total £${total}. We're preparing it now and will text you the moment it ships. – 1stRep`, onError);
+export function smsOrderConfirmed(phone: string | null | undefined, name: string, orderNumber: string, total: string | number, itemSummary: string, onError?: (message: string) => void): void {
+  smsAsync(phone, `Hi ${name}, we've received your 1stRep order #${orderNumber} — ${itemSummary}. Total £${total}. We're preparing it now and will text you the moment it ships. – 1stRep`, onError);
 }
 
-export function smsOrderShipped(phone: string | null | undefined, name: string, orderNumber: string, trackingNumber?: string | null, onError?: (message: string) => void): void {
+export function smsOrderShipped(phone: string | null | undefined, name: string, orderNumber: string, itemSummary: string, trackingNumber?: string | null, onError?: (message: string) => void): void {
   const body = trackingNumber
-    ? `Hi ${name}, great news — your 1stRep order #${orderNumber} has shipped! Track it: ${trackingNumber}. – 1stRep`
-    : `Hi ${name}, great news — your 1stRep order #${orderNumber} is on its way! – 1stRep`;
+    ? `Hi ${name}, great news — your 1stRep order #${orderNumber} (${itemSummary}) has shipped! Track it: ${trackingNumber}. – 1stRep`
+    : `Hi ${name}, great news — your 1stRep order #${orderNumber} (${itemSummary}) is on its way! – 1stRep`;
   smsAsync(phone, body, onError);
 }
 
