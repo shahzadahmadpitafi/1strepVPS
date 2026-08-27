@@ -474,6 +474,15 @@ async function ensureCriticalTablesExist() {
     console.error("❌ Error creating order_email_log table:", error);
   }
 
+  // Add sms_last_error / sms_last_error_at columns to customer_orders if missing
+  try {
+    await pool.query(`ALTER TABLE customer_orders ADD COLUMN IF NOT EXISTS sms_last_error text`);
+    await pool.query(`ALTER TABLE customer_orders ADD COLUMN IF NOT EXISTS sms_last_error_at timestamp`);
+    console.log("✅ customer_orders.sms_last_error columns ensured");
+  } catch (error) {
+    console.error("❌ Error adding sms_last_error columns:", error);
+  }
+
   // Add fixed_credits_per_order column to influencer_discount_variants if missing
   // (present in shared/schema.ts but was never migrated onto the live DB —
   // broke creating any new discount variant with a 500 error)

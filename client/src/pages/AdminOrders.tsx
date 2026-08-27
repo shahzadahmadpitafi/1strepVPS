@@ -160,6 +160,8 @@ interface Order {
   eposTerminalId?: string;
   customerPhone?: string;
   ownSquarePaid?: boolean;
+  smsLastError?: string | null;
+  smsLastErrorAt?: string | null;
 }
 
 interface OrderSummary {
@@ -1682,6 +1684,14 @@ export default function AdminOrders() {
                     <h3 className="font-semibold">SMS Messages</h3>
                     {smsThreadLoading && <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground" />}
                   </div>
+                  {selectedOrder.smsLastError && (
+                    <div className="mb-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                      <span className="font-medium">Last automatic SMS failed to send:</span> {selectedOrder.smsLastError}
+                      {selectedOrder.smsLastErrorAt && (
+                        <span className="text-destructive/70"> &middot; {new Date(selectedOrder.smsLastErrorAt).toLocaleString("en-GB")}</span>
+                      )}
+                    </div>
+                  )}
                   {(smsThread?.messages?.length ?? 0) === 0 ? (
                     <p className="text-sm text-muted-foreground italic">
                       {smsThread?.configured === false

@@ -901,7 +901,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (emailError) {
         console.error('Failed to send reseller application email:', emailError);
       }
-      smsResellerApplicationReceived(phoneNumber, contactPerson);
+      smsResellerApplicationReceived(phoneNumber, contactPerson, businessName);
 
       // Create admin notification for new reseller application
       try {
@@ -972,7 +972,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (emailError) {
         console.error('Failed to send vendor application email:', emailError);
       }
-      smsResellerApplicationReceived(phoneNumber, businessName);
+      smsResellerApplicationReceived(phoneNumber, businessName, businessName);
 
       // Create admin notification for new vendor application
       try {
@@ -1803,7 +1803,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (emailErr) {
         console.error("Failed to send subscription email:", emailErr);
       }
-      smsSubscriptionActivated(fullReseller.phoneNumber, fullReseller.businessName, tier);
+      smsSubscriptionActivated(fullReseller.phoneNumber, fullReseller.businessName, tier, tierPrice, nextBillingDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }));
       
       console.log(`🎉 Reseller ${reseller.businessName} activated ${tier} licence`);
       
@@ -6817,7 +6817,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (emailError) {
           console.error('Failed to send order confirmation email:', emailError);
         }
-        smsOrderConfirmed(customerInfo.phone, `${customerInfo.firstName} ${customerInfo.lastName}`, order[0].orderNumber, finalTotal);
+        smsOrderConfirmed(customerInfo.phone, `${customerInfo.firstName} ${customerInfo.lastName}`, order[0].orderNumber, finalTotal, (message) => {
+          db.update(customerOrders).set({ smsLastError: message, smsLastErrorAt: new Date() }).where(eq(customerOrders.id, order[0].id)).catch(e => console.error('Failed to record SMS error:', e));
+        });
 
         res.status(201).json({ 
           success: true, 
@@ -7590,7 +7592,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (emailError) {
           console.error('Failed to send reseller approval email:', emailError);
         }
-        smsResellerApproved(reseller.phoneNumber, reseller.contactPerson, reseller.tier);
+        smsResellerApproved(reseller.phoneNumber, reseller.contactPerson, reseller.tier, parseFloat(reseller.discountPercentage));
       }
 
       res.json({ message: "Reseller approved successfully with 1stRep products auto-synced", reseller });
@@ -7760,7 +7762,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (emailError) {
           console.error('Failed to send vendor access email:', emailError);
         }
-        smsResellerApproved(reseller.phoneNumber, reseller.businessName, 'vendor');
+        smsResellerApproved(reseller.phoneNumber, reseller.businessName, 'vendor', 0);
       }
 
       res.json({ 
@@ -8347,7 +8349,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (emailError) {
           console.error('Failed to send vendor approval email:', emailError);
         }
-        smsResellerApproved(vendor.phoneNumber, vendor.businessName, 'vendor');
+        smsResellerApproved(vendor.phoneNumber, vendor.businessName, 'vendor', 0);
       }
 
       res.json({ message: "Vendor approved successfully", vendor });
@@ -10834,7 +10836,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (emailError) {
         console.error("Failed to send wholesale order emails:", emailError);
       }
-      smsWholesaleOrderPaid(vendor.phoneNumber, vendor.businessName, order.orderNumber, (Number(order.totalAmount) / 100).toFixed(2));
+      smsWholesaleOrderPaid(vendor.phoneNumber, vendor.businessName, order.orderNumber, (Number(order.totalAmount) / 100).toFixed(2), itemCount);
       
       console.log(`💳 Wholesale order ${order.orderNumber} paid by ${vendor.businessName}`);
       
@@ -16148,14 +16150,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (emailError) {
           console.error('Failed to send shipping notification:', emailError);
         }
-        if (updatedOrder.trackingNumber) {
-          smsOrderShipped(
-            (updatedOrder as any).customerPhone || null,
-            `${updatedOrder.customerFirstName} ${updatedOrder.customerLastName}`,
-            updatedOrder.orderNumber,
-            updatedOrder.trackingNumber
-          );
-        }
+        smsOrderShipped(
+          (updatedOrder as any).customerPhone || null,
+          `${updatedOrder.customerFirstName} ${updatedOrder.customerLastName}`,
+          updatedOrder.orderNumber,
+          updatedOrder.trackingNumber || null,
+          (message) => {
+            db.update(customerOrders).set({ smsLastError: message, smsLastErrorAt: new Date() }).where(eq(customerOrders.id, updatedOrder.id)).catch(e => console.error('Failed to record SMS error:', e));
+          }
+        );
       }
 
       // Confirm commissions when order is delivered

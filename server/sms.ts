@@ -14,7 +14,12 @@ export function normalisePhone(raw: string): string {
   return `+44${trimmed}`;
 }
 
-export async function sendSMS(to: string, body: string): Promise<boolean> {
+/**
+ * onError only fires for a genuine send failure (Twilio configured but the
+ * API call failed) — never for the intentional "not configured" skip, so
+ * callers can distinguish "nothing attempted" from "attempted and failed".
+ */
+export async function sendSMS(to: string, body: string, onError?: (message: string) => void): Promise<boolean> {
   const sid   = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
   const from  = process.env.TWILIO_FROM_NUMBER;
@@ -42,64 +47,76 @@ export async function sendSMS(to: string, body: string): Promise<boolean> {
       console.log(`SMS sent to ${phone}: ${data.sid}`);
       return true;
     }
-    console.error(`Twilio error for ${phone}:`, data.message || data);
+    const message = data.message || 'Unknown Twilio error';
+    console.error(`Twilio error for ${phone}:`, message);
+    onError?.(message);
     return false;
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
     console.error('SMS send error:', err);
+    onError?.(message);
     return false;
   }
 }
 
 /** Fire-and-forget helper — skips silently if phone is falsy */
-export function smsAsync(to: string | null | undefined, body: string): void {
+export function smsAsync(to: string | null | undefined, body: string, onError?: (message: string) => void): void {
   if (!to) return;
-  sendSMS(to, body).catch(err => console.error('SMS async error:', err));
+  sendSMS(to, body, onError).catch(err => {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('SMS async error:', err);
+    onError?.(message);
+  });
 }
 
 // ─── Template functions ───────────────────────────────────────────────────────
+// Copy is matched to the equivalent email in server/email.ts so the SMS reads
+// like a shorter version of the same message, not a generic stand-in.
 
-export function smsResellerApplicationReceived(phone: string | null | undefined, name: string): void {
-  smsAsync(phone, `Hi ${name}, your 1stRep reseller application has been received. We'll review it and get back to you within 3–5 business days. – 1stRep`);
+export function smsResellerApplicationReceived(phone: string | null | undefined, name: string, businessName: string, onError?: (message: string) => void): void {
+  smsAsync(phone, `Hi ${name}, thanks for applying to become a 1stRep reseller! We've received your application for ${businessName} and will review it within 2-3 business days. – 1stRep`, onError);
 }
 
-export function smsResellerApproved(phone: string | null | undefined, name: string, tier: string): void {
-  smsAsync(phone, `Great news ${name}! Your 1stRep ${tier} reseller account is APPROVED. Log in at 1strep.com/login to access your dashboard and start selling. – 1stRep`);
+export function smsResellerApproved(phone: string | null | undefined, name: string, tier: string, discountPercentage: number, onError?: (message: string) => void): void {
+  smsAsync(phone, `Congratulations ${name}! Your 1stRep reseller application is approved — ${tier} tier, ${discountPercentage}% off. Log in at 1strep.com/reseller/login to start ordering. – 1stRep`, onError);
 }
 
-export function smsResellerRejected(phone: string | null | undefined, name: string): void {
-  smsAsync(phone, `Hi ${name}, thank you for applying to the 1stRep reseller programme. Unfortunately your application was not successful at this time. Contact us at info@1strep.com for more information. – 1stRep`);
+export function smsResellerRejected(phone: string | null | undefined, name: string, onError?: (message: string) => void): void {
+  smsAsync(phone, `Hi ${name}, thanks for your interest in the 1stRep reseller programme. We're unable to approve your application right now, but you're welcome to reapply as your business grows — and to shop with us as a customer in the meantime. – 1stRep`, onError);
 }
 
-export function smsOrderConfirmed(phone: string | null | undefined, name: string, orderNumber: string, total: string | number): void {
-  smsAsync(phone, `Hi ${name}, your 1stRep order #${orderNumber} is confirmed! Total: £${total}. We'll text you again when it ships. – 1stRep`);
+export function smsOrderConfirmed(phone: string | null | undefined, name: string, orderNumber: string, total: string | number, onError?: (message: string) => void): void {
+  smsAsync(phone, `Hi ${name}, your 1stRep order #${orderNumber} is confirmed — total £${total}. We're preparing it now and will text you the moment it ships. – 1stRep`, onError);
 }
 
-export function smsOrderShipped(phone: string | null | undefined, name: string, orderNumber: string, trackingNumber?: string | null): void {
-  const tracking = trackingNumber ? ` Tracking: ${trackingNumber}.` : '';
-  smsAsync(phone, `Good news ${name}! Your 1stRep order #${orderNumber} is on its way.${tracking} – 1stRep`);
+export function smsOrderShipped(phone: string | null | undefined, name: string, orderNumber: string, trackingNumber?: string | null, onError?: (message: string) => void): void {
+  const body = trackingNumber
+    ? `Hi ${name}, great news — your 1stRep order #${orderNumber} has shipped! Track it: ${trackingNumber}. – 1stRep`
+    : `Hi ${name}, great news — your 1stRep order #${orderNumber} is on its way! – 1stRep`;
+  smsAsync(phone, body, onError);
 }
 
-export function smsWholesaleOrderPaid(phone: string | null | undefined, businessName: string, orderNumber: string, amount: string | number): void {
-  smsAsync(phone, `Hi ${businessName}, your wholesale order #${orderNumber} payment of £${amount} has been received and is being processed. – 1stRep`);
+export function smsWholesaleOrderPaid(phone: string | null | undefined, businessName: string, orderNumber: string, amount: string | number, itemCount: number, onError?: (message: string) => void): void {
+  smsAsync(phone, `Hi ${businessName}, payment confirmed for wholesale order #${orderNumber} — £${amount} for ${itemCount} item${itemCount === 1 ? '' : 's'}. We'll text you again once it's dispatched. – 1stRep`, onError);
 }
 
-export function smsSubscriptionActivated(phone: string | null | undefined, businessName: string, tier: string): void {
+export function smsSubscriptionActivated(phone: string | null | undefined, businessName: string, tier: string, amount: string | number, nextBillingDate: string, onError?: (message: string) => void): void {
   const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
-  smsAsync(phone, `Hi ${businessName}, your 1stRep ${tierLabel} licence is now active! Log in at 1strep.com/reseller/dashboard to manage your account. – 1stRep`);
+  smsAsync(phone, `Hi ${businessName}, your 1stRep ${tierLabel} subscription is now active! You can start listing your own products right away. £${amount}/month, next billing ${nextBillingDate}. – 1stRep`, onError);
 }
 
-export function smsInfluencerApplicationReceived(phone: string | null | undefined, name: string): void {
-  smsAsync(phone, `Hi ${name}, we've received your 1stRep Influencer application! Our team will review it within 7 days. – 1stRep`);
+export function smsInfluencerApplicationReceived(phone: string | null | undefined, name: string, onError?: (message: string) => void): void {
+  smsAsync(phone, `Hi ${name}, thanks for applying to the 1stRep Influencer Programme! We'll review your application within 7 days. If approved, you'll get your own discount code plus 100 welcome credits. – 1stRep`, onError);
 }
 
-export function smsInfluencerApproved(phone: string | null | undefined, name: string, discountCode: string): void {
-  smsAsync(phone, `Congrats ${name}! You're approved for the 1stRep Influencer Programme. Your discount code: ${discountCode}. 100 welcome credits added. Log in at 1strep.com/login – 1stRep`);
+export function smsInfluencerApproved(phone: string | null | undefined, name: string, discountCode: string, onError?: (message: string) => void): void {
+  smsAsync(phone, `Congrats ${name} — you're in! Your 1stRep Influencer code is ${discountCode}, plus 100 welcome credits added to your account. Log in at 1strep.com/login to get started. – 1stRep`, onError);
 }
 
-export function smsAbandonedCart(phone: string | null | undefined, name: string): void {
-  smsAsync(phone, `Hi ${name}, you left something in your 1stRep cart! Complete your order at 1strep.com before it sells out. – 1stRep`);
+export function smsAbandonedCart(phone: string | null | undefined, name: string, onError?: (message: string) => void): void {
+  smsAsync(phone, `Hi ${name}, you left something behind! Your 1stRep cart is still saved — complete your order at 1strep.com before it sells out. – 1stRep`, onError);
 }
 
-export function smsPasswordReset(phone: string | null | undefined): void {
-  smsAsync(phone, `Your 1stRep password reset link has been sent to your email. If you did not request this, contact us at info@1strep.com immediately. – 1stRep`);
+export function smsPasswordReset(phone: string | null | undefined, onError?: (message: string) => void): void {
+  smsAsync(phone, `Your 1stRep password reset link has been sent to your email. Didn't request this? Contact info@1strep.com straight away. – 1stRep`, onError);
 }

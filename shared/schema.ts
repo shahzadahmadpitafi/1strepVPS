@@ -742,6 +742,11 @@ export const customerOrders = pgTable("customer_orders", {
   
   // Tracking
   trackingNumber: text("tracking_number"),
+  // Set when an automatic order-related SMS (confirmation/shipped) fails to
+  // send while Twilio is configured, so the failure is visible to admins
+  // instead of silently vanishing — cleared is implicit (null = no failure).
+  smsLastError: text("sms_last_error"),
+  smsLastErrorAt: timestamp("sms_last_error_at"),
   notes: text("notes"),
   
   // Order source/channel tracking
