@@ -31,6 +31,7 @@ import { SiApplepay, SiGooglepay } from "react-icons/si";
 import QRPayment from "@/components/epos/QRPayment";
 import ProductShowReel from "@/components/epos/ProductShowReel";
 import EPOSAdLoop from "@/components/epos/EPOSAdLoop";
+import PromoBanner from "@/components/epos/PromoBanner";
 import SquareCardReader from "@/components/SquareCardReader";
 
 // Email validation helper
@@ -2215,6 +2216,8 @@ export default function ResellerEPOS() {
           </div>
         </div>
       </header>
+
+      <PromoBanner storeName={storeName} products={products} />
 
       {/* Products Grid */}
       <main className="max-w-7xl mx-auto px-4 py-8">

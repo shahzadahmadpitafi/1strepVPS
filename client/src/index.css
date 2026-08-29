@@ -856,3 +856,14 @@ img, video, iframe {
     }
   }
 }
+
+/* Rolling product strip inside PromoBanner (EPOS) */
+@keyframes promoScroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .promo-scroll-track {
+    animation: none !important;
+  }
+}
