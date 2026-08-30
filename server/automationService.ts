@@ -18,6 +18,7 @@ import {
 } from "@shared/schema";
 import { eq, and, sql, lt, gt } from "drizzle-orm";
 import { sendWelcomeEmail, sendAbandonedCartReminder, sendCustomerEmail } from "./email-service";
+import { smsAbandonedCart } from "./sms";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -112,8 +113,19 @@ export async function processAbandonedCartAutomations() {
 
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
   const pendingCarts = await db
-    .select()
+    .select({
+      id: abandonedCarts.id,
+      cartId: abandonedCarts.cartId,
+      userId: abandonedCarts.userId,
+      email: abandonedCarts.email,
+      firstName: abandonedCarts.firstName,
+      totalValue: abandonedCarts.totalValue,
+      itemCount: abandonedCarts.itemCount,
+      firstReminderSmsSent: abandonedCarts.firstReminderSmsSent,
+      phoneNumber: users.phoneNumber,
+    })
     .from(abandonedCarts)
+    .leftJoin(users, eq(abandonedCarts.userId, users.id))
     .where(
       and(
         eq(abandonedCarts.firstReminderSent, false),
@@ -145,6 +157,16 @@ export async function processAbandonedCartAutomations() {
           .update(abandonedCarts)
           .set({ firstReminderSent: true, firstReminderSentAt: new Date() })
           .where(eq(abandonedCarts.id, cart.id));
+
+        if (!cart.firstReminderSmsSent && cart.phoneNumber) {
+          smsAbandonedCart(cart.phoneNumber, cart.firstName || "there", (message) => {
+            console.error(`[Automation:abandoned_cart] SMS failed for cart ${cart.cartId}: ${message}`);
+          });
+          await db
+            .update(abandonedCarts)
+            .set({ firstReminderSmsSent: true, firstReminderSmsSentAt: new Date() })
+            .where(eq(abandonedCarts.id, cart.id));
+        }
 
         if (cart.userId) {
           await enroll(automation.id, cart.userId);

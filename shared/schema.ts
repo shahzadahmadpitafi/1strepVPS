@@ -2832,6 +2832,8 @@ export const abandonedCarts = pgTable("abandoned_carts", {
   itemCount: integer("item_count").notNull(),
   firstReminderSent: boolean("first_reminder_sent").notNull().default(false),
   firstReminderSentAt: timestamp("first_reminder_sent_at"),
+  firstReminderSmsSent: boolean("first_reminder_sms_sent").notNull().default(false),
+  firstReminderSmsSentAt: timestamp("first_reminder_sms_sent_at"),
   secondReminderSent: boolean("second_reminder_sent").notNull().default(false),
   secondReminderSentAt: timestamp("second_reminder_sent_at"),
   finalReminderSent: boolean("final_reminder_sent").notNull().default(false),

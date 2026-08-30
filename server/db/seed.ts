@@ -483,6 +483,15 @@ async function ensureCriticalTablesExist() {
     console.error("❌ Error adding sms_last_error columns:", error);
   }
 
+  // Add first_reminder_sms_sent / _at columns to abandoned_carts if missing
+  try {
+    await pool.query(`ALTER TABLE abandoned_carts ADD COLUMN IF NOT EXISTS first_reminder_sms_sent boolean NOT NULL DEFAULT false`);
+    await pool.query(`ALTER TABLE abandoned_carts ADD COLUMN IF NOT EXISTS first_reminder_sms_sent_at timestamp`);
+    console.log("✅ abandoned_carts.first_reminder_sms_sent columns ensured");
+  } catch (error) {
+    console.error("❌ Error adding first_reminder_sms_sent columns:", error);
+  }
+
   // Add review_sms_sent_at column to customer_orders if missing
   try {
     await pool.query(`ALTER TABLE customer_orders ADD COLUMN IF NOT EXISTS review_sms_sent_at timestamp`);

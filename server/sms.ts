@@ -125,6 +125,6 @@ export function smsAbandonedCart(phone: string | null | undefined, name: string,
   smsAsync(phone, `Hi ${name}, you left something behind! Your 1stRep cart is still saved — complete your order at 1strep.com before it sells out. – 1stRep`, onError);
 }
 
-export function smsPasswordReset(phone: string | null | undefined, onError?: (message: string) => void): void {
-  smsAsync(phone, `Your 1stRep password reset link has been sent to your email. Didn't request this? Contact info@1strep.com straight away. – 1stRep`, onError);
+export function smsPasswordReset(phone: string | null | undefined, otp: string, onError?: (message: string) => void): void {
+  smsAsync(phone, `Your 1stRep password reset code is ${otp}. It expires in 10 minutes. Didn't request this? Contact info@1strep.com straight away. – 1stRep`, onError);
 }

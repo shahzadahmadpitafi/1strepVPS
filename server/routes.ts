@@ -1255,6 +1255,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error('Failed to send OTP email:', emailError);
           // Still return success but log the error
         }
+
+        smsPasswordReset((user as any).phoneNumber || null, otp);
       }
       
       // Always return success message
