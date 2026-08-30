@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { convertToDirectUrl } from "@/lib/imageUtils";
 import { formatCurrency } from "@/lib/utils";
+import { Search } from "lucide-react";
 
 // ─── Promo window ───────────────────────────────────────────────────────────
 const PROMO_START = new Date("2026-09-12T00:00:00");
@@ -108,12 +109,11 @@ export default function PromoTakeover({ storeName, products, onExit }: PromoTake
           style={{ background: "linear-gradient(to bottom, rgba(10,10,10,0.35) 0%, rgba(10,10,10,0.55) 55%, #0a0a0a 100%)" }}
         />
         <div className="relative h-full max-w-2xl mx-auto px-6 xl:px-10 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 xl:w-14 xl:h-14 rounded-lg bg-white text-black flex items-center justify-center shrink-0" style={ANTON}>
-              <span className="text-lg xl:text-2xl">1<sup className="text-[0.5em]">st</sup></span>
-            </div>
-            <span className="text-white text-xl xl:text-2xl drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]" style={ANTON}>REP</span>
-          </div>
+          <img
+            src="/1strep-header-logo.png"
+            alt="1stRep"
+            className="h-9 xl:h-12 w-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]"
+          />
           <div className="text-right">
             <p className="text-white text-lg xl:text-2xl uppercase leading-tight drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]" style={ANTON}>
               {storeName}
@@ -180,6 +180,46 @@ export default function PromoTakeover({ storeName, products, onExit }: PromoTake
           </div>
         </div>
 
+        {/* Kiosk device mockup — the actual in-gym 1st REP POS, showing this store's real inventory */}
+        {gridProducts.length > 0 && (
+          <div className="mx-auto max-w-[15rem] xl:max-w-[17rem] mb-8">
+            <div className="rounded-2xl border-[3px] border-black bg-black shadow-[0_20px_60px_rgba(0,0,0,0.5)] ring-1 ring-white/10 overflow-hidden">
+              <div className="bg-[#0d0d0d] px-3 pt-3 pb-2">
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="text-white text-[0.7rem] font-bold uppercase tracking-wide truncate">{storeName}</span>
+                  <Search className="w-3.5 h-3.5 text-white/40 shrink-0" />
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {gridProducts.slice(0, 6).map((p) => {
+                    const retail = parseFloat(p.retailPrice);
+                    const discounted = retail * (1 - DISCOUNT_PCT / 100);
+                    return (
+                      <div key={p.id} className="bg-white/5 rounded-md overflow-hidden">
+                        <img
+                          src={convertToDirectUrl(p.imageUrl!)}
+                          alt={p.name}
+                          className="w-full aspect-square object-cover"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0"; }}
+                        />
+                        <div className="px-1.5 py-1">
+                          <p className="text-white text-[0.6rem] font-semibold truncate leading-tight">{p.name}</p>
+                          <span className="text-amber-400 text-[0.65rem] font-bold">{formatCurrency(discounted)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="bg-black py-2.5 flex items-center justify-center">
+                <img src="/1strep-header-logo.png" alt="1stRep" className="h-4 w-auto opacity-90" />
+              </div>
+            </div>
+            <p className="text-center text-amber-200/40 text-[0.65rem] tracking-[0.2em] uppercase mt-2 font-semibold">
+              Right here in your gym
+            </p>
+          </div>
+        )}
+
         <p className="text-white text-xl xl:text-3xl mb-6" style={ANTON}>
           12 September &mdash; 11 October
         </p>
@@ -204,33 +244,6 @@ export default function PromoTakeover({ storeName, products, onExit }: PromoTake
             Shop at the 1st Rep POS &mdash; Right Here In Your Gym
           </p>
         </div>
-
-        {/* Real, discounted inventory grid */}
-        {gridProducts.length > 0 && (
-          <div className="grid grid-cols-3 gap-3 xl:gap-4 mb-10">
-            {gridProducts.map((p) => {
-              const retail = parseFloat(p.retailPrice);
-              const discounted = retail * (1 - DISCOUNT_PCT / 100);
-              return (
-                <div key={p.id} className="bg-white/5 border border-white/10 rounded-lg overflow-hidden">
-                  <img
-                    src={convertToDirectUrl(p.imageUrl!)}
-                    alt={p.name}
-                    className="w-full aspect-square object-cover"
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0"; }}
-                  />
-                  <div className="p-2">
-                    <p className="text-white text-xs font-semibold truncate">{p.name}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="text-white/35 text-[0.65rem] line-through">{formatCurrency(retail)}</span>
-                      <span className="text-amber-400 text-xs font-bold">{formatCurrency(discounted)}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
 
         <p className="text-center text-amber-200/40 text-xs tracking-[0.3em] uppercase">
           Tap anywhere to shop
