@@ -98,12 +98,38 @@ export default function PromoTakeover({ storeName, products, onExit }: PromoTake
         </div>
       )}
 
-      {/* Amber gym-light glow, standing in for the team's photo until a clean one is supplied */}
+      {/* Real gym-floor photo band, cropped from the team's own reference video */}
+      <div
+        className="relative h-40 xl:h-56 bg-cover"
+        style={{ backgroundImage: "url(/promo/gym-band.jpg)", backgroundPosition: "center 35%" }}
+      >
+        <div
+          className="absolute inset-0"
+          style={{ background: "linear-gradient(to bottom, rgba(10,10,10,0.35) 0%, rgba(10,10,10,0.55) 55%, #0a0a0a 100%)" }}
+        />
+        <div className="relative h-full max-w-2xl mx-auto px-6 xl:px-10 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 xl:w-14 xl:h-14 rounded-lg bg-white text-black flex items-center justify-center shrink-0" style={ANTON}>
+              <span className="text-lg xl:text-2xl">1<sup className="text-[0.5em]">st</sup></span>
+            </div>
+            <span className="text-white text-xl xl:text-2xl drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]" style={ANTON}>REP</span>
+          </div>
+          <div className="text-right">
+            <p className="text-white text-lg xl:text-2xl uppercase leading-tight drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]" style={ANTON}>
+              {storeName}
+            </p>
+            <p className="text-amber-100/80 text-[0.65rem] xl:text-xs tracking-[0.2em] uppercase font-semibold mt-1">
+              Official Retail Partner
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Subtle amber glow behind the rest of the content, on the solid dark ground */}
       <div
         className="fixed inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(90% 60% at 10% 0%, rgba(245,158,11,0.20) 0%, transparent 55%), " +
             "radial-gradient(80% 50% at 100% 30%, rgba(245,158,11,0.12) 0%, transparent 55%), " +
             "radial-gradient(70% 40% at 20% 100%, rgba(245,158,11,0.10) 0%, transparent 55%)",
         }}
@@ -116,25 +142,7 @@ export default function PromoTakeover({ storeName, products, onExit }: PromoTake
         }}
       />
 
-      <div className="relative max-w-2xl mx-auto px-6 xl:px-10 pt-10 pb-16">
-        {/* Dual-brand header */}
-        <div className="flex items-start justify-between gap-4 mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 xl:w-14 xl:h-14 rounded-lg bg-white text-black flex items-center justify-center shrink-0" style={ANTON}>
-              <span className="text-lg xl:text-2xl">1<sup className="text-[0.5em]">st</sup></span>
-            </div>
-            <span className="text-white text-xl xl:text-2xl" style={ANTON}>REP</span>
-          </div>
-          <div className="text-right">
-            <p className="text-white text-lg xl:text-2xl uppercase leading-tight" style={ANTON}>
-              {storeName}
-            </p>
-            <p className="text-amber-200/50 text-[0.65rem] xl:text-xs tracking-[0.2em] uppercase font-semibold mt-1">
-              Official Retail Partner
-            </p>
-          </div>
-        </div>
-
+      <div className="relative max-w-2xl mx-auto px-6 xl:px-10 pt-6 pb-16">
         {/* Live countdown */}
         <p
           className="text-white text-center uppercase text-lg xl:text-2xl mb-5"
