@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { convertToDirectUrl } from "@/lib/imageUtils";
+import { convertToDirectUrl, handleImageError } from "@/lib/imageUtils";
 import { formatCurrency } from "@/lib/utils";
 import { Search, User, ShoppingCart, Shirt, Smartphone, Sparkles } from "lucide-react";
 
@@ -216,7 +216,7 @@ export default function PromoTakeover({ storeName, products, onExit }: PromoTake
                             src={convertToDirectUrl(p.imageUrl!)}
                             alt={p.name}
                             className="w-full aspect-square object-cover"
-                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0"; }}
+                            onError={handleImageError}
                           />
                           <div className="px-1 py-0.5">
                             <p className="text-white text-[0.5rem] font-semibold truncate leading-tight">{p.name}</p>
@@ -276,7 +276,7 @@ export default function PromoTakeover({ storeName, products, onExit }: PromoTake
                     src={convertToDirectUrl(p.imageUrl!)}
                     alt={p.name}
                     className="w-12 h-12 object-cover rounded-md border border-white/10"
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
+                    onError={handleImageError}
                   />
                   <div className="leading-tight">
                     <p className="text-white text-xs font-semibold whitespace-nowrap max-w-[10rem] truncate">{p.name}</p>
