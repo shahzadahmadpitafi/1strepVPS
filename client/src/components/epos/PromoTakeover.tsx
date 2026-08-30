@@ -105,15 +105,26 @@ export default function PromoTakeover({ storeName, products, onExit }: PromoTake
         </div>
       )}
 
-      {/* Real gym-floor photo, at native scale, behind the header/countdown only —
-          cropped from the team's own reference video (the only footage without text baked in) */}
-      <div
-        className="relative h-56 xl:h-64 bg-cover"
-        style={{ backgroundImage: "url(/promo/gym-band.jpg)", backgroundPosition: "center 35%" }}
-      >
+      {/* Looping gym-floor footage behind the header/countdown — the team's own reference
+          video, muted and heavily darkened so its own baked-in text doesn't show through
+          while the motion still reads as a genuinely "running" background */}
+      <div className="relative h-56 xl:h-64 overflow-hidden">
+        <video
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{
+            objectPosition: "center 37%",
+            transform: "scale(2.3)",
+            filter: "brightness(0.55) contrast(0.9) saturate(0.9)",
+          }}
+          src="/promo/gym-loop.mp4"
+          autoPlay
+          loop
+          muted
+          playsInline
+        />
         <div
           className="absolute inset-0"
-          style={{ background: "linear-gradient(to bottom, rgba(10,10,10,0.25) 0%, rgba(10,10,10,0.6) 75%, #0a0a0a 100%)" }}
+          style={{ background: "linear-gradient(to bottom, rgba(10,10,10,0.45) 0%, rgba(10,10,10,0.75) 75%, #0a0a0a 100%)" }}
         />
 
         <div className="relative max-w-2xl mx-auto px-6 xl:px-10 pt-8 h-full flex flex-col">
