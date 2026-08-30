@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { convertToDirectUrl } from "@/lib/imageUtils";
 import { formatCurrency } from "@/lib/utils";
-import { Search } from "lucide-react";
+import { Search, User, ShoppingCart, Shirt, Smartphone, Sparkles } from "lucide-react";
 
 // ─── Promo window ───────────────────────────────────────────────────────────
 const PROMO_START = new Date("2026-09-12T00:00:00");
@@ -52,10 +52,10 @@ function ClockTile({ value, label }: { value: number; label: string }) {
   return (
     <div className="flex flex-col items-center">
       <div
-        className="min-w-[3.6rem] xl:min-w-[4.8rem] px-2.5 py-2 bg-black border border-amber-400/40 rounded-lg text-center shadow-[0_0_30px_rgba(245,158,11,0.1)]"
+        className="min-w-[4.2rem] xl:min-w-[5.5rem] px-3 py-2.5 bg-black border border-amber-400/40 rounded-lg text-center shadow-[0_0_30px_rgba(245,158,11,0.1)]"
         style={{ fontVariantNumeric: "tabular-nums" }}
       >
-        <span className="text-3xl xl:text-5xl text-white leading-none" style={ANTON}>
+        <span className="text-4xl xl:text-6xl text-white leading-none" style={ANTON}>
           {String(value).padStart(2, "0")}
         </span>
       </div>
@@ -118,7 +118,7 @@ export default function PromoTakeover({ storeName, products, onExit }: PromoTake
               alt="1stRep"
               className="h-9 xl:h-12 w-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]"
             />
-            <p className="text-white text-lg xl:text-2xl uppercase leading-tight text-right drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]" style={ANTON}>
+            <p className="text-white text-2xl xl:text-4xl uppercase leading-[0.95] text-right drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)] max-w-[60%]" style={ANTON}>
               {storeName}
             </p>
           </div>
@@ -175,14 +175,16 @@ export default function PromoTakeover({ storeName, products, onExit }: PromoTake
               12 September &mdash; 11 October
             </p>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               {[
-                `Exclusive to ${storeName} members`,
-                "Available only via your in-gym 1st REP retail hub",
-                "New products, exclusive offers, just for you",
-              ].map((line) => (
-                <div key={line} className="flex items-start gap-3">
-                  <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0 mt-1.5" />
+                { Icon: User, line: `Exclusive to ${storeName} members` },
+                { Icon: ShoppingCart, line: "Available only via your in-gym 1st REP retail hub" },
+                { Icon: Shirt, line: "New products, exclusive offers, just for you" },
+              ].map(({ Icon, line }) => (
+                <div key={line} className="flex items-center gap-3">
+                  <div className="w-8 h-8 xl:w-9 xl:h-9 rounded-full border border-white/50 flex items-center justify-center shrink-0">
+                    <Icon className="w-4 h-4 text-white" strokeWidth={1.75} />
+                  </div>
                   <span className="text-white/85 text-xs xl:text-sm uppercase tracking-wide leading-snug">{line}</span>
                 </div>
               ))}
@@ -219,8 +221,21 @@ export default function PromoTakeover({ storeName, products, onExit }: PromoTake
                     })}
                   </div>
                 </div>
-                <div className="bg-black py-2 flex items-center justify-center">
-                  <img src="/1strep-header-logo.png" alt="1stRep" className="h-3.5 w-auto opacity-90" />
+                <div className="flex items-center justify-center gap-1 py-2 text-white/30">
+                  <div className="w-1 h-1 rounded-full border border-current" />
+                  <div className="w-2 h-2 rounded-full border border-current" />
+                  <div className="w-3 h-3 rounded-full border border-current" />
+                </div>
+                <div className="bg-black pb-3 flex items-center justify-center">
+                  <div
+                    className="w-10 h-10 xl:w-12 xl:h-12 flex flex-col items-center justify-center shrink-0"
+                    style={{ background: "#f59e0b", clipPath: "polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0% 50%)" }}
+                  >
+                    <span className="text-black leading-none text-[0.65rem] xl:text-[0.8rem]" style={ANTON}>
+                      1<sup className="text-[0.55em]">st</sup>
+                    </span>
+                    <span className="text-black leading-none text-[0.55rem] xl:text-[0.7rem] mt-0.5" style={ANTON}>REP</span>
+                  </div>
                 </div>
               </div>
               <p className="text-center text-amber-200/40 text-[0.55rem] tracking-[0.15em] uppercase mt-2 font-semibold leading-snug">
@@ -233,10 +248,12 @@ export default function PromoTakeover({ storeName, products, onExit }: PromoTake
 
       {/* CTA banner + tap hint, on solid ground */}
       <div className="relative max-w-2xl mx-auto px-6 xl:px-10 pb-16 pt-6">
-        <div className="border border-amber-400/40 px-5 py-4 mb-8 flex items-center justify-center">
+        <div className="border border-amber-400/40 px-5 py-4 mb-8 flex items-center justify-between gap-3">
+          <Smartphone className="w-5 h-5 text-white/70 shrink-0" strokeWidth={1.5} />
           <p className="text-white text-center text-sm xl:text-lg uppercase" style={ANTON}>
             Shop at the 1st Rep POS &mdash; Right Here In Your Gym
           </p>
+          <Sparkles className="w-5 h-5 text-amber-400/70 shrink-0" strokeWidth={1.5} />
         </div>
         <p className="text-center text-amber-200/40 text-xs tracking-[0.3em] uppercase">
           Tap anywhere to shop
