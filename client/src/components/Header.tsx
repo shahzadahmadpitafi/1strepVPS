@@ -75,12 +75,11 @@ export default function Header() {
 
   return (
     <>
-      {/* Announcement Banner: scrolling marquee on desktop, static wrapped text on mobile
-          (a long message on a narrow screen can never be fully read mid-scroll, no matter the speed) */}
+      {/* Announcement Banner with Scrolling Animation */}
       {banner?.isVisible && banner?.message && (
         <Link href="/shop">
           <div
-            className="hidden md:block w-full py-2 overflow-hidden relative cursor-pointer hover:opacity-90 transition-opacity bg-white/90 backdrop-blur-md text-black border-b border-white/20"
+            className="w-full py-2 overflow-hidden relative cursor-pointer hover:opacity-90 transition-opacity bg-white/90 backdrop-blur-md text-black border-b border-white/20"
             data-testid="announcement-banner"
           >
             <div className="flex animate-marquee whitespace-nowrap">
@@ -101,15 +100,6 @@ export default function Header() {
                 <span className="mx-6 text-sm opacity-40">•</span>
               </span>
             </div>
-          </div>
-
-          <div
-            className="md:hidden w-full py-2 px-4 cursor-pointer hover:opacity-90 transition-opacity bg-white/90 backdrop-blur-md text-black border-b border-white/20 text-center"
-            data-testid="announcement-banner-mobile"
-          >
-            <span className="text-xs font-medium tracking-wide uppercase leading-snug">
-              {banner.message}
-            </span>
           </div>
         </Link>
       )}
