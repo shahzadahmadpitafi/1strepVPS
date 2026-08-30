@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { convertToDirectUrl } from "@/lib/imageUtils";
 import { formatCurrency } from "@/lib/utils";
-import { Tag } from "lucide-react";
 
 // ─── Promo window ───────────────────────────────────────────────────────────
 const PROMO_START = new Date("2026-09-12T00:00:00");
@@ -12,6 +11,8 @@ const DISCOUNT_PCT = 25;
 // banner should go live for every reseller. Until then it only renders when
 // a URL carries ?promoPreview=1, so real resellers never see it.
 const PROMO_LIVE = false;
+
+const ANTON = { fontFamily: "'Anton', 'Barlow Condensed', sans-serif" } as const;
 
 interface PromoProduct {
   id: string;
@@ -52,7 +53,7 @@ function CountdownTile({ value, label }: { value: number; label: string }) {
         className="min-w-[2.75rem] px-2 py-1 bg-black border border-amber-400/40 rounded-md text-center"
         style={{ fontVariantNumeric: "tabular-nums" }}
       >
-        <span className="text-lg xl:text-xl font-black text-amber-400 leading-none">
+        <span className="text-lg xl:text-xl text-amber-400 leading-none" style={ANTON}>
           {String(value).padStart(2, "0")}
         </span>
       </div>
@@ -91,9 +92,19 @@ export default function PromoBanner({ storeName, products }: PromoBannerProps) {
   return (
     <div
       className="relative z-40 border-y border-amber-400/25 overflow-hidden"
-      style={{ background: "linear-gradient(90deg,#0D0D0D 0%,#151208 50%,#0D0D0D 100%)" }}
+      style={{
+        background:
+          "radial-gradient(120% 220% at 12% -20%, rgba(245,158,11,0.20) 0%, transparent 55%), " +
+          "radial-gradient(120% 220% at 88% 120%, rgba(245,158,11,0.14) 0%, transparent 55%), #0a0a0a",
+      }}
       data-testid="promo-banner"
     >
+      {/* Thin amber highlight line, matching the poster's card treatment */}
+      <div
+        className="absolute left-6 right-6 top-0 h-px pointer-events-none"
+        style={{ background: "linear-gradient(90deg, transparent, rgba(245,158,11,0.55), transparent)" }}
+      />
+
       {isPreview && (
         <div className="absolute top-1 right-2 z-10 text-[0.55rem] tracking-[0.15em] uppercase font-bold text-black bg-amber-400 px-1.5 py-0.5 rounded-sm">
           Preview
@@ -103,11 +114,16 @@ export default function PromoBanner({ storeName, products }: PromoBannerProps) {
       {/* Top row — headline + live countdown */}
       <div className="flex items-center justify-between gap-4 px-4 xl:px-8 py-2.5 flex-wrap">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex items-center gap-1.5 bg-amber-400 text-black font-black text-xs xl:text-sm px-2.5 py-1 rounded-full shrink-0">
-            <Tag className="w-3.5 h-3.5" />
-            {DISCOUNT_PCT}% OFF
+          <div
+            className="shrink-0 bg-white text-black text-xs xl:text-sm px-3 py-1"
+            style={{ ...ANTON, fontStyle: "italic", transform: "skewX(-8deg)", letterSpacing: "0.01em" }}
+          >
+            <span style={{ display: "inline-block", transform: "skewX(8deg)" }}>{DISCOUNT_PCT}% OFF</span>
           </div>
-          <p className="text-white font-bold uppercase tracking-wide text-sm xl:text-base truncate">
+          <p
+            className="text-white uppercase text-sm xl:text-base truncate"
+            style={{ ...ANTON, fontStyle: "italic", letterSpacing: "0.01em" }}
+          >
             {storeName} Exclusive Sale
           </p>
         </div>
