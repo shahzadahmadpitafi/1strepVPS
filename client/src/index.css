@@ -721,10 +721,10 @@ img, video, iframe {
     animation-play-state: paused;
   }
 
-  /* Slower marquee on mobile for readability */
+  /* Slower marquee on mobile for readability (was 10s — faster than desktop's 20s, the opposite of intended) */
   @media (max-width: 768px) {
     .animate-marquee {
-      animation: marquee 10s linear infinite;
+      animation: marquee 38s linear infinite;
     }
   }
 
