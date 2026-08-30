@@ -32,6 +32,7 @@ import QRPayment from "@/components/epos/QRPayment";
 import ProductShowReel from "@/components/epos/ProductShowReel";
 import EPOSAdLoop from "@/components/epos/EPOSAdLoop";
 import PromoBanner from "@/components/epos/PromoBanner";
+import PromoTakeover from "@/components/epos/PromoTakeover";
 import SquareCardReader from "@/components/SquareCardReader";
 
 // Email validation helper
@@ -154,6 +155,7 @@ export default function ResellerEPOS() {
   const [viewMode, setViewMode] = useState<"grid" | "large">("large");
   const [showShowReel, setShowShowReel] = useState(false);
   const [showAdLoop, setShowAdLoop] = useState(false);
+  const [showPromoTakeover, setShowPromoTakeover] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [hoveredProductId, setHoveredProductId] = useState<string | null>(null);
@@ -362,6 +364,14 @@ export default function ResellerEPOS() {
     refetchInterval: 30000, // Auto-refresh every 30s as fallback alongside Socket.IO real-time sync
     staleTime: 20000,
   });
+
+  // Auto-show the September promo takeover once per session (gated inside PromoTakeover itself
+  // via PROMO_LIVE / ?promoPreview=1, so this is a no-op until that's flipped on)
+  useEffect(() => {
+    if (sessionStorage.getItem("promoTakeoverShown")) return;
+    sessionStorage.setItem("promoTakeoverShown", "1");
+    setShowPromoTakeover(true);
+  }, []);
 
   // Fetch category sales data for sorting categories by sales performance
   const { data: categorySalesData = [] } = useQuery<{ category: string; totalSales: number }[]>({
@@ -2217,7 +2227,7 @@ export default function ResellerEPOS() {
         </div>
       </header>
 
-      <PromoBanner storeName={storeName} products={products} />
+      <PromoBanner storeName={storeName} products={products} onClick={() => setShowPromoTakeover(true)} />
 
       {/* Products Grid */}
       <main className="max-w-7xl mx-auto px-4 py-8">
@@ -3707,6 +3717,14 @@ export default function ResellerEPOS() {
           storeName={resellerProfile?.businessName || "1stRep Reseller"}
           intervalSeconds={10}
           onClose={() => setShowShowReel(false)}
+        />
+      )}
+
+      {showPromoTakeover && (
+        <PromoTakeover
+          storeName={storeName}
+          products={products}
+          onExit={() => setShowPromoTakeover(false)}
         />
       )}
 

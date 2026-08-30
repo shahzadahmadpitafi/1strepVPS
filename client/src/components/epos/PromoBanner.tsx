@@ -25,6 +25,7 @@ interface PromoProduct {
 interface PromoBannerProps {
   storeName: string;
   products: PromoProduct[];
+  onClick?: () => void;
 }
 
 function useNow() {
@@ -64,7 +65,7 @@ function CountdownTile({ value, label }: { value: number; label: string }) {
   );
 }
 
-export default function PromoBanner({ storeName, products }: PromoBannerProps) {
+export default function PromoBanner({ storeName, products, onClick }: PromoBannerProps) {
   const now = useNow();
 
   const isPreview = useMemo(() => {
@@ -91,7 +92,8 @@ export default function PromoBanner({ storeName, products }: PromoBannerProps) {
 
   return (
     <div
-      className="relative z-40 border-y border-amber-400/25 overflow-hidden"
+      className={`relative z-40 border-y border-amber-400/25 overflow-hidden ${onClick ? "cursor-pointer" : ""}`}
+      onClick={onClick}
       style={{
         background:
           "radial-gradient(120% 220% at 12% -20%, rgba(245,158,11,0.20) 0%, transparent 55%), " +
