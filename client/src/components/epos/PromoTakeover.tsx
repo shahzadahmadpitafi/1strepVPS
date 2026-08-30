@@ -87,6 +87,12 @@ export default function PromoTakeover({ storeName, products, onExit }: PromoTake
     [products],
   );
 
+  const marqueeProducts = useMemo(
+    () => products.filter((p) => p.imageUrl && p.productType !== "own_product").slice(0, 14),
+    [products],
+  );
+  const loopProducts = marqueeProducts.length > 0 ? [...marqueeProducts, ...marqueeProducts] : [];
+
   return (
     <div
       className="fixed inset-0 z-[9999] bg-[#0a0a0a] overflow-y-auto cursor-pointer select-none"
@@ -246,19 +252,49 @@ export default function PromoTakeover({ storeName, products, onExit }: PromoTake
         </div>
       </div>
 
-      {/* CTA banner + tap hint, on solid ground */}
-      <div className="relative max-w-2xl mx-auto px-6 xl:px-10 pb-16 pt-6">
-        <div className="border border-amber-400/40 px-5 py-4 mb-8 flex items-center justify-between gap-3">
+      {/* CTA banner, on solid ground */}
+      <div className="relative max-w-2xl mx-auto px-6 xl:px-10 pb-8 pt-6">
+        <div className="border border-amber-400/40 px-5 py-4 flex items-center justify-between gap-3">
           <Smartphone className="w-5 h-5 text-white/70 shrink-0" strokeWidth={1.5} />
           <p className="text-white text-center text-sm xl:text-lg uppercase" style={ANTON}>
             Shop at the 1st Rep POS &mdash; Right Here In Your Gym
           </p>
           <Sparkles className="w-5 h-5 text-amber-400/70 shrink-0" strokeWidth={1.5} />
         </div>
-        <p className="text-center text-amber-200/40 text-xs tracking-[0.3em] uppercase">
-          Tap anywhere to shop
-        </p>
       </div>
+
+      {/* Rolling reel of this store's real inventory at 25% off, edge-to-edge */}
+      {loopProducts.length > 0 && (
+        <div className="relative border-y border-amber-400/15 py-3 overflow-hidden mb-8">
+          <div className="flex items-center gap-6 w-max animate-[promoScroll_32s_linear_infinite]">
+            {loopProducts.map((p, i) => {
+              const retail = parseFloat(p.retailPrice);
+              const discounted = retail * (1 - DISCOUNT_PCT / 100);
+              return (
+                <div key={`${p.id}-${i}`} className="flex items-center gap-3 shrink-0 pr-6 border-r border-white/10 last:border-r-0">
+                  <img
+                    src={convertToDirectUrl(p.imageUrl!)}
+                    alt={p.name}
+                    className="w-12 h-12 object-cover rounded-md border border-white/10"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
+                  />
+                  <div className="leading-tight">
+                    <p className="text-white text-xs font-semibold whitespace-nowrap max-w-[10rem] truncate">{p.name}</p>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-white/35 text-[0.65rem] line-through">{formatCurrency(retail)}</span>
+                      <span className="text-amber-400 text-xs font-bold">{formatCurrency(discounted)}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <p className="relative text-center text-amber-200/40 text-xs tracking-[0.3em] uppercase pb-16">
+        Tap anywhere to shop
+      </p>
     </div>
   );
 }
