@@ -774,6 +774,7 @@ export const customerOrders = pgTable("customer_orders", {
 
   // Post-delivery review request tracking
   reviewEmailSentAt: timestamp("review_email_sent_at"),
+  reviewSmsSentAt: timestamp("review_sms_sent_at"),
 });
 
 // Customer order items table

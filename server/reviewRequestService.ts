@@ -4,20 +4,23 @@
  * Runs on a cron schedule. Finds all customer orders that:
  *  - have status = 'delivered'
  *  - were delivered 3 or more days ago
- *  - have not yet had a review request email sent
+ *  - have not yet had a review request email and/or SMS sent
  *
- * Sends a branded (v1.9 monochrome) email and records the send time on the order.
+ * Sends a branded (v1.9 monochrome) email and a feedback-link SMS, each
+ * gated by its own sent-at timestamp so a failure in one channel doesn't
+ * block or duplicate the other.
  */
 
 import { db } from "./db";
 import { customerOrders } from "@shared/schema";
-import { and, eq, isNull, lte, isNotNull } from "drizzle-orm";
+import { and, eq, isNull, lte, isNotNull, or } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 
 // Re-use the project's existing Gmail/SMTP send pipeline
 // sendEmailViaGmail is not exported — we import the higher-level helper
 // that already handles SMTP-first → Gmail fallback
 import { sendDeliveryConfirmation } from "./email-service";
+import { sendSMS, buildReviewRequestSmsBody } from "./sms";
 
 // ---------------------------------------------------------------------------
 // Email template
@@ -353,6 +356,30 @@ async function sendReviewEmail(order: {
   }
 }
 
+async function sendReviewSms(order: {
+  id: string;
+  orderNumber: string;
+  customerPhone: string | null;
+  customerFirstName: string;
+}): Promise<void> {
+  if (!order.customerPhone) return;
+
+  const feedbackUrl = `${getSiteUrl()}/feedback?order=${encodeURIComponent(order.orderNumber)}`;
+  const body = buildReviewRequestSmsBody(order.customerFirstName, order.orderNumber, feedbackUrl);
+
+  const sent = await sendSMS(order.customerPhone, body, (message) => {
+    console.error(`[ReviewRequest] SMS failed for order ${order.orderNumber}: ${message}`);
+  });
+
+  if (sent) {
+    console.log(`[ReviewRequest] SMS sent to ${order.customerPhone} — order ${order.orderNumber}`);
+    await db
+      .update(customerOrders)
+      .set({ reviewSmsSentAt: new Date() })
+      .where(eq(customerOrders.id, order.id));
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Main export — called by the cron scheduler
 // ---------------------------------------------------------------------------
@@ -370,7 +397,10 @@ export async function processReviewRequests(): Promise<void> {
         orderNumber: customerOrders.orderNumber,
         customerEmail: customerOrders.customerEmail,
         customerFirstName: customerOrders.customerFirstName,
+        customerPhone: customerOrders.customerPhone,
         deliveredAt: customerOrders.deliveredAt,
+        reviewEmailSentAt: customerOrders.reviewEmailSentAt,
+        reviewSmsSentAt: customerOrders.reviewSmsSentAt,
       })
       .from(customerOrders)
       .where(
@@ -378,7 +408,7 @@ export async function processReviewRequests(): Promise<void> {
           eq(customerOrders.status, "delivered"),
           isNotNull(customerOrders.deliveredAt),
           lte(customerOrders.deliveredAt, threeDaysAgo),
-          isNull(customerOrders.reviewEmailSentAt)
+          or(isNull(customerOrders.reviewEmailSentAt), isNull(customerOrders.reviewSmsSentAt))
         )
       )
       .limit(50); // Safety cap — process at most 50 per run
@@ -391,10 +421,19 @@ export async function processReviewRequests(): Promise<void> {
     console.log(`[ReviewRequest] Found ${eligibleOrders.length} order(s) to process.`);
 
     for (const order of eligibleOrders) {
-      try {
-        await sendReviewEmail(order);
-      } catch (err: any) {
-        console.error(`[ReviewRequest] Failed for order ${order.orderNumber}: ${err.message}`);
+      if (!order.reviewEmailSentAt) {
+        try {
+          await sendReviewEmail(order);
+        } catch (err: any) {
+          console.error(`[ReviewRequest] Email failed for order ${order.orderNumber}: ${err.message}`);
+        }
+      }
+      if (!order.reviewSmsSentAt) {
+        try {
+          await sendReviewSms(order);
+        } catch (err: any) {
+          console.error(`[ReviewRequest] SMS failed for order ${order.orderNumber}: ${err.message}`);
+        }
       }
     }
 

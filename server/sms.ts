@@ -96,6 +96,14 @@ export function smsOrderShipped(phone: string | null | undefined, name: string, 
   smsAsync(phone, body, onError);
 }
 
+export function buildReviewRequestSmsBody(name: string, orderNumber: string, feedbackUrl: string): string {
+  return `Hi ${name}, how did your 1stRep order #${orderNumber} measure up? We'd love your feedback — it only takes 30 seconds: ${feedbackUrl} – 1stRep`;
+}
+
+export function smsReviewRequest(phone: string | null | undefined, name: string, orderNumber: string, feedbackUrl: string, onError?: (message: string) => void): void {
+  smsAsync(phone, buildReviewRequestSmsBody(name, orderNumber, feedbackUrl), onError);
+}
+
 export function smsWholesaleOrderPaid(phone: string | null | undefined, businessName: string, orderNumber: string, amount: string | number, itemCount: number, onError?: (message: string) => void): void {
   smsAsync(phone, `Hi ${businessName}, payment confirmed for wholesale order #${orderNumber} — £${amount} for ${itemCount} item${itemCount === 1 ? '' : 's'}. We'll text you again once it's dispatched. – 1stRep`, onError);
 }
