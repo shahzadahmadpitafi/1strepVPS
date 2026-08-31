@@ -96,7 +96,7 @@ export default function PromoTakeover({ storeName, storeLogoUrl, products, onExi
 
   return (
     <div
-      className="fixed inset-0 z-[9999] bg-[#0a0a0a] overflow-y-auto cursor-pointer select-none"
+      className="fixed inset-0 z-[9999] bg-[#0a0a0a] overflow-y-auto cursor-pointer select-none flex flex-col"
       onClick={onExit}
       data-testid="promo-takeover"
     >
@@ -172,14 +172,14 @@ export default function PromoTakeover({ storeName, storeLogoUrl, products, onExi
       {/* Two-column body: offer details on the left, kiosk device on the right — solid ground,
           color-matched to the photo above rather than stretching it further */}
       <div
-        className="relative"
+        className="relative flex-1 flex items-center"
         style={{
           background:
             "radial-gradient(70% 60% at 15% 0%, rgba(250,204,21,0.10) 0%, transparent 55%), " +
             "radial-gradient(60% 50% at 100% 40%, rgba(250,204,21,0.08) 0%, transparent 55%), #0a0a0a",
         }}
       >
-        <div className="relative max-w-2xl mx-auto px-6 xl:px-10 pt-8 pb-10 flex gap-5 items-start flex-wrap sm:flex-nowrap">
+        <div className="relative w-full max-w-2xl mx-auto px-6 xl:px-10 py-8 flex gap-5 items-start flex-wrap sm:flex-nowrap">
           <div className="flex-1 min-w-[13rem]">
             <div className="mb-6">
               <div className="bg-white text-black px-5 py-3 mb-1" style={{ transform: "skewX(-6deg)" }}>
