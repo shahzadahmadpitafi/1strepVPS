@@ -8,10 +8,10 @@ const PROMO_START = new Date("2026-09-12T00:00:00");
 const PROMO_END = new Date("2026-10-11T23:59:59");
 const DISCOUNT_PCT = 25;
 
-// Master switch — flip to true once the design has been approved and the
-// takeover should go live for every reseller. Until then it only renders
-// when a URL carries ?promoPreview=1, so real resellers never see it.
-const PROMO_LIVE = false;
+// Master switch — the design has been approved; the takeover is now live for
+// every reseller (each shows their own business name/logo via storeName /
+// storeLogoUrl, not a fixed store).
+const PROMO_LIVE = true;
 
 const ANTON = { fontFamily: "'Anton', 'Barlow Condensed', sans-serif" } as const;
 
@@ -25,6 +25,7 @@ interface PromoProduct {
 
 interface PromoTakeoverProps {
   storeName: string;
+  storeLogoUrl?: string | null;
   products: PromoProduct[];
   onExit: () => void;
 }
@@ -66,7 +67,7 @@ function ClockTile({ value, label }: { value: number; label: string }) {
   );
 }
 
-export default function PromoTakeover({ storeName, products, onExit }: PromoTakeoverProps) {
+export default function PromoTakeover({ storeName, storeLogoUrl, products, onExit }: PromoTakeoverProps) {
   const now = useNow();
 
   const isPreview = useMemo(() => {
@@ -135,9 +136,23 @@ export default function PromoTakeover({ storeName, products, onExit }: PromoTake
               alt="1stRep"
               className="h-9 xl:h-12 w-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]"
             />
-            <p className="text-white text-2xl xl:text-4xl uppercase leading-[0.95] text-right drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)] max-w-[60%]" style={ANTON}>
-              {storeName}
-            </p>
+            {storeLogoUrl ? (
+              <div className="flex flex-col items-end gap-1.5 max-w-[60%]">
+                <img
+                  src={storeLogoUrl}
+                  alt={storeName}
+                  className="h-9 xl:h-12 w-auto max-w-full object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                />
+                <p className="text-white/70 text-xs xl:text-sm uppercase text-right drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)]" style={ANTON}>
+                  {storeName}
+                </p>
+              </div>
+            ) : (
+              <p className="text-white text-2xl xl:text-4xl uppercase leading-[0.95] text-right drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)] max-w-[60%]" style={ANTON}>
+                {storeName}
+              </p>
+            )}
           </div>
           <div className="h-px w-32 bg-white/30 mb-4" />
 

@@ -117,6 +117,7 @@ interface ResellerProfile {
   contactPerson: string;
   phoneNumber: string;
   businessAddress: string;
+  logoUrl: string | null;
   tier: string;
   discountPercentage: string;
   couponCode: string | null;
@@ -2241,7 +2242,7 @@ export default function ResellerEPOS() {
         </div>
       </header>
 
-      <PromoBanner storeName={storeName} products={products} onClick={() => setShowPromoTakeover(true)} />
+      <PromoBanner storeName={storeName} storeLogoUrl={resellerProfile?.logoUrl} products={products} onClick={() => setShowPromoTakeover(true)} />
 
       {/* Products Grid */}
       <main className="max-w-7xl mx-auto px-4 py-8">
@@ -3737,6 +3738,7 @@ export default function ResellerEPOS() {
       {showPromoTakeover && (
         <PromoTakeover
           storeName={storeName}
+          storeLogoUrl={resellerProfile?.logoUrl}
           products={products}
           onExit={() => setShowPromoTakeover(false)}
         />

@@ -508,6 +508,24 @@ async function ensureCriticalTablesExist() {
     console.error("❌ Error adding review_sms_sent_at column:", error);
   }
 
+  // Create reseller_ads table if missing (admin-uploaded EPOS ad per reseller)
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS reseller_ads (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        reseller_id varchar NOT NULL UNIQUE REFERENCES resellers(id) ON DELETE CASCADE,
+        media_type varchar(10) NOT NULL,
+        media_url text NOT NULL,
+        is_active boolean NOT NULL DEFAULT true,
+        uploaded_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    console.log("✅ reseller_ads table ensured");
+  } catch (error) {
+    console.error("❌ Error creating reseller_ads table:", error);
+  }
+
   // Add fixed_credits_per_order column to influencer_discount_variants if missing
   // (present in shared/schema.ts but was never migrated onto the live DB —
   // broke creating any new discount variant with a 500 error)

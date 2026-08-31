@@ -7,10 +7,10 @@ const PROMO_START = new Date("2026-09-12T00:00:00");
 const PROMO_END = new Date("2026-10-11T23:59:59");
 const DISCOUNT_PCT = 25;
 
-// Master switch — flip to true once the design has been approved and the
-// banner should go live for every reseller. Until then it only renders when
-// a URL carries ?promoPreview=1, so real resellers never see it.
-const PROMO_LIVE = false;
+// Master switch — the design has been approved; the banner is now live for
+// every reseller (each shows their own business name/logo via storeName /
+// storeLogoUrl, not a fixed store).
+const PROMO_LIVE = true;
 
 const ANTON = { fontFamily: "'Anton', 'Barlow Condensed', sans-serif" } as const;
 
@@ -24,6 +24,7 @@ interface PromoProduct {
 
 interface PromoBannerProps {
   storeName: string;
+  storeLogoUrl?: string | null;
   products: PromoProduct[];
   onClick?: () => void;
 }
@@ -65,7 +66,7 @@ function CountdownTile({ value, label }: { value: number; label: string }) {
   );
 }
 
-export default function PromoBanner({ storeName, products, onClick }: PromoBannerProps) {
+export default function PromoBanner({ storeName, storeLogoUrl, products, onClick }: PromoBannerProps) {
   const now = useNow();
 
   const isPreview = useMemo(() => {
@@ -122,6 +123,14 @@ export default function PromoBanner({ storeName, products, onClick }: PromoBanne
           >
             <span style={{ display: "inline-block", transform: "skewX(8deg)" }}>{DISCOUNT_PCT}% OFF</span>
           </div>
+          {storeLogoUrl && (
+            <img
+              src={storeLogoUrl}
+              alt={storeName}
+              className="h-6 xl:h-8 w-auto max-w-[6rem] object-contain shrink-0"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+            />
+          )}
           <p
             className="text-white uppercase text-sm xl:text-base truncate"
             style={{ ...ANTON, fontStyle: "italic", letterSpacing: "0.01em" }}

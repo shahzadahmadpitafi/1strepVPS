@@ -12461,6 +12461,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         contactPerson: reseller.contactPerson,
         phoneNumber: reseller.phoneNumber,
         businessAddress: reseller.businessAddress,
+        logoUrl: reseller.logoUrl || null,
         tier: reseller.tier,
         discountPercentage: reseller.discountPercentage,
         couponCode: couponResult?.code || null,
