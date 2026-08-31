@@ -67,6 +67,7 @@ import AdminMarketing from "@/pages/AdminMarketing";
 import AdminCustomer360 from "@/pages/AdminCustomer360";
 import AdminCommissionAnalytics from "@/pages/AdminCommissionAnalytics";
 import AdminPartnerManagement from "@/pages/AdminPartnerManagement";
+import AdminResellerAds from "@/pages/AdminResellerAds";
 import AdminSmartNotifications from "@/pages/AdminSmartNotifications";
 import StorefrontPage from "@/pages/StorefrontPage";
 import SearchResults from "@/pages/SearchResults";
@@ -251,6 +252,7 @@ function Router() {
       <Route path="/admin/marketing" component={AdminMarketing}/>
       <Route path="/admin/commission-analytics" component={AdminCommissionAnalytics}/>
       <Route path="/admin/partner-management" component={AdminPartnerManagement}/>
+      <Route path="/admin/reseller-ads" component={AdminResellerAds}/>
       <Route path="/admin/smart-notifications" component={AdminSmartNotifications}/>
       <Route path="/admin/smart-inventory" component={AdminDashboard}/>
       <Route path="/admin/product-performance" component={AdminDashboard}/>

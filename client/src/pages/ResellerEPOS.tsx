@@ -33,6 +33,7 @@ import ProductShowReel from "@/components/epos/ProductShowReel";
 import EPOSAdLoop from "@/components/epos/EPOSAdLoop";
 import PromoBanner from "@/components/epos/PromoBanner";
 import PromoTakeover from "@/components/epos/PromoTakeover";
+import AdPlayer from "@/components/epos/AdPlayer";
 import SquareCardReader from "@/components/SquareCardReader";
 
 // Email validation helper
@@ -395,11 +396,24 @@ export default function ResellerEPOS() {
     queryClient.invalidateQueries({ queryKey: ["/api/reseller/orders"] });
   }, []);
 
+  // Admin-pushed EPOS ad — only ever appears when an admin presses Play in the
+  // admin panel; this terminal has no way to trigger it itself. Skipped while a
+  // sale is actually in progress so it never interrupts a paying customer.
+  const [activeAd, setActiveAd] = useState<{ mediaType: "image" | "video"; mediaUrl: string } | null>(null);
+  const terminalStatusRef = useRef(terminalStatus);
+  terminalStatusRef.current = terminalStatus;
+  const handleAdPlay = useCallback((event: { mediaType: "image" | "video"; mediaUrl: string }) => {
+    if (terminalStatusRef.current === "idle") setActiveAd(event);
+  }, []);
+  const handleAdStop = useCallback(() => setActiveAd(null), []);
+
   useSocket({
     room: "epos",
     resellerId: resellerProfile?.id,
     onInventoryUpdate: handleInventoryUpdate,
     onOrderEvent: handleOrderEvent,
+    onAdPlay: handleAdPlay,
+    onAdStop: handleAdStop,
   });
 
   // Ad loop disabled — was causing significant CPU/GPU load from RAF + Framer Motion
@@ -3725,6 +3739,14 @@ export default function ResellerEPOS() {
           storeName={storeName}
           products={products}
           onExit={() => setShowPromoTakeover(false)}
+        />
+      )}
+
+      {activeAd && (
+        <AdPlayer
+          mediaType={activeAd.mediaType}
+          mediaUrl={activeAd.mediaUrl}
+          onExit={() => setActiveAd(null)}
         />
       )}
 

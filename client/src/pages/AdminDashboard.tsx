@@ -46,7 +46,8 @@ import {
   FolderOpen,
   PoundSterling,
   KeyRound,
-  Trash2
+  Trash2,
+  Video
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -177,6 +178,7 @@ export default function AdminDashboard() {
     { id: "payouts", label: "Commission Payouts", icon: Wallet },
     { id: "commission-analytics", label: "Partner Analytics", icon: TrendingUp, external: "/admin/commission-analytics" },
     { id: "partner-management", label: "Partner Management", icon: Users, external: "/admin/partner-management" },
+    { id: "reseller-ads", label: "Reseller EPOS Ads", icon: Video, external: "/admin/reseller-ads" },
     { id: "smart-notifications", label: "Smart Notifications", icon: Bell, external: "/admin/smart-notifications" },
     { id: "products", label: "Products", icon: Package },
     { id: "categories", label: "Categories", icon: Tag },

@@ -48,6 +48,11 @@ interface ResellerLicenceEvent {
   timestamp: string;
 }
 
+interface AdPlayEvent {
+  mediaType: 'image' | 'video';
+  mediaUrl: string;
+}
+
 interface UseSocketOptions {
   room?: 'admin' | 'epos';
   resellerId?: string;
@@ -55,19 +60,25 @@ interface UseSocketOptions {
   onOrderEvent?: (event: OrderEvent) => void;
   onStockAlert?: (alert: StockAlert) => void;
   onLicenceUpdate?: (event: ResellerLicenceEvent) => void;
+  onAdPlay?: (event: AdPlayEvent) => void;
+  onAdStop?: () => void;
 }
 
 export function useSocket(options: UseSocketOptions = {}) {
-  const { room, resellerId, onInventoryUpdate, onOrderEvent, onStockAlert, onLicenceUpdate } = options;
+  const { room, resellerId, onInventoryUpdate, onOrderEvent, onStockAlert, onLicenceUpdate, onAdPlay, onAdStop } = options;
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [lastInventoryUpdate, setLastInventoryUpdate] = useState<InventoryUpdateEvent | null>(null);
   const [lastOrderEvent, setLastOrderEvent] = useState<OrderEvent | null>(null);
   const [recentPurchases, setRecentPurchases] = useState<InventoryUpdateEvent[]>([]);
-  
+
   // Store callbacks in refs to avoid stale closures
   const onLicenceUpdateRef = useRef(onLicenceUpdate);
   onLicenceUpdateRef.current = onLicenceUpdate;
+  const onAdPlayRef = useRef(onAdPlay);
+  onAdPlayRef.current = onAdPlay;
+  const onAdStopRef = useRef(onAdStop);
+  onAdStopRef.current = onAdStop;
 
   useEffect(() => {
     // Only create socket if there's a room or resellerId to join
@@ -130,6 +141,17 @@ export function useSocket(options: UseSocketOptions = {}) {
       onLicenceUpdateRef.current?.(event);
     });
 
+    // Admin-pushed EPOS ad playback — fires only when an admin presses Play/Stop
+    socket.on('ad:play', (event: AdPlayEvent) => {
+      console.log('📺 Ad play received:', event);
+      onAdPlayRef.current?.(event);
+    });
+
+    socket.on('ad:stop', () => {
+      console.log('📺 Ad stop received');
+      onAdStopRef.current?.();
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -149,4 +171,4 @@ export function useSocket(options: UseSocketOptions = {}) {
   };
 }
 
-export type { InventoryUpdateEvent, OrderEvent, StockAlert, ResellerLicenceEvent };
+export type { InventoryUpdateEvent, OrderEvent, StockAlert, ResellerLicenceEvent, AdPlayEvent };

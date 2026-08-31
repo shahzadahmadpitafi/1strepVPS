@@ -7,7 +7,7 @@ import crypto from "crypto";
 import Stripe from "stripe";
 import nodemailer from "nodemailer";
 import { storage } from "./storage";
-import { emitInventoryUpdate, emitOrderEvent, emitResellerLicenceEvent, emitStockAlert } from "./socketServer";
+import { emitInventoryUpdate, emitOrderEvent, emitResellerLicenceEvent, emitStockAlert, emitAdPlay, emitAdStop, isResellerRoomOnline } from "./socketServer";
 import { db } from "./db";
 import { eq, desc, asc, sql, gte, lte, and, ne, or, isNull, isNotNull, inArray } from "drizzle-orm";
 import { requireAuth, requireAdmin, requireReseller, requireVendor, optionalAuth } from "./middleware/auth";
@@ -7490,6 +7490,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Get resellers error:", error);
       res.status(500).json({ error: "Failed to load resellers" });
+    }
+  });
+
+  // ── Reseller EPOS ads (upload a video/image, assign to a reseller) ──────────
+  app.get("/api/admin/reseller-ads", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const [allResellers, allAds] = await Promise.all([
+        storage.getAllResellers(),
+        storage.listResellerAds(),
+      ]);
+      const adByReseller = new Map(allAds.map(a => [a.resellerId, a]));
+      const rows = allResellers.map(r => ({
+        resellerId: r.id,
+        businessName: r.businessName,
+        ad: adByReseller.get(r.id) || null,
+        isOnline: isResellerRoomOnline(r.id),
+      }));
+      res.json(rows);
+    } catch (error) {
+      console.error("List reseller ads error:", error);
+      res.status(500).json({ error: "Failed to load reseller ads" });
+    }
+  });
+
+  app.put("/api/admin/reseller-ads/:resellerId", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { resellerId } = req.params;
+      const { mediaType, mediaUrl, isActive } = req.body;
+      if (mediaType !== "image" && mediaType !== "video") {
+        return res.status(400).json({ error: "mediaType must be 'image' or 'video'" });
+      }
+      if (!mediaUrl || typeof mediaUrl !== "string") {
+        return res.status(400).json({ error: "mediaUrl is required" });
+      }
+      const reseller = await storage.getReseller(resellerId);
+      if (!reseller) return res.status(404).json({ error: "Reseller not found" });
+
+      const ad = await storage.upsertResellerAd({
+        resellerId,
+        mediaType,
+        mediaUrl,
+        isActive: isActive ?? true,
+      });
+      res.json(ad);
+    } catch (error) {
+      console.error("Upsert reseller ad error:", error);
+      res.status(500).json({ error: "Failed to save ad" });
+    }
+  });
+
+  app.delete("/api/admin/reseller-ads/:resellerId", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      await storage.deleteResellerAd(req.params.resellerId);
+      res.sendStatus(204);
+    } catch (error) {
+      console.error("Delete reseller ad error:", error);
+      res.status(500).json({ error: "Failed to delete ad" });
+    }
+  });
+
+  // Push the ad live on that reseller's EPOS terminal(s) right now. Admin-only —
+  // the reseller has no way to trigger this themselves.
+  app.post("/api/admin/reseller-ads/:resellerId/play", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const ad = await storage.getResellerAd(req.params.resellerId);
+      if (!ad || !ad.isActive) {
+        return res.status(404).json({ error: "No active ad set for this reseller" });
+      }
+      emitAdPlay(req.params.resellerId, ad.mediaType as "image" | "video", ad.mediaUrl);
+      res.json({ ok: true, online: isResellerRoomOnline(req.params.resellerId) });
+    } catch (error) {
+      console.error("Play reseller ad error:", error);
+      res.status(500).json({ error: "Failed to trigger ad" });
+    }
+  });
+
+  app.post("/api/admin/reseller-ads/:resellerId/stop", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      emitAdStop(req.params.resellerId);
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Stop reseller ad error:", error);
+      res.status(500).json({ error: "Failed to stop ad" });
     }
   });
 

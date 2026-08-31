@@ -35,6 +35,7 @@ import {
   heroVideos,
   heroImages,
   resellerStorefronts,
+  resellerAds,
   resellerProducts,
   resellerCustomerOrders,
   resellerCustomerOrderItems,
@@ -104,6 +105,8 @@ import {
   type InsertHeroImage,
   type ResellerStorefront,
   type InsertResellerStorefront,
+  type ResellerAd,
+  type InsertResellerAd,
   type ResellerProduct,
   type InsertResellerProduct,
   type ResellerCustomerOrder,
@@ -663,6 +666,12 @@ export interface IStorage {
   createStorefront(storefront: InsertResellerStorefront): Promise<ResellerStorefront>;
   updateStorefront(id: string, updates: Partial<ResellerStorefront>): Promise<ResellerStorefront | undefined>;
   
+  // Reseller ad operations (EPOS ad-loop uploads)
+  getResellerAd(resellerId: string): Promise<ResellerAd | undefined>;
+  listResellerAds(): Promise<ResellerAd[]>;
+  upsertResellerAd(ad: InsertResellerAd): Promise<ResellerAd>;
+  deleteResellerAd(resellerId: string): Promise<void>;
+
   // Reseller product operations
   getResellerProducts(resellerId: string): Promise<any[]>;
   getResellerProductsWithDetails(resellerId: string): Promise<any[]>;
@@ -3713,6 +3722,40 @@ export class DatabaseStorage implements IStorage {
       .where(eq(resellerStorefronts.id, id))
       .returning();
     return storefront || undefined;
+  }
+
+  // Reseller ad operations (EPOS ad-loop uploads)
+  async getResellerAd(resellerId: string): Promise<ResellerAd | undefined> {
+    const [ad] = await db
+      .select()
+      .from(resellerAds)
+      .where(eq(resellerAds.resellerId, resellerId));
+    return ad || undefined;
+  }
+
+  async listResellerAds(): Promise<ResellerAd[]> {
+    return db.select().from(resellerAds);
+  }
+
+  async upsertResellerAd(ad: InsertResellerAd): Promise<ResellerAd> {
+    const [row] = await db
+      .insert(resellerAds)
+      .values(ad)
+      .onConflictDoUpdate({
+        target: resellerAds.resellerId,
+        set: {
+          mediaType: ad.mediaType,
+          mediaUrl: ad.mediaUrl,
+          isActive: ad.isActive ?? true,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return row;
+  }
+
+  async deleteResellerAd(resellerId: string): Promise<void> {
+    await db.delete(resellerAds).where(eq(resellerAds.resellerId, resellerId));
   }
 
   // Reseller product operations

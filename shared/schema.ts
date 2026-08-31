@@ -2090,6 +2090,17 @@ export const resellerStorefronts = pgTable("reseller_storefronts", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Reseller Ads - one uploaded video/image ad per reseller, played on their EPOS
+export const resellerAds = pgTable("reseller_ads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  resellerId: varchar("reseller_id").notNull().references(() => resellers.id, { onDelete: 'cascade' }).unique(),
+  mediaType: varchar("media_type", { length: 10 }).notNull(), // 'image' | 'video'
+  mediaUrl: text("media_url").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Reseller Products - Products that resellers have added to their storefront
 export const resellerProducts = pgTable("reseller_products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -2398,6 +2409,16 @@ export const insertResellerStorefrontSchema = createInsertSchema(resellerStorefr
   accentColor: true,
   isActive: true,
 });
+
+export const insertResellerAdSchema = createInsertSchema(resellerAds).pick({
+  resellerId: true,
+  mediaType: true,
+  mediaUrl: true,
+  isActive: true,
+});
+
+export type InsertResellerAd = z.infer<typeof insertResellerAdSchema>;
+export type ResellerAd = typeof resellerAds.$inferSelect;
 
 export const insertResellerProductSchema = createInsertSchema(resellerProducts).pick({
   resellerId: true,

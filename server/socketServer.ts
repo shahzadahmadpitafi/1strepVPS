@@ -159,10 +159,33 @@ export interface ResellerLicenceEvent {
 
 export function emitResellerLicenceEvent(event: ResellerLicenceEvent): void {
   if (!io) return;
-  
+
   io.to(`reseller_${event.resellerId}`).emit("licence:update", event);
-  
+
   console.log(`📡 Reseller licence event: ${event.type} - reseller ${event.resellerId}`);
+}
+
+// Admin-triggered EPOS ad playback — pushed directly to a specific reseller's
+// live terminal(s). The reseller has no control over this; it only fires when
+// an admin presses Play/Stop in the admin panel.
+export function emitAdPlay(resellerId: string, mediaType: "image" | "video", mediaUrl: string): void {
+  if (!io) return;
+  io.to(`reseller_${resellerId}`).emit("ad:play", { mediaType, mediaUrl });
+  console.log(`📺 Ad play pushed to reseller_${resellerId}: ${mediaType} ${mediaUrl}`);
+}
+
+export function emitAdStop(resellerId: string): void {
+  if (!io) return;
+  io.to(`reseller_${resellerId}`).emit("ad:stop");
+  console.log(`📺 Ad stop pushed to reseller_${resellerId}`);
+}
+
+// Whether any EPOS terminal for this reseller is currently connected, so the
+// admin panel can show "online" before they bother pressing Play.
+export function isResellerRoomOnline(resellerId: string): boolean {
+  if (!io) return false;
+  const room = io.sockets.adapter.rooms.get(`reseller_${resellerId}`);
+  return !!room && room.size > 0;
 }
 
 export function getIo(): SocketIOServer | null {
