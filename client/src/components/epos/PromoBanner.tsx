@@ -52,14 +52,14 @@ function CountdownTile({ value, label }: { value: number; label: string }) {
   return (
     <div className="flex flex-col items-center">
       <div
-        className="min-w-[2.75rem] px-2 py-1 bg-black border border-amber-400/40 rounded-md text-center"
+        className="min-w-[2.75rem] px-2 py-1 bg-black border border-yellow-400/40 rounded-md text-center"
         style={{ fontVariantNumeric: "tabular-nums" }}
       >
-        <span className="text-lg xl:text-xl text-amber-400 leading-none" style={ANTON}>
+        <span className="text-lg xl:text-xl text-yellow-400 leading-none" style={ANTON}>
           {String(value).padStart(2, "0")}
         </span>
       </div>
-      <span className="mt-1 text-[0.6rem] tracking-[0.18em] uppercase text-amber-200/60 font-semibold">
+      <span className="mt-1 text-[0.6rem] tracking-[0.18em] uppercase text-yellow-200/60 font-semibold">
         {label}
       </span>
     </div>
@@ -93,23 +93,23 @@ export default function PromoBanner({ storeName, storeLogoUrl, products, onClick
 
   return (
     <div
-      className={`relative z-40 border-y border-amber-400/25 overflow-hidden ${onClick ? "cursor-pointer" : ""}`}
+      className={`relative z-40 border-y border-yellow-400/25 overflow-hidden ${onClick ? "cursor-pointer" : ""}`}
       onClick={onClick}
       style={{
         background:
-          "radial-gradient(120% 220% at 12% -20%, rgba(245,158,11,0.20) 0%, transparent 55%), " +
-          "radial-gradient(120% 220% at 88% 120%, rgba(245,158,11,0.14) 0%, transparent 55%), #0a0a0a",
+          "radial-gradient(120% 220% at 12% -20%, rgba(250,204,21,0.20) 0%, transparent 55%), " +
+          "radial-gradient(120% 220% at 88% 120%, rgba(250,204,21,0.14) 0%, transparent 55%), #0a0a0a",
       }}
       data-testid="promo-banner"
     >
-      {/* Thin amber highlight line, matching the poster's card treatment */}
+      {/* Thin yellow highlight line, matching the poster's card treatment */}
       <div
         className="absolute left-6 right-6 top-0 h-px pointer-events-none"
-        style={{ background: "linear-gradient(90deg, transparent, rgba(245,158,11,0.55), transparent)" }}
+        style={{ background: "linear-gradient(90deg, transparent, rgba(250,204,21,0.55), transparent)" }}
       />
 
       {isPreview && (
-        <div className="absolute top-1 right-2 z-10 text-[0.55rem] tracking-[0.15em] uppercase font-bold text-black bg-amber-400 px-1.5 py-0.5 rounded-sm">
+        <div className="absolute top-1 right-2 z-10 text-[0.55rem] tracking-[0.15em] uppercase font-bold text-black bg-yellow-400 px-1.5 py-0.5 rounded-sm">
           Preview
         </div>
       )}
@@ -140,16 +140,16 @@ export default function PromoBanner({ storeName, storeLogoUrl, products, onClick
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          <span className="hidden sm:inline text-amber-200/60 text-[0.65rem] tracking-[0.14em] uppercase font-semibold">
+          <span className="hidden sm:inline text-yellow-200/60 text-[0.65rem] tracking-[0.14em] uppercase font-semibold">
             {promoActive ? "Ends in" : "Starts in"}
           </span>
           <div className="flex items-center gap-1.5">
             <CountdownTile value={days} label="Days" />
-            <span className="text-amber-400/40 font-black pb-4">:</span>
+            <span className="text-yellow-400/40 font-black pb-4">:</span>
             <CountdownTile value={hours} label="Hrs" />
-            <span className="text-amber-400/40 font-black pb-4">:</span>
+            <span className="text-yellow-400/40 font-black pb-4">:</span>
             <CountdownTile value={minutes} label="Min" />
-            <span className="text-amber-400/40 font-black pb-4">:</span>
+            <span className="text-yellow-400/40 font-black pb-4">:</span>
             <CountdownTile value={seconds} label="Sec" />
           </div>
         </div>
@@ -157,7 +157,7 @@ export default function PromoBanner({ storeName, storeLogoUrl, products, onClick
 
       {/* Bottom row — rolling marquee of real, discounted inventory */}
       {loopProducts.length > 0 && (
-        <div className="border-t border-amber-400/15 py-2 overflow-hidden">
+        <div className="border-t border-yellow-400/15 py-2 overflow-hidden">
           <div
             className="promo-scroll-track flex items-center gap-6 w-max animate-[promoScroll_28s_linear_infinite]"
           >
@@ -178,7 +178,7 @@ export default function PromoBanner({ storeName, storeLogoUrl, products, onClick
                     <p className="text-white text-xs font-semibold whitespace-nowrap max-w-[10rem] truncate">{p.name}</p>
                     <div className="flex items-center gap-1.5">
                       <span className="text-white/35 text-[0.65rem] line-through">{formatCurrency(retail)}</span>
-                      <span className="text-amber-400 text-xs font-bold">{formatCurrency(discounted)}</span>
+                      <span className="text-yellow-400 text-xs font-bold">{formatCurrency(discounted)}</span>
                     </div>
                   </div>
                 </div>

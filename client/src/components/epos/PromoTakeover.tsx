@@ -53,14 +53,14 @@ function ClockTile({ value, label }: { value: number; label: string }) {
   return (
     <div className="flex flex-col items-center">
       <div
-        className="min-w-[4.2rem] xl:min-w-[5.5rem] px-3 py-2.5 bg-black border border-amber-400/40 rounded-lg text-center shadow-[0_0_30px_rgba(245,158,11,0.1)]"
+        className="min-w-[4.2rem] xl:min-w-[5.5rem] px-3 py-2.5 bg-black border border-yellow-400/40 rounded-lg text-center shadow-[0_0_30px_rgba(250,204,21,0.1)]"
         style={{ fontVariantNumeric: "tabular-nums" }}
       >
         <span className="text-4xl xl:text-6xl text-white leading-none" style={ANTON}>
           {String(value).padStart(2, "0")}
         </span>
       </div>
-      <span className="mt-2 text-[0.6rem] xl:text-xs tracking-[0.22em] uppercase text-amber-200/70 font-semibold">
+      <span className="mt-2 text-[0.6rem] xl:text-xs tracking-[0.22em] uppercase text-yellow-200/70 font-semibold">
         {label}
       </span>
     </div>
@@ -101,31 +101,22 @@ export default function PromoTakeover({ storeName, storeLogoUrl, products, onExi
       data-testid="promo-takeover"
     >
       {isPreview && (
-        <div className="fixed top-2 right-2 z-10 text-[0.6rem] tracking-[0.15em] uppercase font-bold text-black bg-amber-400 px-2 py-0.5 rounded-sm">
+        <div className="fixed top-2 right-2 z-10 text-[0.6rem] tracking-[0.15em] uppercase font-bold text-black bg-yellow-400 px-2 py-0.5 rounded-sm">
           Preview
         </div>
       )}
 
-      {/* Looping gym-floor footage behind the header/countdown — the team's own reference
-          video, muted and heavily darkened so its own baked-in text doesn't show through
-          while the motion still reads as a genuinely "running" background */}
+      {/* Header background — a flat gradient, not a photo. Every reseller's gym looks
+          different, so this can't show one specific reseller's premises for everyone;
+          keeping it a neutral yellow-on-black wash instead. */}
       <div className="relative h-56 xl:h-64 overflow-hidden">
-        <video
-          className="absolute inset-0 w-full h-full object-cover"
-          style={{
-            objectPosition: "center 37%",
-            transform: "scale(2.3)",
-            filter: "brightness(0.55) contrast(0.9) saturate(0.9)",
-          }}
-          src="/promo/gym-loop.mp4"
-          autoPlay
-          loop
-          muted
-          playsInline
-        />
         <div
           className="absolute inset-0"
-          style={{ background: "linear-gradient(to bottom, rgba(10,10,10,0.45) 0%, rgba(10,10,10,0.75) 75%, #0a0a0a 100%)" }}
+          style={{
+            background:
+              "radial-gradient(90% 70% at 85% 0%, rgba(250,204,21,0.14) 0%, transparent 60%), " +
+              "radial-gradient(70% 60% at 10% 100%, rgba(250,204,21,0.08) 0%, transparent 55%), #0a0a0a",
+          }}
         />
 
         <div className="relative max-w-2xl mx-auto px-6 xl:px-10 pt-8 h-full flex flex-col">
@@ -156,7 +147,7 @@ export default function PromoTakeover({ storeName, storeLogoUrl, products, onExi
           </div>
           <div className="h-px w-32 bg-white/30 mb-4" />
 
-          <p className="text-amber-100/80 text-[0.65rem] xl:text-xs tracking-[0.25em] uppercase font-semibold mb-1.5">
+          <p className="text-yellow-100/80 text-[0.65rem] xl:text-xs tracking-[0.25em] uppercase font-semibold mb-1.5">
             Official Retail Partner
           </p>
           <p
@@ -168,11 +159,11 @@ export default function PromoTakeover({ storeName, storeLogoUrl, products, onExi
 
           <div className="flex items-center gap-2 xl:gap-3">
             <ClockTile value={days} label="Days" />
-            <span className="text-amber-400/40 pb-6" style={ANTON}>:</span>
+            <span className="text-yellow-400/40 pb-6" style={ANTON}>:</span>
             <ClockTile value={hours} label="Hrs" />
-            <span className="text-amber-400/40 pb-6" style={ANTON}>:</span>
+            <span className="text-yellow-400/40 pb-6" style={ANTON}>:</span>
             <ClockTile value={minutes} label="Mins" />
-            <span className="text-amber-400/40 pb-6" style={ANTON}>:</span>
+            <span className="text-yellow-400/40 pb-6" style={ANTON}>:</span>
             <ClockTile value={seconds} label="Secs" />
           </div>
         </div>
@@ -184,8 +175,8 @@ export default function PromoTakeover({ storeName, storeLogoUrl, products, onExi
         className="relative"
         style={{
           background:
-            "radial-gradient(70% 60% at 15% 0%, rgba(245,158,11,0.10) 0%, transparent 55%), " +
-            "radial-gradient(60% 50% at 100% 40%, rgba(245,158,11,0.08) 0%, transparent 55%), #0a0a0a",
+            "radial-gradient(70% 60% at 15% 0%, rgba(250,204,21,0.10) 0%, transparent 55%), " +
+            "radial-gradient(60% 50% at 100% 40%, rgba(250,204,21,0.08) 0%, transparent 55%), #0a0a0a",
         }}
       >
         <div className="relative max-w-2xl mx-auto px-6 xl:px-10 pt-8 pb-10 flex gap-5 items-start flex-wrap sm:flex-nowrap">
@@ -198,7 +189,7 @@ export default function PromoTakeover({ storeName, storeLogoUrl, products, onExi
               </div>
               <div className="bg-white/95 text-black px-5 py-2.5" style={{ transform: "skewX(-6deg)" }}>
                 <p className="text-xs xl:text-base uppercase font-bold" style={{ transform: "skewX(6deg)" }}>
-                  Only available through this gym's 1st REP POS
+                  Only available through this gym&rsquo;s <span className="normal-case">1st</span> Rep POS
                 </p>
               </div>
             </div>
@@ -209,11 +200,11 @@ export default function PromoTakeover({ storeName, storeLogoUrl, products, onExi
 
             <div className="space-y-4">
               {[
-                { Icon: User, line: `Exclusive to ${storeName} members` },
-                { Icon: ShoppingCart, line: "Available only via your in-gym 1st REP retail hub" },
-                { Icon: Shirt, line: "New products, exclusive offers, just for you" },
-              ].map(({ Icon, line }) => (
-                <div key={line} className="flex items-center gap-3">
+                { key: "members", Icon: User, line: <>Exclusive to {storeName} members</> },
+                { key: "pos", Icon: ShoppingCart, line: <>Available only through this gym&rsquo;s <span className="normal-case">1st</span> Rep POS</> },
+                { key: "new", Icon: Shirt, line: <>New products, exclusive offers, just for you</> },
+              ].map(({ key, Icon, line }) => (
+                <div key={key} className="flex items-center gap-3">
                   <div className="w-8 h-8 xl:w-9 xl:h-9 rounded-full border border-white/50 flex items-center justify-center shrink-0">
                     <Icon className="w-4 h-4 text-white" strokeWidth={1.75} />
                   </div>
@@ -246,7 +237,7 @@ export default function PromoTakeover({ storeName, storeLogoUrl, products, onExi
                           />
                           <div className="px-1 py-0.5">
                             <p className="text-white text-[0.5rem] font-semibold truncate leading-tight">{p.name}</p>
-                            <span className="text-amber-400 text-[0.55rem] font-bold">{formatCurrency(discounted)}</span>
+                            <span className="text-yellow-400 text-[0.55rem] font-bold">{formatCurrency(discounted)}</span>
                           </div>
                         </div>
                       );
@@ -259,18 +250,10 @@ export default function PromoTakeover({ storeName, storeLogoUrl, products, onExi
                   <div className="w-3 h-3 rounded-full border border-current" />
                 </div>
                 <div className="bg-black pb-3 flex items-center justify-center">
-                  <div
-                    className="w-10 h-10 xl:w-12 xl:h-12 flex flex-col items-center justify-center shrink-0"
-                    style={{ background: "#f59e0b", clipPath: "polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0% 50%)" }}
-                  >
-                    <span className="text-black leading-none text-[0.65rem] xl:text-[0.8rem]" style={ANTON}>
-                      1<sup className="text-[0.55em]">st</sup>
-                    </span>
-                    <span className="text-black leading-none text-[0.55rem] xl:text-[0.7rem] mt-0.5" style={ANTON}>REP</span>
-                  </div>
+                  <img src="/1strep-header-logo.png" alt="1st REP" className="h-5 xl:h-6 w-auto" />
                 </div>
               </div>
-              <p className="text-center text-amber-200/40 text-[0.55rem] tracking-[0.15em] uppercase mt-2 font-semibold leading-snug">
+              <p className="text-center text-yellow-200/40 text-[0.55rem] tracking-[0.15em] uppercase mt-2 font-semibold leading-snug">
                 Right here in your gym
               </p>
             </div>
@@ -280,18 +263,18 @@ export default function PromoTakeover({ storeName, storeLogoUrl, products, onExi
 
       {/* CTA banner, on solid ground */}
       <div className="relative max-w-2xl mx-auto px-6 xl:px-10 pb-8 pt-6">
-        <div className="border border-amber-400/40 px-5 py-4 flex items-center justify-between gap-3">
+        <div className="border border-yellow-400/40 px-5 py-4 flex items-center justify-between gap-3">
           <Smartphone className="w-5 h-5 text-white/70 shrink-0" strokeWidth={1.5} />
           <p className="text-white text-center text-sm xl:text-lg uppercase" style={ANTON}>
-            Shop at the 1st Rep POS &mdash; Right Here In Your Gym
+            Shop at the <span className="normal-case">1st</span> Rep POS &mdash; Right Here In Your Gym
           </p>
-          <Sparkles className="w-5 h-5 text-amber-400/70 shrink-0" strokeWidth={1.5} />
+          <Sparkles className="w-5 h-5 text-yellow-400/70 shrink-0" strokeWidth={1.5} />
         </div>
       </div>
 
       {/* Rolling reel of this store's real inventory at 25% off, edge-to-edge */}
       {loopProducts.length > 0 && (
-        <div className="relative border-y border-amber-400/15 py-3 overflow-hidden mb-8">
+        <div className="relative border-y border-yellow-400/15 py-3 overflow-hidden mb-8">
           <div className="flex items-center gap-6 w-max animate-[promoScroll_32s_linear_infinite]">
             {loopProducts.map((p, i) => {
               const retail = parseFloat(p.retailPrice);
@@ -308,7 +291,7 @@ export default function PromoTakeover({ storeName, storeLogoUrl, products, onExi
                     <p className="text-white text-xs font-semibold whitespace-nowrap max-w-[10rem] truncate">{p.name}</p>
                     <div className="flex items-center gap-1.5">
                       <span className="text-white/35 text-[0.65rem] line-through">{formatCurrency(retail)}</span>
-                      <span className="text-amber-400 text-xs font-bold">{formatCurrency(discounted)}</span>
+                      <span className="text-yellow-400 text-xs font-bold">{formatCurrency(discounted)}</span>
                     </div>
                   </div>
                 </div>
@@ -318,7 +301,7 @@ export default function PromoTakeover({ storeName, storeLogoUrl, products, onExi
         </div>
       )}
 
-      <p className="relative text-center text-amber-200/40 text-xs tracking-[0.3em] uppercase pb-16">
+      <p className="relative text-center text-yellow-200/40 text-xs tracking-[0.3em] uppercase pb-16">
         Tap anywhere to shop
       </p>
     </div>
