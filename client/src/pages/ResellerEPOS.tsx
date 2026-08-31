@@ -367,14 +367,6 @@ export default function ResellerEPOS() {
     staleTime: 20000,
   });
 
-  // Auto-show the September promo takeover once per session (gated inside PromoTakeover itself
-  // via PROMO_LIVE / ?promoPreview=1, so this is a no-op until that's flipped on)
-  useEffect(() => {
-    if (sessionStorage.getItem("promoTakeoverShown")) return;
-    sessionStorage.setItem("promoTakeoverShown", "1");
-    setShowPromoTakeover(true);
-  }, []);
-
   // Fetch category sales data for sorting categories by sales performance
   const { data: categorySalesData = [] } = useQuery<{ category: string; totalSales: number }[]>({
     queryKey: ["/api/category-sales"],
@@ -407,6 +399,32 @@ export default function ResellerEPOS() {
     if (terminalStatusRef.current === "idle") setActiveAd(event);
   }, []);
   const handleAdStop = useCallback(() => setActiveAd(null), []);
+
+  // Idle screensaver — after IDLE_MS with no touch/click/key on the terminal, cover the
+  // whole screen with the September promo takeover, like a screensaver. Any tap anywhere
+  // (built into PromoTakeover) dismisses it and the idle clock restarts. Only fires while
+  // the till is genuinely idle (never mid-checkout) and never on top of an admin-pushed ad.
+  // Plain setTimeout, not requestAnimationFrame/Framer Motion — a previous idle ad-loop
+  // (EPOSAdLoop) was disabled for overloading the kiosk's CPU/GPU; this stays lightweight.
+  const IDLE_MS = 90000;
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const arm = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (terminalStatusRef.current === "idle" && !activeAd) {
+          setShowPromoTakeover(true);
+        }
+      }, IDLE_MS);
+    };
+    const events = ["pointerdown", "touchstart", "keydown", "wheel"];
+    events.forEach((e) => window.addEventListener(e, arm));
+    arm();
+    return () => {
+      clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, arm));
+    };
+  }, [activeAd]);
 
   useSocket({
     room: "epos",
