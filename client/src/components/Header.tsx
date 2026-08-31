@@ -70,7 +70,8 @@ export default function Header() {
   const navigationItems = [
     { label: "Men", href: "/collections/men" },
     { label: "Women", href: "/collections/women" },
-    { label: "Accessories", href: "/collections/accessories" }
+    { label: "Accessories", href: "/collections/accessories" },
+    { label: "Store Locator", href: "/store-locator" }
   ];
 
   return (

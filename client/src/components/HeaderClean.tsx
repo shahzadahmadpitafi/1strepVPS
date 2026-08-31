@@ -10,6 +10,7 @@ import { Link, useLocation } from "wouter";
 import CartSheet from "./CartSheet";
 import WishlistSheet from "./WishlistSheet";
 import SearchDialog from "./SearchDialog";
+import GymPartnersBanner from "./GymPartnersBanner";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface UserData {
@@ -110,6 +111,7 @@ export default function HeaderClean() {
     { label: "ACTIVE RANGE", href: "/training", hasMegaMenu: true, menuKey: "training" },
     { label: "1R COLLECTION", href: "/1r-collection" },
     { label: "COMPETITIONS", href: "/competitions" },
+    { label: "STORE LOCATOR", href: "/store-locator" },
     { label: "RESELLERS", href: "/reseller/login" },
     { label: "INFLUENCER PROGRAMME", href: "/athletes" },
     { label: "ABOUT US", href: "/about" }
@@ -461,6 +463,9 @@ export default function HeaderClean() {
           </div>
         </div>
       </div>
+
+      {/* Partner gyms — scrolling banner across the bottom of the fixed header */}
+      <GymPartnersBanner />
 
       {/* Search Dialog */}
       <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />

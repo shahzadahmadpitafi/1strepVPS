@@ -207,6 +207,7 @@ export const resellers = pgTable("resellers", {
   contactPerson: text("contact_person").notNull(),
   businessAddress: text("business_address").notNull(),
   phoneNumber: text("phone_number").notNull(),
+  logoUrl: text("logo_url"),
   tier: resellerTierEnum("tier").notNull().default("bronze"),
   approvalStatus: resellerApprovalStatusEnum("approval_status").notNull().default("pending"),
   discountPercentage: decimal("discount_percentage", { precision: 5, scale: 2 }).notNull().default("10.00"),

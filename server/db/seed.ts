@@ -483,6 +483,14 @@ async function ensureCriticalTablesExist() {
     console.error("❌ Error adding sms_last_error columns:", error);
   }
 
+  // Add logo_url column to resellers if missing
+  try {
+    await pool.query(`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS logo_url text`);
+    console.log("✅ resellers.logo_url column ensured");
+  } catch (error) {
+    console.error("❌ Error adding resellers.logo_url column:", error);
+  }
+
   // Add first_reminder_sms_sent / _at columns to abandoned_carts if missing
   try {
     await pool.query(`ALTER TABLE abandoned_carts ADD COLUMN IF NOT EXISTS first_reminder_sms_sent boolean NOT NULL DEFAULT false`);

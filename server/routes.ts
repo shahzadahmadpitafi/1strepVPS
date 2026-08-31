@@ -5449,6 +5449,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Public reseller directory — approved, active resellers only, for the site's
+  // partner-gym logo banner and (later) a reseller-specific store locator
+  app.get("/api/resellers/directory", async (req, res) => {
+    try {
+      const rows = await db
+        .select({
+          id: resellers.id,
+          businessName: resellers.businessName,
+          businessAddress: resellers.businessAddress,
+          logoUrl: resellers.logoUrl,
+        })
+        .from(resellers)
+        .where(and(eq(resellers.approvalStatus, "approved"), eq(resellers.isActive, true)))
+        .orderBy(resellers.businessName);
+      res.json(rows);
+    } catch (error) {
+      console.error("Get reseller directory error:", error);
+      res.status(500).json({ error: "Failed to get reseller directory" });
+    }
+  });
+
   // Admin - Get all company stores
   app.get("/api/admin/company-stores", requireAuth, requireAdmin, async (req, res) => {
     try {
