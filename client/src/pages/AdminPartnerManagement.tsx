@@ -40,6 +40,7 @@ interface Partner {
   email?: string;
   phoneNumber?: string;
   businessAddress?: string;
+  logoUrl?: string;
   tier?: string;
   approvalStatus: string;
   isActive: boolean;
@@ -140,12 +141,14 @@ export default function AdminPartnerManagement() {
     creditLimit: string;
     isActive: boolean;
     tier: string;
+    logoUrl: string;
   }>({
     commissionRate: "",
     discountPercentage: "",
     creditLimit: "",
     isActive: true,
-    tier: "bronze"
+    tier: "bronze",
+    logoUrl: ""
   });
   const [noteContent, setNoteContent] = useState("");
   const [detailTab, setDetailTab] = useState("overview");
@@ -300,7 +303,8 @@ export default function AdminPartnerManagement() {
       discountPercentage: partner.discountPercentage || "10",
       creditLimit: partner.creditLimit || "1000",
       isActive: partner.isActive ?? true,
-      tier: partner.tier || "bronze"
+      tier: partner.tier || "bronze",
+      logoUrl: partner.logoUrl || ""
     });
     setEditDialogOpen(true);
   };
@@ -316,7 +320,8 @@ export default function AdminPartnerManagement() {
           discountPercentage: editForm.discountPercentage,
           creditLimit: editForm.creditLimit,
           isActive: editForm.isActive,
-          tier: editForm.tier
+          tier: editForm.tier,
+          logoUrl: editForm.logoUrl || null
         }
       });
     }
@@ -1016,6 +1021,30 @@ export default function AdminPartnerManagement() {
             </DialogHeader>
             
             <div className="space-y-4 py-4">
+              {selectedPartner?.partnerType === 'reseller' && (
+                <div className="space-y-2">
+                  <Label>Logo URL</Label>
+                  <div className="flex items-center gap-3">
+                    {editForm.logoUrl && (
+                      <img
+                        src={editForm.logoUrl}
+                        alt="Logo preview"
+                        className="h-10 w-10 rounded object-contain bg-muted border"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
+                      />
+                    )}
+                    <Input
+                      value={editForm.logoUrl}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, logoUrl: e.target.value }))}
+                      placeholder="https://... (link to the gym's logo image)"
+                      data-testid="input-logo-url"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Shown in the scrolling partner-gym banner on the storefront. Leave blank to show the gym name as text instead.
+                  </p>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>Commission Rate (%)</Label>
                 <Input
