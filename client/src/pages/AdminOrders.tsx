@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSocket } from "@/hooks/useSocket";
 import { format } from "date-fns";
@@ -195,6 +195,35 @@ interface OrderSummary {
 interface Reseller {
   id: string;
   businessName: string;
+}
+
+// Renders plain SMS body text with any http(s) URLs turned into real, tappable
+// links — SMS itself is plain text with no markup, so the feedback/tracking
+// links inside message bodies need this to be clickable in the admin thread view.
+function linkifyMessageBody(text: string) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const nodes: ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = urlRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index));
+    const url = match[0];
+    nodes.push(
+      <a
+        key={match.index}
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline break-all hover:opacity-80"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {url}
+      </a>
+    );
+    lastIndex = match.index + url.length;
+  }
+  if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
+  return nodes;
 }
 
 export default function AdminOrders() {
@@ -1710,7 +1739,7 @@ export default function AdminOrders() {
                             }`}
                             data-testid={`sms-message-${i}`}
                           >
-                            <p className="whitespace-pre-wrap">{m.body}</p>
+                            <p className="whitespace-pre-wrap">{linkifyMessageBody(m.body)}</p>
                             <p className={`text-[10px] mt-1 ${m.direction === 'outbound' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                               {new Date(m.date).toLocaleString("en-GB")} &middot; {m.direction === 'outbound' ? '1stRep' : 'Customer'}
                             </p>
