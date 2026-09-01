@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ShieldCheck } from "lucide-react";
 
@@ -15,10 +16,53 @@ function initials(name: string): string {
   return (words[0][0] + words[1][0]).toUpperCase();
 }
 
+const PX_PER_SECOND = 40;
+
 export default function GymPartnersBanner() {
   const { data: resellers = [] } = useQuery<DirectoryReseller[]>({
     queryKey: ["/api/resellers/directory"],
   });
+
+  const trackRef = useRef<HTMLDivElement>(null);
+  const offsetRef = useRef(0);
+
+  // Driven by requestAnimationFrame with a plain transform, not a CSS @keyframes
+  // animation — CSS animations on this element kept getting paused/reset on real
+  // mobile browsers (tap-triggered :hover sticking, compositing quirks inside the
+  // fixed header), making the banner look like it stalled after a couple of names.
+  // A rAF loop has no :hover state to get stuck on and no ambiguity to debug.
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track || resellers.length === 0) return;
+
+    let raf = 0;
+    let lastTime: number | null = null;
+    let halfWidth = 0;
+
+    const measure = () => { halfWidth = track.scrollWidth / 2; };
+    measure();
+    const resizeObserver = new ResizeObserver(measure);
+    resizeObserver.observe(track);
+
+    const tick = (time: number) => {
+      if (lastTime === null) lastTime = time;
+      const deltaSeconds = (time - lastTime) / 1000;
+      lastTime = time;
+
+      if (halfWidth > 0) {
+        offsetRef.current -= PX_PER_SECOND * deltaSeconds;
+        if (offsetRef.current <= -halfWidth) offsetRef.current += halfWidth;
+        track.style.transform = `translateX(${offsetRef.current}px)`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      resizeObserver.disconnect();
+    };
+  }, [resellers.length]);
 
   if (resellers.length === 0) return null;
 
@@ -33,7 +77,7 @@ export default function GymPartnersBanner() {
         </span>
       </div>
       <div className="flex-1 overflow-hidden py-2">
-        <div className="flex items-center animate-marquee whitespace-nowrap">
+        <div ref={trackRef} className="flex items-center whitespace-nowrap w-max">
           {loop.map((r, i) => (
             <div
               key={`${r.id}-${i}`}

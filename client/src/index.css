@@ -721,15 +721,6 @@ img, video, iframe {
     animation-play-state: paused;
   }
 
-  /* The gym-partners marquee sits inside the header users constantly touch-scroll
-     past on mobile. iOS/Android browsers apply :hover on tap and leave it "stuck"
-     until something else is tapped, so the hover-pause above made this banner look
-     like it kept stalling/restarting. It only needs the pause for desktop mouse-over,
-     which this override intentionally skips. */
-  [data-testid="gym-partners-banner"] .animate-marquee:hover {
-    animation-play-state: running;
-  }
-
   /* Smooth Scrolling */
   html {
     scroll-behavior: smooth;
