@@ -297,6 +297,7 @@ import {
   type InsertTeamDocument,
 } from "@shared/schema";
 import { db, pool } from "./db";
+import { smsAdminAlert } from "./sms";
 import { eq, and, desc, sql, isNotNull, isNull, or, inArray } from "drizzle-orm";
 
 // Storage interface for all operations
@@ -6712,8 +6713,16 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // Notification types that also alert ADMIN_ALERT_PHONE by SMS, in addition
+  // to the usual admin bell/panel entry. Kept to a short, deliberate list —
+  // add a type here only when someone has actually asked for it by name.
+  private static SMS_ALERT_TYPES = new Set(["new_order", "review_submitted"]);
+
   async createAdminNotification(data: InsertAdminNotification): Promise<AdminNotification> {
     const [notification] = await db.insert(adminNotifications).values(data).returning();
+    if (DatabaseStorage.SMS_ALERT_TYPES.has(notification.type)) {
+      smsAdminAlert(`${notification.title}: ${notification.message}`);
+    }
     return notification;
   }
 

@@ -69,6 +69,20 @@ export function smsAsync(to: string | null | undefined, body: string, onError?: 
   });
 }
 
+/**
+ * Admin alert SMS — sends to whichever number(s) are set in ADMIN_ALERT_PHONE
+ * (comma-separated for more than one). No-op if unset, so this stays opt-in.
+ */
+export function smsAdminAlert(body: string): void {
+  const raw = process.env.ADMIN_ALERT_PHONE;
+  if (!raw) return;
+  for (const number of raw.split(',').map(n => n.trim()).filter(Boolean)) {
+    smsAsync(number, body, (message) => {
+      console.error(`[AdminAlert] SMS failed for ${number}: ${message}`);
+    });
+  }
+}
+
 // ─── Template functions ───────────────────────────────────────────────────────
 // Copy is matched to the equivalent email in server/email.ts so the SMS reads
 // like a shorter version of the same message, not a generic stand-in.
