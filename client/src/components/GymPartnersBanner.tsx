@@ -16,7 +16,7 @@ function initials(name: string): string {
   return (words[0][0] + words[1][0]).toUpperCase();
 }
 
-const PX_PER_SECOND = 40;
+const PX_PER_SECOND = 85;
 
 export default function GymPartnersBanner() {
   const { data: resellers = [] } = useQuery<DirectoryReseller[]>({
