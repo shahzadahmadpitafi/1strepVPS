@@ -16760,6 +16760,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .set({ reviewAccessToken: null })
         .where(eq(customerOrders.id, order.id));
 
+      // Create admin notification for the new feedback
+      try {
+        const stars = "★".repeat(review.overallRating) + "☆".repeat(5 - review.overallRating);
+        await storage.createAdminNotification({
+          type: 'review_submitted',
+          title: 'New Feedback Received',
+          message: `${order.customerFirstName || order.customerEmail} rated order ${order.orderNumber} ${stars}${review.comment ? ` — "${review.comment.slice(0, 80)}${review.comment.length > 80 ? '…' : ''}"` : ''}`,
+          link: '/admin/reviews',
+          isRead: false,
+        });
+      } catch (notifError) {
+        console.error('❌ Failed to create review notification:', notifError);
+      }
+
       res.status(201).json({ success: true, message: "Thank you for your feedback!" });
     } catch (error) {
       console.error("Submit review error:", error);
