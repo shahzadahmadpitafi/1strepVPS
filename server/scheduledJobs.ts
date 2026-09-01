@@ -40,8 +40,9 @@ async function runWeeklyEmailCheck() {
 
 async function runReviewRequests() {
   try {
-    const { processReviewRequests } = await import("./reviewRequestService");
+    const { processReviewRequests, processReviewReminders } = await import("./reviewRequestService");
     await processReviewRequests();
+    await processReviewReminders();
   } catch (err) {
     console.error("[ReviewRequest] Job error:", err);
   }

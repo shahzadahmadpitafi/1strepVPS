@@ -776,6 +776,8 @@ export const customerOrders = pgTable("customer_orders", {
   // Post-delivery review request tracking
   reviewEmailSentAt: timestamp("review_email_sent_at"),
   reviewSmsSentAt: timestamp("review_sms_sent_at"),
+  reviewSmsReminder1SentAt: timestamp("review_sms_reminder1_sent_at"), // 24h follow-up if no feedback yet
+  reviewSmsReminder2SentAt: timestamp("review_sms_reminder2_sent_at"), // further reminder if still none
 });
 
 // Customer order items table

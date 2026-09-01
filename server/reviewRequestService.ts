@@ -12,7 +12,7 @@
  */
 
 import { db } from "./db";
-import { customerOrders } from "@shared/schema";
+import { customerOrders, orderReviews } from "@shared/schema";
 import { and, eq, isNull, lte, isNotNull, or } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 
@@ -20,7 +20,7 @@ import { sql } from "drizzle-orm";
 // sendEmailViaGmail is not exported — we import the higher-level helper
 // that already handles SMTP-first → Gmail fallback
 import { sendDeliveryConfirmation } from "./email-service";
-import { sendSMS, buildReviewRequestSmsBody } from "./sms";
+import { sendSMS, buildReviewRequestSmsBody, buildReviewReminderSmsBody } from "./sms";
 
 // ---------------------------------------------------------------------------
 // Email template
@@ -440,5 +440,105 @@ export async function processReviewRequests(): Promise<void> {
     console.log("[ReviewRequest] Run complete.");
   } catch (err: any) {
     console.error("[ReviewRequest] Fatal error during run:", err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Follow-up reminders — 24h after the original feedback SMS, then a further
+// reminder 24h after that, each skipped as soon as the customer has actually
+// left feedback (an order_reviews row exists for the order), regardless of
+// whether they responded via the SMS link or the emailed one.
+// ---------------------------------------------------------------------------
+
+async function hasSubmittedReview(orderId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: orderReviews.id })
+    .from(orderReviews)
+    .where(eq(orderReviews.orderId, orderId))
+    .limit(1);
+  return !!row;
+}
+
+async function sendReviewReminderSms(
+  order: { id: string; orderNumber: string; customerPhone: string | null; customerFirstName: string },
+  stage: 1 | 2
+): Promise<void> {
+  if (!order.customerPhone) return;
+
+  const feedbackUrl = `${getSiteUrl()}/feedback?order=${encodeURIComponent(order.orderNumber)}`;
+  const body = buildReviewReminderSmsBody(stage, order.customerFirstName, order.orderNumber, feedbackUrl);
+
+  const sent = await sendSMS(order.customerPhone, body, (message) => {
+    console.error(`[ReviewReminder] Stage ${stage} SMS failed for order ${order.orderNumber}: ${message}`);
+  });
+
+  if (sent) {
+    console.log(`[ReviewReminder] Stage ${stage} SMS sent to ${order.customerPhone} — order ${order.orderNumber}`);
+    await db
+      .update(customerOrders)
+      .set(stage === 1 ? { reviewSmsReminder1SentAt: new Date() } : { reviewSmsReminder2SentAt: new Date() })
+      .where(eq(customerOrders.id, order.id));
+  }
+}
+
+export async function processReviewReminders(): Promise<void> {
+  console.log("[ReviewReminder] Checking for orders needing a feedback follow-up...");
+
+  try {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const selectFields = {
+      id: customerOrders.id,
+      orderNumber: customerOrders.orderNumber,
+      customerPhone: customerOrders.customerPhone,
+      customerFirstName: customerOrders.customerFirstName,
+    };
+
+    // Stage 1: original feedback SMS went out 24h+ ago, no reminder sent yet
+    const stage1Candidates = await db
+      .select(selectFields)
+      .from(customerOrders)
+      .where(
+        and(
+          isNotNull(customerOrders.reviewSmsSentAt),
+          lte(customerOrders.reviewSmsSentAt, oneDayAgo),
+          isNull(customerOrders.reviewSmsReminder1SentAt)
+        )
+      )
+      .limit(50);
+
+    for (const order of stage1Candidates) {
+      if (await hasSubmittedReview(order.id)) continue;
+      try {
+        await sendReviewReminderSms(order, 1);
+      } catch (err: any) {
+        console.error(`[ReviewReminder] Stage 1 failed for order ${order.orderNumber}: ${err.message}`);
+      }
+    }
+
+    // Stage 2: the stage-1 reminder went out 24h+ ago, still no reminder 2
+    const stage2Candidates = await db
+      .select(selectFields)
+      .from(customerOrders)
+      .where(
+        and(
+          isNotNull(customerOrders.reviewSmsReminder1SentAt),
+          lte(customerOrders.reviewSmsReminder1SentAt, oneDayAgo),
+          isNull(customerOrders.reviewSmsReminder2SentAt)
+        )
+      )
+      .limit(50);
+
+    for (const order of stage2Candidates) {
+      if (await hasSubmittedReview(order.id)) continue;
+      try {
+        await sendReviewReminderSms(order, 2);
+      } catch (err: any) {
+        console.error(`[ReviewReminder] Stage 2 failed for order ${order.orderNumber}: ${err.message}`);
+      }
+    }
+
+    console.log("[ReviewReminder] Run complete.");
+  } catch (err: any) {
+    console.error("[ReviewReminder] Fatal error during run:", err);
   }
 }

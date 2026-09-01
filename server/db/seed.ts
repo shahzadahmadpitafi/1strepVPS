@@ -508,6 +508,15 @@ async function ensureCriticalTablesExist() {
     console.error("❌ Error adding review_sms_sent_at column:", error);
   }
 
+  // Add review SMS follow-up reminder columns to customer_orders if missing
+  try {
+    await pool.query(`ALTER TABLE customer_orders ADD COLUMN IF NOT EXISTS review_sms_reminder1_sent_at timestamp`);
+    await pool.query(`ALTER TABLE customer_orders ADD COLUMN IF NOT EXISTS review_sms_reminder2_sent_at timestamp`);
+    console.log("✅ customer_orders.review_sms_reminder1/2_sent_at columns ensured");
+  } catch (error) {
+    console.error("❌ Error adding review_sms_reminder columns:", error);
+  }
+
   // Create reseller_ads table if missing (admin-uploaded EPOS ad per reseller)
   try {
     await pool.query(`
