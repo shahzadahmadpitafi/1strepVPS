@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -51,7 +51,23 @@ export default function HeaderClean() {
   const [megaMenuOpen, setMegaMenuOpen] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isMobile = useIsMobile();
-  
+
+  // The fixed header's real height varies (announcement banner on/off, partner
+  // banner present or not, text wrapping) — measure it directly instead of
+  // guessing a fixed spacer height, so page content below never gets tucked
+  // underneath the header and cropped (this was cutting off the hero photo).
+  const headerRef = useRef<HTMLElement>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  useLayoutEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const update = () => setHeaderHeight(el.getBoundingClientRect().height);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   // Check if user is logged in
   const { data: authData } = useQuery<UserData>({
     queryKey: ['/api/auth/me'],
@@ -123,7 +139,7 @@ export default function HeaderClean() {
 
   return (
     <>
-    <header className="fixed top-0 left-0 right-0 z-[999] bg-black">
+    <header ref={headerRef} className="fixed top-0 left-0 right-0 z-[999] bg-black">
       {/* Admin-Controlled Announcement Banner with Scrolling Animation */}
       {banner?.isVisible && banner?.message && (
         <Link href="/shop-clean">
@@ -470,8 +486,9 @@ export default function HeaderClean() {
       {/* Search Dialog */}
       <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
     </header>
-    {/* Spacer for fixed header - prevents content from being hidden behind header */}
-    <div className="h-16 md:h-20" />
+    {/* Spacer for fixed header - matches the header's real measured height so content
+        never sits underneath it, however many rows (banner/partners) it currently has */}
+    <div style={{ height: headerHeight }} />
     </>
   );
 }
