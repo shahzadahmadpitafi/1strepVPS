@@ -7,10 +7,8 @@ const PROMO_START = new Date("2026-09-12T00:00:00");
 const PROMO_END = new Date("2026-10-11T23:59:59");
 const DISCOUNT_PCT = 25;
 
-// Master switch — taken back offline while the design is reworked further.
-// Only renders when a URL carries ?promoPreview=1, so real resellers don't
-// see it. Flip back to true when it's ready to go live again.
-const PROMO_LIVE = false;
+// Master switch — live for every reseller.
+const PROMO_LIVE = true;
 
 const ANTON = { fontFamily: "'Anton', 'Barlow Condensed', sans-serif" } as const;
 
