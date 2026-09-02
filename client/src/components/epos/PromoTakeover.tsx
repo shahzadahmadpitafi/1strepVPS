@@ -132,7 +132,7 @@ export default function PromoTakeover({ storeName, storeLogoUrl, products, onExi
       </div>
 
       <div className="relative z-10 overflow-hidden">
-        <div className="relative max-w-2xl mx-auto px-6 xl:px-10 pt-8 h-full flex flex-col">
+        <div className="relative max-w-2xl mx-auto px-6 xl:px-10 pt-8 flex flex-col">
           {/* Dual-brand header */}
           <div className="flex items-start justify-between gap-4 mb-3">
             <img
