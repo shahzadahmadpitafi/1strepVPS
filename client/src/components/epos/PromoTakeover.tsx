@@ -99,24 +99,39 @@ export default function PromoTakeover({ storeName, storeLogoUrl, products, onExi
       data-testid="promo-takeover"
     >
       {isPreview && (
-        <div className="fixed top-2 right-2 z-10 text-[0.6rem] tracking-[0.15em] uppercase font-bold text-black bg-yellow-400 px-2 py-0.5 rounded-sm">
+        <div className="fixed top-2 right-2 z-20 text-[0.6rem] tracking-[0.15em] uppercase font-bold text-black bg-yellow-400 px-2 py-0.5 rounded-sm">
           Preview
         </div>
       )}
 
-      {/* Header background — a flat gradient, not a photo. Every reseller's gym looks
-          different, so this can't show one specific reseller's premises for everyone;
-          keeping it a neutral yellow-on-black wash instead. */}
-      <div className="relative h-56 xl:h-64 overflow-hidden">
+      {/* Full-height background — two real 1stRep campaign photos (not any one
+          reseller's premises, so it works for every gym) slowly Ken-Burns and
+          cross-fade behind the entire screen, not just the header band. */}
+      <div className="absolute inset-0 z-0 overflow-hidden">
+        <img
+          src="https://1strep.com/public-objects/013e23ef-a7d1-4eb8-a03e-bcfb0f8ca397.jpg"
+          alt=""
+          className="promo-bg-photo absolute inset-0 w-full h-full object-cover"
+          style={{ objectPosition: "center 20%", animation: "promoBgFadeA 16s ease-in-out infinite, promoBgKenA 16s ease-in-out infinite" }}
+        />
+        <img
+          src="https://1strep.com/public-objects/Grey_1.jpg"
+          alt=""
+          className="promo-bg-photo absolute inset-0 w-full h-full object-cover"
+          style={{ objectPosition: "center 15%", opacity: 0, animation: "promoBgFadeB 16s ease-in-out infinite, promoBgKenB 16s ease-in-out infinite" }}
+        />
         <div
           className="absolute inset-0"
           style={{
             background:
-              "radial-gradient(90% 70% at 85% 0%, rgba(250,204,21,0.14) 0%, transparent 60%), " +
-              "radial-gradient(70% 60% at 10% 100%, rgba(250,204,21,0.08) 0%, transparent 55%), #0a0a0a",
+              "radial-gradient(60% 40% at 88% 0%, rgba(250,204,21,0.14), transparent 55%), " +
+              "linear-gradient(180deg, rgba(6,6,6,0.72) 0%, rgba(6,6,6,0.42) 16%, rgba(6,6,6,0.5) 40%, rgba(6,6,6,0.68) 62%, rgba(6,6,6,0.9) 82%, #0a0a0a 100%), " +
+              "linear-gradient(90deg, rgba(6,6,6,0.35) 0%, transparent 26%, transparent 60%, rgba(6,6,6,0.55) 82%, #0a0a0a 100%)",
           }}
         />
+      </div>
 
+      <div className="relative z-10 overflow-hidden">
         <div className="relative max-w-2xl mx-auto px-6 xl:px-10 pt-8 h-full flex flex-col">
           {/* Dual-brand header */}
           <div className="flex items-start justify-between gap-4 mb-3">
@@ -167,16 +182,9 @@ export default function PromoTakeover({ storeName, storeLogoUrl, products, onExi
         </div>
       </div>
 
-      {/* Two-column body: offer details on the left, kiosk device on the right — solid ground,
-          color-matched to the photo above rather than stretching it further */}
-      <div
-        className="relative flex-1 flex items-center"
-        style={{
-          background:
-            "radial-gradient(70% 60% at 15% 0%, rgba(250,204,21,0.10) 0%, transparent 55%), " +
-            "radial-gradient(60% 50% at 100% 40%, rgba(250,204,21,0.08) 0%, transparent 55%), #0a0a0a",
-        }}
-      >
+      {/* Two-column body: offer details on the left, kiosk device on the right —
+          same full-height photo behind it, no separate background of its own */}
+      <div className="relative z-10 flex-1 flex items-center">
         <div className="relative w-full max-w-2xl mx-auto px-6 xl:px-10 py-8 flex gap-5 items-start flex-wrap sm:flex-nowrap">
           <div className="flex-1 min-w-[13rem]">
             <div className="mb-6">
@@ -259,8 +267,8 @@ export default function PromoTakeover({ storeName, storeLogoUrl, products, onExi
         </div>
       </div>
 
-      {/* CTA banner, on solid ground */}
-      <div className="relative max-w-2xl mx-auto px-6 xl:px-10 pb-8 pt-6">
+      {/* CTA banner */}
+      <div className="relative z-10 max-w-2xl mx-auto px-6 xl:px-10 pb-8 pt-6">
         <div className="border border-yellow-400/40 px-5 py-4 flex items-center justify-between gap-3">
           <Smartphone className="w-5 h-5 text-white/70 shrink-0" strokeWidth={1.5} />
           <p className="text-white text-center text-sm xl:text-lg uppercase" style={ANTON}>
@@ -272,7 +280,7 @@ export default function PromoTakeover({ storeName, storeLogoUrl, products, onExi
 
       {/* Rolling reel of this store's real inventory at 25% off, edge-to-edge */}
       {loopProducts.length > 0 && (
-        <div className="relative border-y border-yellow-400/15 py-3 overflow-hidden mb-8">
+        <div className="relative z-10 border-y border-yellow-400/15 py-3 overflow-hidden mb-8 bg-[#0a0a0a]/40">
           <div className="flex items-center gap-6 w-max animate-[promoScroll_32s_linear_infinite]">
             {loopProducts.map((p, i) => {
               const retail = parseFloat(p.retailPrice);
@@ -299,7 +307,7 @@ export default function PromoTakeover({ storeName, storeLogoUrl, products, onExi
         </div>
       )}
 
-      <p className="relative text-center text-yellow-200/40 text-xs tracking-[0.3em] uppercase pb-16">
+      <p className="relative z-10 text-center text-yellow-200/40 text-xs tracking-[0.3em] uppercase pb-16">
         Tap anywhere to shop
       </p>
     </div>

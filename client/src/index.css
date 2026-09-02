@@ -860,3 +860,16 @@ img, video, iframe {
     animation: none !important;
   }
 }
+
+/* Full-height Ken Burns crossfade background for the promo takeover poster.
+   Two real 1stRep campaign photos (not any one reseller's premises) slowly
+   pan/zoom and cross-fade into each other behind the whole screen. */
+@keyframes promoBgFadeA { 0%, 46% { opacity: 1; } 54%, 96% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes promoBgFadeB { 0%, 46% { opacity: 0; } 54%, 96% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes promoBgKenA { 0% { transform: scale(1) translate(0, 0); } 100% { transform: scale(1.12) translate(-1.5%, -1%); } }
+@keyframes promoBgKenB { 0% { transform: scale(1.08) translate(1%, 0.5%); } 100% { transform: scale(1.18) translate(-1%, -1.5%); } }
+@media (prefers-reduced-motion: reduce) {
+  .promo-bg-photo {
+    animation: none !important;
+  }
+}

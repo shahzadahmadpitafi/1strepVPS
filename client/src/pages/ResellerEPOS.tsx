@@ -31,7 +31,6 @@ import { SiApplepay, SiGooglepay } from "react-icons/si";
 import QRPayment from "@/components/epos/QRPayment";
 import ProductShowReel from "@/components/epos/ProductShowReel";
 import EPOSAdLoop from "@/components/epos/EPOSAdLoop";
-import PromoBanner from "@/components/epos/PromoBanner";
 import PromoTakeover from "@/components/epos/PromoTakeover";
 import AdPlayer from "@/components/epos/AdPlayer";
 import SquareCardReader from "@/components/SquareCardReader";
@@ -2260,7 +2259,6 @@ export default function ResellerEPOS() {
         </div>
       </header>
 
-      <PromoBanner storeName={storeName} storeLogoUrl={resellerProfile?.logoUrl} products={products} onClick={() => setShowPromoTakeover(true)} />
 
       {/* Products Grid */}
       <main className="max-w-7xl mx-auto px-4 py-8">
