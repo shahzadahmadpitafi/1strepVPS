@@ -131,7 +131,7 @@ export default function PromoTakeover({ storeName, storeLogoUrl, products, onExi
         />
       </div>
 
-      <div className="relative z-10 overflow-hidden">
+      <div className="relative z-10 shrink-0 overflow-hidden">
         <div className="relative max-w-2xl mx-auto px-6 xl:px-10 pt-8 flex flex-col">
           {/* Dual-brand header */}
           <div className="flex items-start justify-between gap-4 mb-3">
@@ -280,7 +280,7 @@ export default function PromoTakeover({ storeName, storeLogoUrl, products, onExi
 
       {/* Rolling reel of this store's real inventory at 25% off, edge-to-edge */}
       {loopProducts.length > 0 && (
-        <div className="relative z-10 border-y border-yellow-400/15 py-3 overflow-hidden mb-8 bg-[#0a0a0a]/40">
+        <div className="relative z-10 shrink-0 border-y border-yellow-400/15 py-3 overflow-hidden mb-8 bg-[#0a0a0a]/40">
           <div className="flex items-center gap-6 w-max animate-[promoScroll_32s_linear_infinite]">
             {loopProducts.map((p, i) => {
               const retail = parseFloat(p.retailPrice);
