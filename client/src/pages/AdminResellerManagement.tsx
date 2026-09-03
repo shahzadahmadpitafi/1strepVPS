@@ -3321,7 +3321,15 @@ export default function AdminResellerManagement() {
                       <Textarea
                         value={resellerSmsComposeText}
                         onChange={(e) => setResellerSmsComposeText(e.target.value)}
-                        placeholder="Type a message to text this reseller..."
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            if (selectedReseller && resellerSmsComposeText.trim() && !sendResellerSmsMutation.isPending) {
+                              sendResellerSmsMutation.mutate({ id: selectedReseller.id, message: resellerSmsComposeText.trim() });
+                            }
+                          }
+                        }}
+                        placeholder="Type a message to text this reseller... (Enter to send, Shift+Enter for a new line)"
                         rows={2}
                         className="text-sm resize-none"
                         data-testid="textarea-reseller-sms-compose"

@@ -1725,7 +1725,15 @@ export default function AdminOrders() {
                       <Textarea
                         value={smsComposeText}
                         onChange={(e) => setSmsComposeText(e.target.value)}
-                        placeholder="Type a message to text the customer..."
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            if (selectedOrder && smsComposeText.trim() && !sendSmsMutation.isPending) {
+                              sendSmsMutation.mutate({ id: selectedOrder.id, message: smsComposeText.trim() });
+                            }
+                          }
+                        }}
+                        placeholder="Type a message to text the customer... (Enter to send, Shift+Enter for a new line)"
                         rows={2}
                         className="text-sm resize-none"
                         data-testid="textarea-sms-compose"
