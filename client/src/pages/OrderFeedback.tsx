@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -56,10 +56,21 @@ export default function OrderFeedback() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
-  const [orderNumber, setOrderNumber] = useState("");
+  // The feedback link sent by SMS/email already includes ?order=... — pre-fill
+  // it so the customer isn't stuck copying their order number back out of the text.
+  const [orderNumber, setOrderNumber] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return new URLSearchParams(window.location.search).get("order") || "";
+  });
   const [email, setEmail] = useState("");
   const [searchTriggered, setSearchTriggered] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const emailInputRef = useRef<HTMLInputElement>(null);
+
+  // Send them straight to the one field they still need to fill in
+  useEffect(() => {
+    if (orderNumber) emailInputRef.current?.focus();
+  }, []);
   
   const [overallRating, setOverallRating] = useState(0);
   const [productQualityRating, setProductQualityRating] = useState(0);
@@ -211,6 +222,7 @@ export default function OrderFeedback() {
                         setEmail(e.target.value);
                         setSearchTriggered(false);
                       }}
+                      ref={emailInputRef}
                       data-testid="input-email"
                     />
                   </div>
