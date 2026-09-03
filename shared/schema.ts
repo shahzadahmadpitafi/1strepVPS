@@ -5173,6 +5173,7 @@ export const orderReviews = pgTable("order_reviews", {
   accessToken: varchar("access_token").notNull(), // Token for anonymous access
   isPublic: boolean("is_public").default(false), // Can be displayed publicly
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  thankYouSmsSentAt: timestamp("thank_you_sms_sent_at"),
 });
 
 // Return requests table

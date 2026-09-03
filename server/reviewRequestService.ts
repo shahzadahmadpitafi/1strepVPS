@@ -20,7 +20,7 @@ import { sql } from "drizzle-orm";
 // sendEmailViaGmail is not exported — we import the higher-level helper
 // that already handles SMTP-first → Gmail fallback
 import { sendDeliveryConfirmation } from "./email-service";
-import { sendSMS, buildReviewRequestSmsBody, buildReviewReminderSmsBody } from "./sms";
+import { sendSMS, buildReviewRequestSmsBody, buildReviewReminderSmsBody, buildReviewThankYouSmsBody } from "./sms";
 
 // ---------------------------------------------------------------------------
 // Email template
@@ -540,5 +540,76 @@ export async function processReviewReminders(): Promise<void> {
     console.log("[ReviewReminder] Run complete.");
   } catch (err: any) {
     console.error("[ReviewReminder] Fatal error during run:", err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Post-review thank-you — sent 5 days after the customer's review was
+// submitted, once, gated by orderReviews.thankYouSmsSentAt.
+// ---------------------------------------------------------------------------
+
+async function sendReviewThankYouSms(review: {
+  id: string;
+  customerPhone: string | null;
+  customerFirstName: string | null;
+}): Promise<void> {
+  if (!review.customerPhone) return;
+
+  const body = buildReviewThankYouSmsBody(review.customerFirstName || "there");
+
+  const sent = await sendSMS(review.customerPhone, body, (message) => {
+    console.error(`[ReviewThankYou] SMS failed for review ${review.id}: ${message}`);
+  });
+
+  if (sent) {
+    console.log(`[ReviewThankYou] SMS sent to ${review.customerPhone} — review ${review.id}`);
+    await db
+      .update(orderReviews)
+      .set({ thankYouSmsSentAt: new Date() })
+      .where(eq(orderReviews.id, review.id));
+  }
+}
+
+export async function processReviewThankYou(): Promise<void> {
+  console.log("[ReviewThankYou] Checking for reviews needing a thank-you SMS...");
+
+  try {
+    const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
+
+    const candidates = await db
+      .select({
+        id: orderReviews.id,
+        createdAt: orderReviews.createdAt,
+        customerPhone: customerOrders.customerPhone,
+        customerFirstName: customerOrders.customerFirstName,
+      })
+      .from(orderReviews)
+      .innerJoin(customerOrders, eq(orderReviews.orderId, customerOrders.id))
+      .where(
+        and(
+          lte(orderReviews.createdAt, fiveDaysAgo),
+          isNull(orderReviews.thankYouSmsSentAt)
+        )
+      )
+      .limit(50); // Safety cap — process at most 50 per run
+
+    if (candidates.length === 0) {
+      console.log("[ReviewThankYou] No eligible reviews found.");
+      return;
+    }
+
+    console.log(`[ReviewThankYou] Found ${candidates.length} review(s) to process.`);
+
+    for (const review of candidates) {
+      try {
+        await sendReviewThankYouSms(review);
+      } catch (err: any) {
+        console.error(`[ReviewThankYou] Failed for review ${review.id}: ${err.message}`);
+      }
+    }
+
+    console.log("[ReviewThankYou] Run complete.");
+  } catch (err: any) {
+    console.error("[ReviewThankYou] Fatal error during run:", err);
   }
 }

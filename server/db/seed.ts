@@ -517,6 +517,27 @@ async function ensureCriticalTablesExist() {
     console.error("❌ Error adding review_sms_reminder columns:", error);
   }
 
+  // Add thank_you_sms_sent_at to order_reviews (5-day post-review thank-you SMS).
+  // On the FIRST run only (column didn't exist yet), backfill every existing
+  // review as already-notified so we never retroactively text customers whose
+  // review is already weeks/months old the moment this feature goes live.
+  try {
+    const columnCheck = await pool.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'order_reviews' AND column_name = 'thank_you_sms_sent_at'
+    `);
+    const columnAlreadyExisted = (columnCheck.rowCount ?? 0) > 0;
+    await pool.query(`ALTER TABLE order_reviews ADD COLUMN IF NOT EXISTS thank_you_sms_sent_at timestamp`);
+    if (!columnAlreadyExisted) {
+      await pool.query(`UPDATE order_reviews SET thank_you_sms_sent_at = created_at WHERE thank_you_sms_sent_at IS NULL`);
+      console.log("✅ order_reviews.thank_you_sms_sent_at column added; existing reviews backfilled as already-notified");
+    } else {
+      console.log("✅ order_reviews.thank_you_sms_sent_at column ensured");
+    }
+  } catch (error) {
+    console.error("❌ Error adding thank_you_sms_sent_at column:", error);
+  }
+
   // Create reseller_ads table if missing (admin-uploaded EPOS ad per reseller)
   try {
     await pool.query(`

@@ -125,6 +125,10 @@ export function buildReviewReminderSmsBody(stage: 1 | 2, name: string, orderNumb
   return `Hi ${name}, last call for feedback on your 1stRep order #${orderNumber} — we'd really value your thoughts: ${feedbackUrl} – 1stRep`;
 }
 
+export function buildReviewThankYouSmsBody(name: string): string {
+  return `Hi ${name}, thanks again for leaving a review on your 1stRep order — your feedback is really important to us and helps other athletes shop with confidence. – 1stRep`;
+}
+
 export function smsWholesaleOrderPaid(phone: string | null | undefined, businessName: string, orderNumber: string, amount: string | number, itemCount: number, onError?: (message: string) => void): void {
   smsAsync(phone, `Hi ${businessName}, payment confirmed for wholesale order #${orderNumber} — £${amount} for ${itemCount} item${itemCount === 1 ? '' : 's'}. We'll text you again once it's dispatched. – 1stRep`, onError);
 }
