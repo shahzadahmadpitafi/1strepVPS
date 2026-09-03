@@ -49,6 +49,15 @@ async function runReviewRequests() {
   }
 }
 
+async function runCustomerSmsReminders() {
+  try {
+    const { processCustomerSmsReminders } = await import("./customerSmsReminderService");
+    await processCustomerSmsReminders();
+  } catch (err) {
+    console.error("[CustomerSmsReminder] Job error:", err);
+  }
+}
+
 async function runAutomations() {
   try {
     const { processAllAutomations } = await import("./automationService");
@@ -69,6 +78,9 @@ async function runAutomations() {
   if (hour % 6 === 0) {
     await runReviewRequests();
   }
+
+  // Manual-SMS follow-ups run every hour so a 24h no-reply gap is caught promptly.
+  await runCustomerSmsReminders();
 
   await runAutomations();
 

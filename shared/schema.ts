@@ -5176,6 +5176,20 @@ export const orderReviews = pgTable("order_reviews", {
   thankYouSmsSentAt: timestamp("thank_you_sms_sent_at"),
 });
 
+// Log of one-off SMS messages an admin sends to a customer from an order
+// (not part of the automated review-request flow). Lets us follow up
+// automatically if the customer hasn't replied within 24 hours.
+export const customerSmsLog = pgTable("customer_sms_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull().references(() => customerOrders.id),
+  customerPhone: varchar("customer_phone").notNull(),
+  customerFirstName: varchar("customer_first_name"),
+  body: text("body").notNull(),
+  sentAt: timestamp("sent_at").notNull().defaultNow(),
+  reminderSentAt: timestamp("reminder_sent_at"),
+  customerRepliedAt: timestamp("customer_replied_at"),
+});
+
 // Return requests table
 export const returnRequests = pgTable("return_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

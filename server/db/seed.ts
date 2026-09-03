@@ -538,6 +538,26 @@ async function ensureCriticalTablesExist() {
     console.error("❌ Error adding thank_you_sms_sent_at column:", error);
   }
 
+  // Create customer_sms_log table if missing — logs one-off admin→customer
+  // SMS sends so we can follow up automatically if there's no reply in 24h.
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS customer_sms_log (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        order_id varchar NOT NULL REFERENCES customer_orders(id),
+        customer_phone varchar NOT NULL,
+        customer_first_name varchar,
+        body text NOT NULL,
+        sent_at timestamp NOT NULL DEFAULT now(),
+        reminder_sent_at timestamp,
+        customer_replied_at timestamp
+      );
+    `);
+    console.log("✅ customer_sms_log table ensured");
+  } catch (error) {
+    console.error("❌ Error creating customer_sms_log table:", error);
+  }
+
   // Create reseller_ads table if missing (admin-uploaded EPOS ad per reseller)
   try {
     await pool.query(`

@@ -89,6 +89,7 @@ import {
   pickLists,
   pickListItems,
   orderReviews,
+  customerSmsLog,
   productReviews,
   returnRequests,
   wholesalerOrders,
@@ -16568,6 +16569,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!sent) {
         return res.status(502).json({ error: "SMS could not be sent — check Twilio is configured and the number is valid" });
       }
+
+      // Log this send so we can follow up automatically if there's no reply in 24h
+      try {
+        await db.insert(customerSmsLog).values({
+          orderId: order.id,
+          customerPhone: normalisePhone(rawPhone),
+          customerFirstName: order.customerFirstName,
+          body: message.trim(),
+        });
+      } catch (logError) {
+        console.error('Failed to log customer SMS for follow-up tracking:', logError);
+      }
+
       res.json({ success: true });
     } catch (error: any) {
       console.error('Send order SMS error:', error);
