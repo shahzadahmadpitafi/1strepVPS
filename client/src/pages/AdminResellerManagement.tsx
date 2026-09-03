@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { convertToDirectUrl } from "@/lib/imageUtils";
+import { linkifyMessageBody } from "@/lib/linkify";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { 
   Check, 
@@ -40,7 +41,8 @@ import {
   Boxes,
   AlertTriangle,
   Printer,
-  Download
+  Download,
+  RefreshCw
 } from "lucide-react";
 
 export default function AdminResellerManagement() {
@@ -153,6 +155,45 @@ export default function AdminResellerManagement() {
   const { data: resellerStatsData, isLoading: statsLoading } = useQuery<any>({
     queryKey: ["/api/admin/resellers", selectedReseller?.id, "stats"],
     enabled: !!selectedReseller?.id && manageResellerDialog,
+  });
+
+  // Fetch SMS thread with the reseller (pulled live from Twilio, both directions)
+  const { data: resellerSmsThread, isLoading: resellerSmsThreadLoading } = useQuery<{ messages: Array<{ direction: string; body: string; status: string; date: string }>; configured: boolean }>({
+    queryKey: ["/api/admin/resellers", selectedReseller?.id, "sms-thread"],
+    queryFn: async () => {
+      if (!selectedReseller?.id) return { messages: [], configured: true };
+      const res = await fetch(`/api/admin/resellers/${selectedReseller.id}/sms-thread`, { credentials: "include" });
+      if (!res.ok) return { messages: [], configured: true };
+      return res.json();
+    },
+    enabled: !!selectedReseller?.id && manageResellerDialog,
+    refetchInterval: 30000,
+    staleTime: 25000,
+  });
+
+  const [resellerSmsComposeText, setResellerSmsComposeText] = useState("");
+
+  const sendResellerSmsMutation = useMutation({
+    mutationFn: (data: { id: string; message: string }) =>
+      apiRequest("POST", `/api/admin/resellers/${data.id}/sms`, { message: data.message }),
+    onSuccess: () => {
+      setResellerSmsComposeText("");
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/resellers", selectedReseller?.id, "sms-thread"] });
+      toast({ title: "SMS sent", description: "Message has been sent to the reseller" });
+    },
+    onError: (err: any) => {
+      let description = "Failed to send SMS";
+      const raw = typeof err?.message === "string" ? err.message.replace(/^\d+:\s*/, "") : "";
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          description = parsed?.error || raw;
+        } catch {
+          description = raw;
+        }
+      }
+      toast({ title: "Error", description, variant: "destructive" });
+    },
   });
 
   // Fetch commission overrides for selected reseller
@@ -2052,7 +2093,7 @@ export default function AdminResellerManagement() {
           </DialogHeader>
 
           <Tabs value={manageTab} onValueChange={setManageTab}>
-            <TabsList className="grid w-full grid-cols-8">
+            <TabsList className="grid w-full grid-cols-9">
               <TabsTrigger value="overview" data-testid="tab-overview">
                 <BarChart3 className="w-4 h-4 mr-1" />
                 Overview
@@ -2072,6 +2113,10 @@ export default function AdminResellerManagement() {
               <TabsTrigger value="commission" data-testid="tab-commission">
                 <DollarSign className="w-4 h-4 mr-1" />
                 Commission
+              </TabsTrigger>
+              <TabsTrigger value="sms" data-testid="tab-sms">
+                <MessageSquare className="w-4 h-4 mr-1" />
+                SMS
               </TabsTrigger>
               <TabsTrigger value="profile" data-testid="tab-profile">Profile</TabsTrigger>
               <TabsTrigger value="tier" data-testid="tab-tier">Tier</TabsTrigger>
@@ -3230,6 +3275,70 @@ export default function AdminResellerManagement() {
                   </div>
                 )}
               </div>
+            </TabsContent>
+
+            {/* SMS Tab — text the reseller directly, thread pulled live from Twilio */}
+            <TabsContent value="sms" className="space-y-4">
+              {!selectedReseller?.phoneNumber ? (
+                <p className="text-sm text-muted-foreground italic">
+                  No phone number on file for this reseller.
+                </p>
+              ) : (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="font-semibold">SMS Messages</h3>
+                    {resellerSmsThreadLoading && <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground" />}
+                  </div>
+                  {(resellerSmsThread?.messages?.length ?? 0) === 0 ? (
+                    <p className="text-sm text-muted-foreground italic">
+                      {resellerSmsThread?.configured === false
+                        ? "SMS isn't configured on this server."
+                        : "No SMS messages sent or received with this reseller yet."}
+                    </p>
+                  ) : (
+                    <div className="space-y-2 max-h-72 overflow-y-auto rounded-lg border p-3 bg-muted/30">
+                      {resellerSmsThread!.messages.map((m, i) => (
+                        <div key={i} className={`flex ${m.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
+                          <div
+                            className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+                              m.direction === 'outbound'
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-background border'
+                            }`}
+                            data-testid={`reseller-sms-message-${i}`}
+                          >
+                            <p className="whitespace-pre-wrap">{linkifyMessageBody(m.body)}</p>
+                            <p className={`text-[10px] mt-1 ${m.direction === 'outbound' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                              {new Date(m.date).toLocaleString("en-GB")} &middot; {m.direction === 'outbound' ? '1stRep' : selectedReseller?.businessName}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {resellerSmsThread?.configured !== false && (
+                    <div className="flex gap-2 mt-2">
+                      <Textarea
+                        value={resellerSmsComposeText}
+                        onChange={(e) => setResellerSmsComposeText(e.target.value)}
+                        placeholder="Type a message to text this reseller..."
+                        rows={2}
+                        className="text-sm resize-none"
+                        data-testid="textarea-reseller-sms-compose"
+                      />
+                      <Button
+                        size="sm"
+                        className="self-end"
+                        disabled={!resellerSmsComposeText.trim() || sendResellerSmsMutation.isPending}
+                        onClick={() => selectedReseller && sendResellerSmsMutation.mutate({ id: selectedReseller.id, message: resellerSmsComposeText.trim() })}
+                        data-testid="button-send-reseller-sms"
+                      >
+                        {sendResellerSmsMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : "Send"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </DialogContent>

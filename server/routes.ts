@@ -90,6 +90,7 @@ import {
   pickListItems,
   orderReviews,
   customerSmsLog,
+  resellerSmsLog,
   productReviews,
   returnRequests,
   wholesalerOrders,
@@ -16585,6 +16586,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error: any) {
       console.error('Send order SMS error:', error);
+      res.status(500).json({ error: 'Failed to send SMS' });
+    }
+  });
+
+  // Get SMS conversation with a reseller (both directions, admin only) — same
+  // approach as the order SMS thread: pulled live from Twilio rather than
+  // stored locally, since Twilio already retains the full message history.
+  app.get("/api/admin/resellers/:id/sms-thread", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const [reseller] = await db.select().from(resellers).where(eq(resellers.id, id));
+      if (!reseller) return res.status(404).json({ error: "Reseller not found" });
+
+      const sid = process.env.TWILIO_ACCOUNT_SID;
+      const token = process.env.TWILIO_AUTH_TOKEN;
+      const ourNumber = process.env.TWILIO_FROM_NUMBER;
+      if (!sid || !token || !ourNumber) {
+        return res.json({ messages: [], configured: false });
+      }
+      if (!reseller.phoneNumber) return res.json({ messages: [], configured: true });
+
+      const resellerPhone = normalisePhone(reseller.phoneNumber);
+      const auth = Buffer.from(`${sid}:${token}`).toString('base64');
+      const fetchDirection = async (params: string) => {
+        const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json?${params}&PageSize=50`, {
+          headers: { Authorization: `Basic ${auth}` },
+        });
+        if (!resp.ok) return [];
+        const data = await resp.json() as any;
+        return (data.messages || []) as any[];
+      };
+
+      const [outbound, inbound] = await Promise.all([
+        fetchDirection(`From=${encodeURIComponent(ourNumber)}&To=${encodeURIComponent(resellerPhone)}`),
+        fetchDirection(`From=${encodeURIComponent(resellerPhone)}&To=${encodeURIComponent(ourNumber)}`),
+      ]);
+
+      const messages = [...outbound, ...inbound]
+        .map((m: any) => ({
+          direction: m.direction === 'inbound' ? 'inbound' : 'outbound',
+          body: m.body,
+          status: m.status,
+          date: m.date_created,
+        }))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      res.json({ messages, configured: true, phone: resellerPhone });
+    } catch (error: any) {
+      console.error('Reseller SMS thread error:', error);
+      res.status(500).json({ error: 'Failed to fetch SMS thread' });
+    }
+  });
+
+  // Send a custom SMS to a reseller (admin only)
+  app.post("/api/admin/resellers/:id/sms", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { message } = req.body;
+      if (!message || typeof message !== 'string' || !message.trim()) {
+        return res.status(400).json({ error: "Message is required" });
+      }
+
+      const [reseller] = await db.select().from(resellers).where(eq(resellers.id, id));
+      if (!reseller) return res.status(404).json({ error: "Reseller not found" });
+      if (!reseller.phoneNumber) return res.status(400).json({ error: "No phone number on file for this reseller" });
+
+      const sent = await sendSMS(reseller.phoneNumber, message.trim());
+      if (!sent) {
+        return res.status(502).json({ error: "SMS could not be sent — check Twilio is configured and the number is valid" });
+      }
+
+      // Log this send so there's a stored record of admin-to-reseller SMS
+      try {
+        await db.insert(resellerSmsLog).values({
+          resellerId: reseller.id,
+          resellerPhone: normalisePhone(reseller.phoneNumber),
+          body: message.trim(),
+          adminUserId: req.user?.id,
+        });
+      } catch (logError) {
+        console.error('Failed to log reseller SMS:', logError);
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Send reseller SMS error:', error);
       res.status(500).json({ error: 'Failed to send SMS' });
     }
   });

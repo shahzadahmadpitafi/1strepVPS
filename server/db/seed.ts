@@ -558,6 +558,23 @@ async function ensureCriticalTablesExist() {
     console.error("❌ Error creating customer_sms_log table:", error);
   }
 
+  // Create reseller_sms_log table if missing — logs admin→reseller SMS sends
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS reseller_sms_log (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        reseller_id varchar NOT NULL REFERENCES resellers(id),
+        reseller_phone varchar NOT NULL,
+        body text NOT NULL,
+        sent_at timestamp NOT NULL DEFAULT now(),
+        admin_user_id varchar REFERENCES users(id)
+      );
+    `);
+    console.log("✅ reseller_sms_log table ensured");
+  } catch (error) {
+    console.error("❌ Error creating reseller_sms_log table:", error);
+  }
+
   // Create reseller_ads table if missing (admin-uploaded EPOS ad per reseller)
   try {
     await pool.query(`

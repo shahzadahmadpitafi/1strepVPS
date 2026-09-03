@@ -5190,6 +5190,18 @@ export const customerSmsLog = pgTable("customer_sms_log", {
   customerRepliedAt: timestamp("customer_replied_at"),
 });
 
+// Log of admin-sent SMS messages to a reseller — the reseller-side equivalent
+// of customer_sms_log, giving admins a stored record of outbound SMS to
+// gyms/partners (inbound replies are still pulled live from Twilio for the thread).
+export const resellerSmsLog = pgTable("reseller_sms_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  resellerId: varchar("reseller_id").notNull().references(() => resellers.id),
+  resellerPhone: varchar("reseller_phone").notNull(),
+  body: text("body").notNull(),
+  sentAt: timestamp("sent_at").notNull().defaultNow(),
+  adminUserId: varchar("admin_user_id").references(() => users.id),
+});
+
 // Return requests table
 export const returnRequests = pgTable("return_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
