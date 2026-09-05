@@ -4046,35 +4046,36 @@ export class DatabaseStorage implements IStorage {
       // Get EPOS orders for this reseller
       const eposOrders = await db.select().from(customerOrders)
         .where(eq(customerOrders.resellerId, resellerId));
-      
-      // Get vendor product IDs if reseller has vendor access
-      let vendorProductIds: string[] = [];
-      if (reseller.userId) {
-        const [vendor] = await db.select().from(vendors).where(eq(vendors.userId, reseller.userId));
-        if (vendor) {
-          const vendorProductsList = await db.select({ id: vendorProducts.id })
-            .from(vendorProducts)
-            .where(eq(vendorProducts.vendorId, vendor.id));
-          vendorProductIds = vendorProductsList.map(p => p.id);
-        }
-      }
-      
+
       // Process EPOS orders
       // EPOS = point-of-sale: goods are handed over immediately at payment,
       // so all non-cancelled orders count towards earnings (no need to wait for 'delivered')
+      //
+      // Own-vs-catalogue is decided by the order's channel, set server-side at the
+      // moment of sale — not by matching each item's vendorProductId against the
+      // reseller's CURRENT live product catalog. That per-item cross-check silently
+      // dropped real earnings whenever a product's vendorId didn't match (e.g. a
+      // mislabeled/duplicated product row from another vendor), even though the
+      // order itself unambiguously records this as the reseller's own-product sale.
       const eposCancelledStatuses = ['cancelled', 'refunded', 'failed'];
+      const ownChannels = new Set(['reseller_epos_own', 'reseller_epos_own_stripe']);
       for (const order of eposOrders) {
         if (!eposCancelledStatuses.includes(order.status || '')) {
+          const isOwnChannel = ownChannels.has(order.channel || '');
           const items = await db.select().from(customerOrderItems)
             .where(eq(customerOrderItems.orderId, order.id));
-          
+
           for (const item of items) {
             const itemTotal = parseFloat(item.totalPrice || '0');
-            
-            if (item.vendorProductId && vendorProductIds.includes(item.vendorProductId)) {
-              // Own product - 100% revenue to reseller (already received via EPOS)
-              ownProductsRevenue += itemTotal;
-            } else if (!item.vendorProductId) {
+
+            if (isOwnChannel) {
+              // Own product sale — 100% revenue to reseller, unless it was paid
+              // directly into the reseller's own Square account (BYOS), in which
+              // case 1stRep never held the funds and nothing is owed via payout.
+              if (!order.ownSquarePaid) {
+                ownProductsRevenue += itemTotal;
+              }
+            } else {
               // Catalogue product - reseller earns commission (needs payout)
               eposCatalogueCommission += itemTotal * commissionRate;
             }
