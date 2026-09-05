@@ -1161,15 +1161,38 @@ export default function AdminPayouts() {
                           <p className="text-xs text-muted-foreground mb-0.5">Own Products</p>
                           <p className="font-bold text-lg text-violet-600 dark:text-violet-400">£{resellerBalance.ownProductsRevenue.toFixed(2)}</p>
                         </div>
-                        <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3 text-center">
+                        <div className={`rounded-lg border p-3 text-center ${
+                          resellerBalance.availableBalance < -0.01
+                            ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800'
+                            : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800'
+                        }`}>
                           <p className="text-xs text-muted-foreground mb-0.5">Available Now</p>
-                          <p className="font-bold text-lg text-emerald-600 dark:text-emerald-400">£{resellerBalance.availableBalance.toFixed(2)}</p>
+                          <p className={`font-bold text-lg ${
+                            resellerBalance.availableBalance < -0.01
+                              ? 'text-red-600 dark:text-red-400'
+                              : 'text-emerald-600 dark:text-emerald-400'
+                          }`}>£{resellerBalance.availableBalance.toFixed(2)}</p>
                         </div>
                       </div>
                       {resellerBalance.totalPaidOut > 0 && (
                         <p className="text-xs text-muted-foreground mt-1.5 text-right">
                           £{resellerBalance.totalPaidOut.toFixed(2)} already paid out · £{resellerBalance.pendingPayout.toFixed(2)} pending
                         </p>
+                      )}
+                      {resellerBalance.availableBalance < -0.01 && (
+                        <div className="mt-3 rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30 p-3">
+                          <p className="font-semibold text-red-700 dark:text-red-400 flex items-center gap-1.5 text-sm">
+                            <AlertTriangle className="h-4 w-4 shrink-0" />
+                            Balance shortfall — £{Math.abs(resellerBalance.availableBalance).toFixed(2)} over
+                          </p>
+                          <p className="text-red-700/80 dark:text-red-400/80 text-xs mt-1 leading-relaxed">
+                            Paid out (£{resellerBalance.totalPaidOut.toFixed(2)}) + pending (£{resellerBalance.pendingPayout.toFixed(2)}) exceeds
+                            what this reseller has actually earned (£{resellerBalance.totalEarned.toFixed(2)}) by £{Math.abs(resellerBalance.availableBalance).toFixed(2)}.{' '}
+                            {selectedPayout.status === 'paid'
+                              ? "This specific payout has already been paid — flagging for your records, no action needed on it."
+                              : "Review before approving this request — the reseller may not have enough earned balance to cover it."}
+                          </p>
+                        </div>
                       )}
                     </>
                   ) : null}

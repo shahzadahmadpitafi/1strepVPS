@@ -2717,29 +2717,50 @@ export default function AdminResellerManagement() {
                       <CardDescription>What 1stRep currently owes this reseller</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                          <p className="text-xs text-muted-foreground uppercase tracking-wide">Available to Pay</p>
-                          <p className="text-xl font-bold text-amber-500">
-                            £{(resellerEarningsData?.stats?.availableBalance || 0).toFixed(2)}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">earned, not yet paid</p>
-                        </div>
-                        <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                          <p className="text-xs text-muted-foreground uppercase tracking-wide">Pending Requests</p>
-                          <p className="text-xl font-bold text-yellow-600">
-                            £{(resellerEarningsData?.stats?.pendingPayoutTotal || 0).toFixed(2)}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">payout requests in progress</p>
-                        </div>
-                        <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
-                          <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Paid Out</p>
-                          <p className="text-xl font-bold text-green-600">
-                            £{(resellerEarningsData?.stats?.paidCommission || 0).toFixed(2)}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">successfully transferred</p>
-                        </div>
-                      </div>
+                      {(() => {
+                        const available = resellerEarningsData?.stats?.availableBalance || 0;
+                        const isShortfall = available < -0.01;
+                        return (
+                          <>
+                            <div className="grid grid-cols-3 gap-3">
+                              <div className={`p-4 rounded-lg border ${isShortfall ? 'bg-red-500/10 border-red-500/20' : 'bg-amber-500/10 border-amber-500/20'}`}>
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Available to Pay</p>
+                                <p className={`text-xl font-bold ${isShortfall ? 'text-red-500' : 'text-amber-500'}`}>
+                                  £{available.toFixed(2)}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">{isShortfall ? 'paid/requested exceeds earned' : 'earned, not yet paid'}</p>
+                              </div>
+                              <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Pending Requests</p>
+                                <p className="text-xl font-bold text-yellow-600">
+                                  £{(resellerEarningsData?.stats?.pendingPayoutTotal || 0).toFixed(2)}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">payout requests in progress</p>
+                              </div>
+                              <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Paid Out</p>
+                                <p className="text-xl font-bold text-green-600">
+                                  £{(resellerEarningsData?.stats?.paidCommission || 0).toFixed(2)}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">successfully transferred</p>
+                              </div>
+                            </div>
+                            {isShortfall && (
+                              <div className="mt-3 rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30 p-3">
+                                <p className="font-semibold text-red-700 dark:text-red-400 flex items-center gap-1.5 text-sm">
+                                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                                  Balance shortfall — £{Math.abs(available).toFixed(2)} over
+                                </p>
+                                <p className="text-red-700/80 dark:text-red-400/80 text-xs mt-1 leading-relaxed">
+                                  Total paid out (£{(resellerEarningsData?.stats?.paidCommission || 0).toFixed(2)}) + pending (£{(resellerEarningsData?.stats?.pendingPayoutTotal || 0).toFixed(2)}) exceeds
+                                  what this reseller has actually earned (£{(resellerEarningsData?.stats?.totalEarnings || 0).toFixed(2)}) by £{Math.abs(available).toFixed(2)}.
+                                  If there's a pending request, review it before approving — the reseller may not have enough earned balance to cover it.
+                                </p>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </CardContent>
                   </Card>
 

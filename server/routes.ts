@@ -8311,8 +8311,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const resellerPayoutRequests = await storage.getPayoutRequestsByReseller(id);
       const pendingPayoutTotal = resellerPayoutRequests.filter(p => ['pending','approved','processing'].includes(p.status || '')).reduce((s, p) => s + parseFloat(p.amount || '0'), 0);
       const paidPayoutTotal = resellerPayoutRequests.filter(p => p.status === 'paid').reduce((s, p) => s + parseFloat(p.amount || '0'), 0);
-      // Available balance = total earned - already paid out
-      const availableBalance = Math.max(0, totalEarnings - paidPayoutTotal - pendingPayoutTotal);
+      // Available balance = total earned - already paid out. Deliberately NOT
+      // clamped to zero — a negative value is a real signal (paid out or
+      // requested more than was ever earned) that the admin panel surfaces
+      // rather than silently hiding behind a floor of £0.00.
+      const availableBalance = totalEarnings - paidPayoutTotal - pendingPayoutTotal;
 
       // Commission payments filtering (legacy, kept for compatibility)
       let filteredPayments = commissionPayments;
