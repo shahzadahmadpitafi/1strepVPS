@@ -7198,7 +7198,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send email notifications to team members with "orders" department access
       try {
-        const allTeamMembers = await storage.getAllAdminTeamMembers();
+        const allTeamMembers = await storage.getAdminTeamMembers();
         const orderTeamMembers = allTeamMembers.filter(
           (tm) => tm.isActive && tm.departments.includes('orders') && tm.user?.email
         );
@@ -12854,7 +12854,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send email notifications to team members with "orders" department access
       try {
-        const allTeamMembers = await storage.getAllAdminTeamMembers();
+        const allTeamMembers = await storage.getAdminTeamMembers();
         const orderTeamMembers = allTeamMembers.filter(
           (tm) => tm.isActive && tm.departments.includes('orders') && tm.user?.email
         );
@@ -13647,7 +13647,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Team email notifications
         try {
-          const allTeamMembers = await storage.getAllAdminTeamMembers();
+          const allTeamMembers = await storage.getAdminTeamMembers();
           const orderTeamMembers = allTeamMembers.filter(
             (tm) => tm.isActive && tm.departments.includes('orders') && tm.user?.email
           );
