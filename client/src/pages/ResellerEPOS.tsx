@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { usePaypalCheckout } from "@/hooks/usePaypalCheckout";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatCurrency, sortSizes } from "@/lib/utils";
+import { isPromoActive, DISCOUNT_PCT as PROMO_DISCOUNT_PCT } from "@shared/promo";
 import { motion, AnimatePresence } from "framer-motion";
 import { SiApplepay, SiGooglepay } from "react-icons/si";
 import QRPayment from "@/components/epos/QRPayment";
@@ -899,10 +900,18 @@ export default function ResellerEPOS() {
   // Whether the cart contains a mix of 1stRep and own products
   const hasMixedProducts = firstRepSubtotal > 0 && firstRepSubtotal < cartTotal;
 
-  // Calculate the final total after applying any coupon discount
-  const discountedTotal = appliedCoupon 
-    ? Math.max(0, cartTotal - appliedCoupon.discount) 
-    : cartTotal;
+  // Automatic promo discount — 25% off 1stRep catalogue items only, no code
+  // needed, live only during the promo window (shared/promo.ts). 1stRep
+  // absorbs this: item unitPrice sent to checkout stays at full retail price,
+  // so reseller commission (calculated from unitPrice server-side) is unaffected.
+  const promoDiscountAmount = isPromoActive() ? firstRepSubtotal * (PROMO_DISCOUNT_PCT / 100) : 0;
+
+  // Total discount actually applied — coupon and promo stack (a coupon can
+  // still be used on top of the automatic promo).
+  const totalDiscountAmount = (appliedCoupon?.discount || 0) + promoDiscountAmount;
+
+  // Calculate the final total after applying any coupon discount and the promo
+  const discountedTotal = Math.max(0, cartTotal - totalDiscountAmount);
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -1067,7 +1076,7 @@ export default function ResellerEPOS() {
         })),
         couponCode: appliedCoupon?.coupon?.code || null,
         couponId: appliedCoupon?.coupon?.id || null,
-        discountAmount: appliedCoupon?.discount || 0,
+        discountAmount: totalDiscountAmount,
         deliveryMethod,
         deliveryAddress: {
           address: deliveryAddress,
@@ -1432,7 +1441,7 @@ export default function ResellerEPOS() {
               paymentMethod: "PayPal",
               paypalOrderId: orderId,
               couponCode: appliedCoupon?.coupon?.code || null,
-              discountAmount: appliedCoupon?.discount || 0,
+              discountAmount: totalDiscountAmount,
             });
 
             const data = await response.json();
@@ -1576,7 +1585,7 @@ export default function ResellerEPOS() {
         paymentMethod,
         totalAmount: discountedTotal,
         subtotal: cartTotal,
-        discountAmount: appliedCoupon?.discount || 0,
+        discountAmount: totalDiscountAmount,
         couponCode: appliedCoupon?.coupon?.code || null,
         couponId: appliedCoupon?.coupon?.id || null,
         fulfilmentMethod: deliveryMethod,
@@ -1667,7 +1676,7 @@ export default function ResellerEPOS() {
         paymentMethod: "bank_transfer",
         totalAmount: discountedTotal,
         subtotal: cartTotal,
-        discountAmount: appliedCoupon?.discount || 0,
+        discountAmount: totalDiscountAmount,
         couponCode: appliedCoupon?.coupon?.code || null,
         couponId: appliedCoupon?.coupon?.id || null,
         fulfilmentMethod: deliveryMethod,
@@ -2361,11 +2370,24 @@ export default function ResellerEPOS() {
                       </div>
                       <div className="flex items-center justify-between gap-2">
                         <div>
-                          <p className={`font-bold text-emerald-400 ${
-                            viewMode === "large" ? "text-2xl" : "text-lg"
-                          }`}>
-                            {formatCurrency(parseFloat(product.retailPrice))}
-                          </p>
+                          {product.productType !== 'own_product' && isPromoActive() ? (
+                            <div className="flex items-baseline gap-2">
+                              <p className={`font-bold text-yellow-400 ${
+                                viewMode === "large" ? "text-2xl" : "text-lg"
+                              }`}>
+                                {formatCurrency(parseFloat(product.retailPrice) * (1 - PROMO_DISCOUNT_PCT / 100))}
+                              </p>
+                              <p className="text-white/40 text-xs line-through">
+                                {formatCurrency(parseFloat(product.retailPrice))}
+                              </p>
+                            </div>
+                          ) : (
+                            <p className={`font-bold text-emerald-400 ${
+                              viewMode === "large" ? "text-2xl" : "text-lg"
+                            }`}>
+                              {formatCurrency(parseFloat(product.retailPrice))}
+                            </p>
+                          )}
                         </div>
                         {viewMode === "large" && product.sizes.length > 0 && (
                           <div className="flex flex-wrap gap-1 max-w-[120px]">
@@ -2559,9 +2581,20 @@ export default function ResellerEPOS() {
 
                 {/* Price */}
                 <div className="space-y-1">
-                  <p className="text-2xl md:text-3xl font-semibold text-emerald-400" data-testid="text-product-price">
-                    {formatCurrency(parseFloat(selectedProduct.retailPrice))}
-                  </p>
+                  {selectedProduct.productType !== 'own_product' && isPromoActive() ? (
+                    <div className="flex items-baseline gap-3">
+                      <p className="text-2xl md:text-3xl font-semibold text-yellow-400" data-testid="text-product-price">
+                        {formatCurrency(parseFloat(selectedProduct.retailPrice) * (1 - PROMO_DISCOUNT_PCT / 100))}
+                      </p>
+                      <p className="text-white/40 text-lg line-through">
+                        {formatCurrency(parseFloat(selectedProduct.retailPrice))}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-2xl md:text-3xl font-semibold text-emerald-400" data-testid="text-product-price">
+                      {formatCurrency(parseFloat(selectedProduct.retailPrice))}
+                    </p>
+                  )}
                   <p className="text-white/40 text-sm">
                     Your cost: {formatCurrency(parseFloat(selectedProduct.wholesalePrice))}
                   </p>
@@ -3048,16 +3081,24 @@ export default function ResellerEPOS() {
                   ))}
                 </div>
                 <Separator className="my-2 bg-white/10" />
-                {appliedCoupon && (
+                {(appliedCoupon || promoDiscountAmount > 0) && (
                   <>
                     <div className="flex justify-between gap-2 text-sm">
                       <span className="text-white/60">Subtotal</span>
                       <span className="text-white/80">{formatCurrency(cartTotal)}</span>
                     </div>
-                    <div className="flex justify-between gap-2 text-sm text-emerald-400">
-                      <span>Discount ({appliedCoupon.coupon.discountType === 'percentage' ? `${Number(appliedCoupon.coupon.discountValue)}%` : `£${Number(appliedCoupon.coupon.discountValue).toFixed(2)}`})</span>
-                      <span>-{formatCurrency(appliedCoupon.discount)}</span>
-                    </div>
+                    {promoDiscountAmount > 0 && (
+                      <div className="flex justify-between gap-2 text-sm text-yellow-400">
+                        <span>Promo discount ({PROMO_DISCOUNT_PCT}% off catalogue items)</span>
+                        <span>-{formatCurrency(promoDiscountAmount)}</span>
+                      </div>
+                    )}
+                    {appliedCoupon && (
+                      <div className="flex justify-between gap-2 text-sm text-emerald-400">
+                        <span>Discount ({appliedCoupon.coupon.discountType === 'percentage' ? `${Number(appliedCoupon.coupon.discountValue)}%` : `£${Number(appliedCoupon.coupon.discountValue).toFixed(2)}`})</span>
+                        <span>-{formatCurrency(appliedCoupon.discount)}</span>
+                      </div>
+                    )}
                     <Separator className="my-1 bg-white/10" />
                   </>
                 )}
@@ -3550,7 +3591,7 @@ export default function ResellerEPOS() {
                       },
                       couponCode: appliedCoupon?.coupon?.code || null,
                       couponId: appliedCoupon?.coupon?.id || null,
-                      discountAmount: appliedCoupon?.discount || 0,
+                      discountAmount: totalDiscountAmount,
                     });
                     const data = await response.json();
                     setReceiptData({

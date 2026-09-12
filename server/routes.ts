@@ -102,6 +102,7 @@ import {
   eposPendingPayments,
   type User
 } from "@shared/schema";
+import { isPromoActive, DISCOUNT_PCT as PROMO_DISCOUNT_PCT } from "@shared/promo";
 import { z } from "zod";
 import { 
   sendOrderConfirmation, 
@@ -13307,10 +13308,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }, 0);
       const verifiedSubtotal = computedItemsTotal > 0 ? computedItemsTotal.toFixed(2) : (req.body.subtotal || totalAmount).toString();
       
+      // ── Per-group totals for split orders ────────────────────────────────────
+      const catItemsTotal = catalogueItems.reduce((s: number, i: any) => s + parseFloat(i.unitPrice) * i.quantity, 0);
+      const ownItemsTotal = ownProductItems.reduce((s: number, i: any) => s + parseFloat(i.unitPrice) * i.quantity, 0);
+
       // Validate and apply discount if coupon was used
       let orderDiscountAmount = 0;
       let validatedCouponCode: string | null = null;
       let validatedCouponId: string | null = null;
+      let isAutoPromoDiscount = false;
       if (couponCode && couponId) {
         const validCoupon = await storage.getCoupon(couponId);
         if (validCoupon && validCoupon.isActive && validCoupon.code === couponCode) {
@@ -13329,18 +13335,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.warn(`⚠️ EPOS coupon validation failed: code=${couponCode}, id=${couponId} - coupon will not be applied to order`);
           }
         }
-      } else if (parseFloat(discountAmount) > 0 && !couponCode) {
-        orderDiscountAmount = parseFloat(discountAmount) || 0;
+      } else {
+        // No coupon — the only legitimate non-coupon discount is the automatic
+        // reseller-EPOS promo (shared/promo.ts), which applies to 1stRep
+        // catalogue items only, never the reseller's own products. Computed
+        // here from the server's own clock and the real catalogue subtotal —
+        // the client's discountAmount is never trusted for this path.
+        orderDiscountAmount = catItemsTotal * (isPromoActive() ? PROMO_DISCOUNT_PCT / 100 : 0);
+        isAutoPromoDiscount = true;
       }
 
-      // ── Per-group totals for split orders ────────────────────────────────────
-      const catItemsTotal = catalogueItems.reduce((s: number, i: any) => s + parseFloat(i.unitPrice) * i.quantity, 0);
-      const ownItemsTotal = ownProductItems.reduce((s: number, i: any) => s + parseFloat(i.unitPrice) * i.quantity, 0);
-      // Distribute discount proportionally between the two sub-orders
-      const catDiscount = isMixed && computedItemsTotal > 0
-        ? Math.min(catItemsTotal, orderDiscountAmount * (catItemsTotal / computedItemsTotal))
-        : (!isMixed ? orderDiscountAmount : 0);
-      const ownDiscount = isMixed ? Math.max(0, orderDiscountAmount - catDiscount) : 0;
+      // Distribute discount between the two sub-orders. The auto-promo
+      // discount always applies 100% to the catalogue sub-order (it's
+      // catalogue-only by definition); a coupon discount is distributed
+      // proportionally across whatever the cart contains.
+      const catDiscount = isAutoPromoDiscount
+        ? Math.min(catItemsTotal, orderDiscountAmount)
+        : (isMixed && computedItemsTotal > 0
+            ? Math.min(catItemsTotal, orderDiscountAmount * (catItemsTotal / computedItemsTotal))
+            : (!isMixed ? orderDiscountAmount : 0));
+      const ownDiscount = isAutoPromoDiscount ? 0 : (isMixed ? Math.max(0, orderDiscountAmount - catDiscount) : 0);
 
       const finalOrderTotal = isMixed
         ? Math.max(0, catItemsTotal - catDiscount).toFixed(2)

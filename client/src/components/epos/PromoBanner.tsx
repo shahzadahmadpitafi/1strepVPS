@@ -1,14 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { convertToDirectUrl } from "@/lib/imageUtils";
 import { formatCurrency } from "@/lib/utils";
-
-// ─── Promo window ───────────────────────────────────────────────────────────
-const PROMO_START = new Date("2026-09-12T00:00:00");
-const PROMO_END = new Date("2026-10-11T23:59:59");
-const DISCOUNT_PCT = 25;
-
-// Master switch — live for every reseller.
-const PROMO_LIVE = true;
+import { PROMO_START, PROMO_END, DISCOUNT_PCT, PROMO_LIVE } from "@shared/promo";
 
 const ANTON = { fontFamily: "'Anton', 'Barlow Condensed', sans-serif" } as const;
 
