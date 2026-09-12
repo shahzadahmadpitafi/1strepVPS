@@ -5302,7 +5302,7 @@ export class DatabaseStorage implements IStorage {
       notificationSent: stockAlertSubscriptions.notificationSent,
       createdAt: stockAlertSubscriptions.createdAt,
       productName: products.name,
-      productImage: products.mainImageUrl,
+      productImage: products.imageUrl,
     })
     .from(stockAlertSubscriptions)
     .leftJoin(products, eq(stockAlertSubscriptions.productId, products.id))
