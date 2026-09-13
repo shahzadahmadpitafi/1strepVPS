@@ -8,6 +8,7 @@ import { storage } from './storage';
 import { sendOrderConfirmation } from './email-service';
 import { emitOrderEvent } from './socketServer';
 import { requireAuth, requireReseller } from './middleware/auth';
+import { isPromoActive, DISCOUNT_PCT as PROMO_DISCOUNT_PCT } from '../shared/promo';
 
 const squareClient = new SquareClient({
   token: process.env.SQUARE_ACCESS_TOKEN,
@@ -1114,6 +1115,56 @@ export function registerSquareRoutes(app: Express) {
         },
       }];
 
+      // Automatic reseller-EPOS promo discount (shared/promo.ts) — computed
+      // server-side from the server's own clock and the REAL full-price
+      // catalogue subtotal, independent of anything the client claims.
+      // Previously this endpoint only ever read a `discount: {amount, name}`
+      // object that none of its 3 callers (Reseller/Vendor/Customer EPOS)
+      // actually send, so this block never ran and the real Square charge
+      // stayed at full price even while the EPOS screen showed the promo
+      // discount applied.
+      const sourceItemsForPromo = cartItems || lineItems || [];
+      const isOwnLineItem = orderLineItems.map((_: any, i: number) => {
+        const src = sourceItemsForPromo[i];
+        return !!src && (src.isResellerProduct === true || src.productType === 'own_product');
+      });
+      const originalCatalogueSubtotalPence = orderLineItems.reduce((sum: number, li: any, i: number) => {
+        return isOwnLineItem[i] ? sum : sum + Number(li.basePriceMoney.amount) * Number(li.quantity);
+      }, 0);
+      const promoDiscountPence = (originalCatalogueSubtotalPence > 0 && isPromoActive())
+        ? Math.round(originalCatalogueSubtotalPence * (PROMO_DISCOUNT_PCT / 100))
+        : 0;
+
+      if (promoDiscountPence > 0) {
+        const catalogueIndices = orderLineItems.map((_: any, i: number) => i).filter((i: number) => !isOwnLineItem[i]);
+        const currentCatalogueSubtotalPence = catalogueIndices.reduce((sum: number, i: number) => {
+          return sum + Number(orderLineItems[i].basePriceMoney.amount) * Number(orderLineItems[i].quantity);
+        }, 0);
+
+        if (currentCatalogueSubtotalPence > 0) {
+          let remainingPromoDiscount = Math.min(promoDiscountPence, currentCatalogueSubtotalPence);
+
+          for (let idx = 0; idx < catalogueIndices.length; idx++) {
+            const i = catalogueIndices[idx];
+            const item = orderLineItems[i];
+            const itemTotal = Number(item.basePriceMoney.amount) * Number(item.quantity);
+            const itemProportion = itemTotal / currentCatalogueSubtotalPence;
+
+            const itemDiscount = (idx === catalogueIndices.length - 1)
+              ? remainingPromoDiscount
+              : Math.round(promoDiscountPence * itemProportion);
+            remainingPromoDiscount -= itemDiscount;
+
+            const discountPerUnit = Math.round(itemDiscount / Number(item.quantity));
+            const newPrice = Math.max(0, Number(item.basePriceMoney.amount) - discountPerUnit);
+            item.basePriceMoney.amount = BigInt(newPrice);
+            item.name = `${item.name} (${PROMO_DISCOUNT_PCT}% Promo)`;
+          }
+
+          console.log(`Applied automatic ${PROMO_DISCOUNT_PCT}% promo discount to EPOS checkout catalogue items: -£${(promoDiscountPence / 100).toFixed(2)}`);
+        }
+      }
+
       // Apply discount if provided
       console.log('EPOS Checkout - Discount received:', JSON.stringify(discount));
       if (discount && discount.amount > 0 && orderLineItems.length > 0) {
@@ -1459,7 +1510,7 @@ export function registerSquareRoutes(app: Express) {
       const orderLineItems = items.map((item: any, index: number) => {
         const qty = item.quantity || 1;
         let itemPricePence = item.price ? Math.round(item.price * 100) : pricePerItem;
-        
+
         return {
           name: item.name || 'Product',
           quantity: String(qty),
@@ -1470,6 +1521,26 @@ export function registerSquareRoutes(app: Express) {
           note: [item.size, item.color].filter(Boolean).join(', ') || undefined,
         };
       });
+
+      // Which line items are the reseller's own products (never discounted by
+      // the promo below) vs 1stRep catalogue items — captured from the raw
+      // request items, in the same order as orderLineItems.
+      const isOwnLineItem = items.map((item: any) => item.isResellerProduct === true || item.productType === 'own_product');
+
+      // Automatic reseller-EPOS promo discount (shared/promo.ts) — computed
+      // server-side from the server's own clock and the REAL full-price
+      // catalogue subtotal, independent of anything the client claims. This
+      // runs regardless of whether a coupon is also applied, so the actual
+      // Square charge always matches the discounted total shown on the EPOS
+      // screen — previously this endpoint only ever discounted for an
+      // explicit coupon, so the promo total shown on-screen was never
+      // reflected in the real Square checkout/QR payment.
+      const originalCatalogueSubtotalPence = orderLineItems.reduce((sum: number, li: any, i: number) => {
+        return isOwnLineItem[i] ? sum : sum + Number(li.basePriceMoney.amount) * Number(li.quantity);
+      }, 0);
+      const promoDiscountPence = (originalCatalogueSubtotalPence > 0 && isPromoActive())
+        ? Math.round(originalCatalogueSubtotalPence * (PROMO_DISCOUNT_PCT / 100))
+        : 0;
 
       if (discount && discount.amount > 0) {
         const discountAmountPence = Math.round(discount.amount * 100);
@@ -1502,6 +1573,36 @@ export function registerSquareRoutes(app: Express) {
           console.log(`Applied discount to QR checkout line items: ${discount.name} - £${discount.amount}`);
         } else {
           console.log(`Cannot apply QR discount - £${discount.amount} exceeds product total £${totalProductValue/100}`);
+        }
+      }
+
+      if (promoDiscountPence > 0) {
+        const catalogueIndices = orderLineItems.map((_: any, i: number) => i).filter((i: number) => !isOwnLineItem[i]);
+        const currentCatalogueSubtotalPence = catalogueIndices.reduce((sum: number, i: number) => {
+          return sum + Number(orderLineItems[i].basePriceMoney.amount) * Number(orderLineItems[i].quantity);
+        }, 0);
+
+        if (currentCatalogueSubtotalPence > 0) {
+          let remainingPromoDiscount = Math.min(promoDiscountPence, currentCatalogueSubtotalPence);
+
+          for (let idx = 0; idx < catalogueIndices.length; idx++) {
+            const i = catalogueIndices[idx];
+            const item = orderLineItems[i];
+            const itemTotal = Number(item.basePriceMoney.amount) * Number(item.quantity);
+            const itemProportion = itemTotal / currentCatalogueSubtotalPence;
+
+            const itemDiscount = (idx === catalogueIndices.length - 1)
+              ? remainingPromoDiscount
+              : Math.round(promoDiscountPence * itemProportion);
+            remainingPromoDiscount -= itemDiscount;
+
+            const discountPerUnit = Math.round(itemDiscount / Number(item.quantity));
+            const newPrice = Math.max(0, Number(item.basePriceMoney.amount) - discountPerUnit);
+            item.basePriceMoney.amount = BigInt(newPrice);
+            item.name = `${item.name} (${PROMO_DISCOUNT_PCT}% Promo)`;
+          }
+
+          console.log(`Applied automatic ${PROMO_DISCOUNT_PCT}% promo discount to QR checkout catalogue items: -£${(promoDiscountPence / 100).toFixed(2)}`);
         }
       }
 
