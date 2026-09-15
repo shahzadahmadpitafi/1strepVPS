@@ -6,7 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Mail, MessageCircle, Clock, MapPin, Send, CheckCircle2, Ticket, Loader2, ArrowLeft } from "lucide-react";
+import { Mail, Phone, MessageCircle, Clock, MapPin, Send, CheckCircle2, Ticket, Loader2, ArrowLeft } from "lucide-react";
+import { SiWhatsapp } from "react-icons/si";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -80,6 +81,20 @@ export default function ContactSupport() {
       link: "mailto:info@1strep.com"
     },
     {
+      icon: Phone,
+      title: "Call Us",
+      detail: "+44 7528 968053",
+      description: "Mon-Fri, 9am-6pm GMT",
+      link: "tel:+447528968053"
+    },
+    {
+      icon: SiWhatsapp,
+      title: "WhatsApp",
+      detail: "+44 7528 968053",
+      description: "Message us anytime",
+      link: "https://wa.me/447528968053"
+    },
+    {
       icon: MessageCircle,
       title: "Live Chat",
       detail: "Chat with our team",
@@ -140,7 +155,7 @@ export default function ContactSupport() {
         <div className="max-w-6xl mx-auto space-y-12">
           
           {/* Contact Methods */}
-          <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
             {contactMethods.map((method, index) => {
               const content = (
                 <>
@@ -158,7 +173,13 @@ export default function ContactSupport() {
                 <Card key={index} className="hover-elevate">
                   <CardContent className="pt-6">
                     {"link" in method ? (
-                      <a href={method.link} className="block text-center">{content}</a>
+                      <a
+                        href={method.link}
+                        className="block text-center"
+                        {...(method.link?.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                      >
+                        {content}
+                      </a>
                     ) : (
                       <button type="button" onClick={method.onClick} className="block w-full text-center" data-testid="button-open-live-chat">
                         {content}
