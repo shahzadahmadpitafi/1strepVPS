@@ -41,6 +41,14 @@ export function ChatbotWidget() {
     scrollToBottom();
   }, [messages]);
 
+  // Let other parts of the site (e.g. the "Live Chat" contact option) open
+  // this same widget instead of duplicating a chat UI elsewhere.
+  useEffect(() => {
+    const openChat = () => setIsOpen(true);
+    window.addEventListener("open-live-chat", openChat);
+    return () => window.removeEventListener("open-live-chat", openChat);
+  }, []);
+
   // Initialize conversation when opened
   useEffect(() => {
     if (isOpen && !conversationId) {

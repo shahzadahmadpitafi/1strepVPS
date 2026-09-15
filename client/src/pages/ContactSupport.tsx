@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Mail, Phone, MessageCircle, Clock, MapPin, Send, CheckCircle2, Ticket, Loader2, ArrowLeft } from "lucide-react";
+import { Mail, MessageCircle, Clock, MapPin, Send, CheckCircle2, Ticket, Loader2, ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -75,23 +75,16 @@ export default function ContactSupport() {
     {
       icon: Mail,
       title: "Email Us",
-      detail: "support@1strep.com",
+      detail: "info@1strep.com",
       description: "Response within 24 hours",
-      link: "mailto:support@1strep.com"
-    },
-    {
-      icon: Phone,
-      title: "Call Us",
-      detail: "+44 20 1234 5678",
-      description: "Mon-Fri, 9am-6pm GMT",
-      link: "tel:+442012345678"
+      link: "mailto:info@1strep.com"
     },
     {
       icon: MessageCircle,
       title: "Live Chat",
       detail: "Chat with our team",
       description: "Available during business hours",
-      link: "#"
+      onClick: () => window.dispatchEvent(new CustomEvent("open-live-chat")),
     }
   ];
 
@@ -147,23 +140,34 @@ export default function ContactSupport() {
         <div className="max-w-6xl mx-auto space-y-12">
           
           {/* Contact Methods */}
-          <div className="grid md:grid-cols-3 gap-6">
-            {contactMethods.map((method, index) => (
-              <Card key={index} className="hover-elevate">
-                <CardContent className="pt-6">
-                  <a href={method.link} className="block text-center">
-                    <div className="flex justify-center mb-4">
-                      <div className="p-3 rounded-full bg-primary/10">
-                        <method.icon className="w-6 h-6 text-primary" />
-                      </div>
+          <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+            {contactMethods.map((method, index) => {
+              const content = (
+                <>
+                  <div className="flex justify-center mb-4">
+                    <div className="p-3 rounded-full bg-primary/10">
+                      <method.icon className="w-6 h-6 text-primary" />
                     </div>
-                    <h3 className="font-semibold mb-1">{method.title}</h3>
-                    <p className="text-sm text-primary mb-1">{method.detail}</p>
-                    <p className="text-xs text-muted-foreground">{method.description}</p>
-                  </a>
-                </CardContent>
-              </Card>
-            ))}
+                  </div>
+                  <h3 className="font-semibold mb-1">{method.title}</h3>
+                  <p className="text-sm text-primary mb-1">{method.detail}</p>
+                  <p className="text-xs text-muted-foreground">{method.description}</p>
+                </>
+              );
+              return (
+                <Card key={index} className="hover-elevate">
+                  <CardContent className="pt-6">
+                    {"link" in method ? (
+                      <a href={method.link} className="block text-center">{content}</a>
+                    ) : (
+                      <button type="button" onClick={method.onClick} className="block w-full text-center" data-testid="button-open-live-chat">
+                        {content}
+                      </button>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
 
           <div className="grid lg:grid-cols-2 gap-8">
