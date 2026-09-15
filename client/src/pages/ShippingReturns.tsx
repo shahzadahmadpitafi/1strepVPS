@@ -33,12 +33,12 @@ export default function ShippingReturns() {
     {
       step: "1",
       title: "Initiate Return",
-      description: "Log into your account and select the items you wish to return from your order history"
+      description: "Enter your order number and email to find your order and select the items you wish to return"
     },
     {
       step: "2",
-      title: "Print Label",
-      description: "Print your prepaid return label from your account or contact our support team"
+      title: "Get Instructions",
+      description: "We'll review your request and email you return instructions within 1-2 business days"
     },
     {
       step: "3",
