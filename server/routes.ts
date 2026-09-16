@@ -14227,12 +14227,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/reseller/earnings/breakdown", requireAuth, requireReseller, async (req, res) => {
     try {
       const resellerId = req.reseller!.id;
-      
+
       // Check if reseller has vendor access (licensed to sell own products)
       const vendor = await storage.getVendorByUserId(req.user!.id);
-      const vendorProducts = vendor ? await storage.getVendorProducts(vendor.id) : [];
-      const vendorProductIds = vendorProducts.map(p => p.id);
-      
+
       // Get all EPOS orders for this reseller
       const eposOrders = await db.select().from(customerOrders)
         .where(eq(customerOrders.resellerId, resellerId));
@@ -14257,16 +14255,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       // Process EPOS orders
+      // Own-vs-catalogue is decided by the order's channel, set server-side at the
+      // moment of sale — not by matching each item's vendorProductId against the
+      // reseller's CURRENT live product catalog (same fix as getResellerEarningsBalance
+      // and the admin Manage Reseller Earnings tab, which this panel must agree with).
+      const eposCancelledStatuses = ['cancelled', 'refunded', 'failed'];
+      const ownChannels = new Set(['reseller_epos_own', 'reseller_epos_own_stripe']);
       for (const order of eposOrders) {
+        if (eposCancelledStatuses.includes(order.status || '')) continue;
         const items = await db.select().from(customerOrderItems)
           .where(eq(customerOrderItems.orderId, order.id));
-        
-        // Separate own products from catalogue products
-        const ownProductItems = items.filter(item => 
-          item.vendorProductId && vendorProductIds.includes(item.vendorProductId)
-        );
-        const catalogueItems = items.filter(item => !item.vendorProductId);
-        
+
+        const isOwnChannel = ownChannels.has(order.channel || '');
+        // Own product sale paid directly into the reseller's own Square account (BYOS)
+        // never touched 1stRep's balance, so it isn't part of the payout-relevant total.
+        const ownProductItems = isOwnChannel && !(order as any).ownSquarePaid ? items : [];
+        const catalogueItems = isOwnChannel ? [] : items;
+
         // Own products revenue (100% to reseller)
         if (ownProductItems.length > 0) {
           const ownRevenue = ownProductItems.reduce((sum, item) => sum + parseFloat(item.totalPrice), 0);
