@@ -8072,7 +8072,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const itemsTotal = items.reduce((sum, item) => sum + parseFloat(item.totalPrice), 0);
           const vendorProductTotal = isOwnChannel ? itemsTotal : 0;
           const catalogProductTotal = isOwnChannel ? 0 : itemsTotal;
-          const resellerRate = reseller.commissionRate ? parseFloat(reseller.commissionRate) / 100 : 0.10;
+          // Use the commission rate locked in on the order at the moment of sale,
+          // not the reseller's current live rate — so changing the rate today
+          // never retroactively recalculates commission on past orders.
+          const resellerRate = parseFloat((order as any).commissionRateApplied || reseller.commissionRate || '10') / 100;
           const catalogEarnings = isCancelled ? 0 : catalogProductTotal * resellerRate;
           // Own-product sale paid directly into the reseller's own Square account (BYOS)
           // never touched 1stRep's balance, so nothing is owed for it via payout.
@@ -8162,10 +8165,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get commission rules for this reseller
       const commissionRules = await storage.getCommissionRulesForReseller(id);
 
-      // Reseller commission rate for EPOS earnings calculation
+      // Reseller commission rate for EPOS earnings calculation (fallback for
+      // legacy orders placed before per-order rate locking existed)
       const commissionRateRaw = reseller.commissionRate || reseller.discountPercentage || '10';
-      const catalogueCommissionRate = parseFloat(commissionRateRaw) / 100;
-      
+
       // Get storefront orders
       let storefrontOrders = await storage.getResellerCustomerOrders(id);
 
@@ -8226,6 +8229,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // vendorId didn't match (e.g. a mislabeled/duplicated catalogue entry),
         // even though the order itself unambiguously records whose sale it was.
         const isOwnChannel = order.channel === 'reseller_epos_own' || order.channel === 'reseller_epos_own_stripe';
+        // Use the commission rate locked in on the order at the moment of sale,
+        // not the reseller's current live rate — so changing a reseller's rate
+        // today never retroactively recalculates commission on past orders.
+        const orderCommissionRate = parseFloat((order as any).commissionRateApplied || commissionRateRaw) / 100;
 
         if (items.length === 0) {
           // No line-items recorded — use channel as classifier
@@ -8238,8 +8245,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             addToProductMap(ownProductMap, 'Own Product (unspecified)', 1, orderTotal, _ownEarnings);
           } else {
             _catRev = orderTotal;
-            _catEarnings = orderTotal * catalogueCommissionRate;
-            addToProductMap(catProductMap, 'Catalogue Item (unspecified)', 1, orderTotal, orderTotal * catalogueCommissionRate);
+            _catEarnings = orderTotal * orderCommissionRate;
+            addToProductMap(catProductMap, 'Catalogue Item (unspecified)', 1, orderTotal, orderTotal * orderCommissionRate);
           }
         } else {
           for (const item of items) {
@@ -8251,7 +8258,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               _ownEarnings += itemOwnEarnings;
               addToProductMap(ownProductMap, item.productName, item.quantity, itemRevenue, itemOwnEarnings);
             } else {
-              const earn = itemRevenue * catalogueCommissionRate;
+              const earn = itemRevenue * orderCommissionRate;
               _catRev += itemRevenue;
               _catEarnings += earn;
               addToProductMap(catProductMap, item.productName, item.quantity, itemRevenue, earn);
@@ -8289,7 +8296,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ownProductEarnings += order._ownEarnings;
       }
 
-      // Storefront orders — split by item vendorProductId + accumulate product map
+      // Storefront orders — split by item vendorProductId + accumulate product map.
+      // sfOrder.resellerEarnings was already locked in at checkout time using
+      // whatever commission rate applied then — prorate THAT across catalogue
+      // items instead of recomputing with today's live commission rate, so a
+      // later rate change never retroactively changes a past order's earnings.
       for (const sfOrder of storefrontOrders) {
         const sfItems = await db.select().from(customerOrderItems).where(eq(customerOrderItems.orderId, sfOrder.id)).catch(() => []);
         if (sfItems.length === 0) {
@@ -8297,6 +8308,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           catalogueRevenue += parseFloat(sfOrder.totalAmount || '0');
           catalogueEarnings += parseFloat(sfOrder.resellerEarnings || '0');
         } else {
+          const catalogueItemsRevenue = sfItems
+            .filter(i => !i.vendorProductId)
+            .reduce((s, i) => s + parseFloat(i.unitPrice) * i.quantity, 0);
+          const sfOrderEarnings = parseFloat(sfOrder.resellerEarnings || '0');
           for (const item of sfItems) {
             const rev = parseFloat(item.unitPrice) * item.quantity;
             if (item.vendorProductId) {
@@ -8304,7 +8319,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               ownProductEarnings += rev;
               addToProductMap(ownProductMap, item.productName, item.quantity, rev, rev);
             } else {
-              const earn = rev * catalogueCommissionRate;
+              const earn = catalogueItemsRevenue > 0 ? sfOrderEarnings * (rev / catalogueItemsRevenue) : 0;
               catalogueRevenue += rev;
               catalogueEarnings += earn;
               addToProductMap(catProductMap, item.productName, item.quantity, rev, earn);
@@ -13474,6 +13489,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ownSquarePaid,
         paymentMethod: isPayPalPayment ? "paypal" : isBankTransferPayment ? "bank_transfer" : (isCardPayment ? "card" : "cash"),
         resellerId: reseller?.id || null,
+        // Lock in the reseller's commission rate at the moment of this sale, so a
+        // later rate change never retroactively recalculates this order's earnings.
+        commissionRateApplied: reseller?.commissionRate || '10.00',
         paymentIntentId: squareRef,
       };
 
@@ -13842,6 +13860,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             paymentMethod: 'card',
             paymentIntentId: squarePaymentId,
             resellerId: reseller.id,
+            commissionRateApplied: reseller.commissionRate || '10.00',
             status: 'processing',
             channel: allItemsAreOwnProducts ? 'reseller_epos_own' : 'reseller_epos',
             vendorId: null,
@@ -14309,7 +14328,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (catalogueItems.length > 0) {
           const catalogueRevenue = catalogueItems.reduce((sum, item) => sum + parseFloat(item.totalPrice), 0);
           const catalogueQuantity = catalogueItems.reduce((sum, item) => sum + item.quantity, 0);
-          const commissionRate = parseFloat(req.reseller!.commissionRate || '10');
+          // Use the commission rate locked in on the order at the moment of sale,
+          // not the reseller's current live rate — so changing the rate today
+          // never retroactively recalculates commission on past orders.
+          const commissionRate = parseFloat((order as any).commissionRateApplied || req.reseller!.commissionRate || '10');
           const commission = (catalogueRevenue * commissionRate) / 100;
           
           catalogueStats.totalRevenue += catalogueRevenue;
@@ -15318,8 +15340,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // For EPOS: reseller keeps 100% of own products (unless paid directly into
         // their own connected Square account, in which case 1stRep never held the
-        // funds and nothing is owed) + commission on catalogue products
-        const catalogEarnings = catalogProductTotal * resellerCommissionRate;
+        // funds and nothing is owed) + commission on catalogue products, at the
+        // rate locked in on the order at the moment of sale — not the reseller's
+        // current live rate — so a later rate change never retroactively
+        // recalculates commission on past orders.
+        const rateApplied = (order as any).commissionRateApplied;
+        const orderCommissionRate = (rateApplied !== null && rateApplied !== undefined && rateApplied !== '')
+          ? parseFloat(rateApplied) / 100
+          : resellerCommissionRate;
+        const catalogEarnings = catalogProductTotal * orderCommissionRate;
         const ownEarnings = (order as any).ownSquarePaid ? 0 : vendorProductTotal;
         const totalEarnings = ownEarnings + catalogEarnings;
         const platformFee = catalogProductTotal - catalogEarnings;
@@ -15418,7 +15447,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Own-product sale paid directly into the reseller's own Square account (BYOS)
         // never touched 1stRep's balance, so nothing is owed for it via payout.
         const ownEarnings = (order as any).ownSquarePaid ? 0 : vendorProductTotal;
-        eposTotalEarnings += ownEarnings + (catalogProductTotal * resellerCommissionRate);
+        // Use the commission rate locked in on the order at the moment of sale,
+        // not the reseller's current live rate — so changing the rate today
+        // never retroactively recalculates commission on past orders.
+        const rateApplied = (order as any).commissionRateApplied;
+        const orderCommissionRate = (rateApplied !== null && rateApplied !== undefined && rateApplied !== '')
+          ? parseFloat(rateApplied) / 100
+          : resellerCommissionRate;
+        eposTotalEarnings += ownEarnings + (catalogProductTotal * orderCommissionRate);
       }
       
       const eposPendingOrders = eposOrders.filter(order => 
@@ -23799,6 +23835,7 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
         notes: `Reseller Storefront Purchase - ${storefront.storeName} (Reseller ID: ${resellerId})`,
         channel: "reseller_epos",
         resellerId: resellerId,
+        commissionRateApplied: storefront.reseller?.commissionRate || '10.00',
       }).returning();
 
       // Add order items with validated prices
@@ -29334,7 +29371,10 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
       for (const order of eposOrdersList) {
         if (eposCancelledStatuses.includes(order.status || '')) continue;
         const resellerInfo = allResellersList.find(r => r.id === order.resellerId);
-        const rate = parseFloat(resellerInfo?.commissionRate || resellerInfo?.discountPercentage || '10') / 100;
+        // Use the commission rate locked in on the order at the moment of sale,
+        // not the reseller's current live rate — so changing the rate today
+        // never retroactively recalculates commission on past orders.
+        const rate = parseFloat((order as any).commissionRateApplied || resellerInfo?.commissionRate || resellerInfo?.discountPercentage || '10') / 100;
         const isOwnChannel = eposOwnChannels.has(order.channel || '');
         // Own-product sale paid directly into the reseller's own Square account (BYOS)
         // never touched 1stRep's balance, so nothing is owed for it via payout.
@@ -29372,7 +29412,7 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
       let thisMonthEposTotal = 0;
       for (const order of thisMonthEposOrders) {
         const resellerInfo = allResellersList.find(r => r.id === order.resellerId);
-        const rate = parseFloat(resellerInfo?.commissionRate || resellerInfo?.discountPercentage || '10') / 100;
+        const rate = parseFloat((order as any).commissionRateApplied || resellerInfo?.commissionRate || resellerInfo?.discountPercentage || '10') / 100;
         const isOwnChannel = eposOwnChannels.has(order.channel || '');
         const orderTotal = parseFloat(order.totalAmount || '0');
         if (isOwnChannel) {
@@ -29506,21 +29546,32 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
       // Map to accumulate per-reseller totals
       const resellerMap: Record<string, { epos: number; storefront: number; orders: number; paid: number }> = {};
 
-      // --- EPOS earnings: from commissions table (catalogue products only) ---
+      // --- EPOS earnings: catalogue commission, computed directly from orders +
+      // items rather than the commissions table (which isn't reliably populated).
+      // Each order's commission uses the rate LOCKED IN on it at the moment of
+      // sale (customer_orders.commission_rate_applied), falling back to the
+      // reseller's rate only for legacy orders placed before that was tracked —
+      // never the reseller's current live rate, so a later rate change never
+      // retroactively recalculates commission on past orders.
       const eposRows = await db.select({
-        resellerId: commissions.resellerId,
-        earned: sql<string>`COALESCE(SUM(${commissions.commissionAmount}::numeric), 0)::text`,
-        cnt: sql<number>`COUNT(*)`,
-        paid: sql<string>`COALESCE(SUM(CASE WHEN ${commissions.status} = 'paid' THEN ${commissions.commissionAmount}::numeric ELSE 0 END), 0)::text`
-      }).from(commissions)
-        .where(and(isNotNull(commissions.resellerId), ne(commissions.status, 'cancelled')))
-        .groupBy(commissions.resellerId);
+        resellerId: customerOrders.resellerId,
+        earned: sql<string>`COALESCE(SUM(coi.unit_price::numeric * coi.quantity * COALESCE(${customerOrders.commissionRateApplied}, ${resellers.commissionRate}, 10) / 100), 0)::text`,
+        cnt: sql<number>`COUNT(DISTINCT ${customerOrders.id})`
+      }).from(customerOrders)
+        .innerJoin(customerOrderItems, eq(customerOrderItems.orderId, customerOrders.id))
+        .innerJoin(resellers, eq(resellers.id, customerOrders.resellerId))
+        .where(and(
+          isNotNull(customerOrders.resellerId),
+          eq(customerOrders.channel, 'reseller_epos'),
+          ne(customerOrders.status, 'cancelled'),
+          ne(customerOrders.status, 'refunded')
+        ))
+        .groupBy(customerOrders.resellerId);
       for (const r of eposRows) {
         if (!r.resellerId) continue;
         if (!resellerMap[r.resellerId]) resellerMap[r.resellerId] = { epos: 0, storefront: 0, orders: 0, paid: 0 };
         resellerMap[r.resellerId].epos += parseFloat(r.earned);
         resellerMap[r.resellerId].orders += Number(r.cnt);
-        resellerMap[r.resellerId].paid += parseFloat(r.paid);
       }
 
       // Also add own-product EPOS revenue (100% to reseller, unless the payment was
@@ -29617,15 +29668,32 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
       }
 
       if (type === 'reseller') {
-        // EPOS earnings from commissions table
-        let eposWhere: any = and(eq(commissions.resellerId, id), ne(commissions.status, 'cancelled'));
-        if (start) eposWhere = and(eposWhere, gte(commissions.createdAt, start));
-        if (end) eposWhere = and(eposWhere, lte(commissions.createdAt, end));
-        const [eposSummary] = await db.select({
-          totalEarned: sql<string>`COALESCE(SUM(${commissions.commissionAmount}::numeric), 0)::text`,
-          totalOrders: sql<number>`COUNT(*)`,
-          paidAmount: sql<string>`COALESCE(SUM(CASE WHEN ${commissions.status} = 'paid' THEN ${commissions.commissionAmount}::numeric ELSE 0 END), 0)::text`
-        }).from(commissions).where(eposWhere);
+        // EPOS catalogue earnings — computed directly from orders + items (the
+        // commissions table isn't reliably populated), using each order's
+        // commissionRateApplied locked in at the moment of sale. Never the
+        // reseller's current live rate — a later rate change must never
+        // retroactively recalculate commission on past orders.
+        let eposWhere: any = and(eq(customerOrders.resellerId, id), eq(customerOrders.channel, 'reseller_epos'), ne(customerOrders.status, 'cancelled'));
+        if (start) eposWhere = and(eposWhere, gte(customerOrders.orderDate, start));
+        if (end) eposWhere = and(eposWhere, lte(customerOrders.orderDate, end));
+        const eposCatalogueOrders = await db.select().from(customerOrders).where(eposWhere);
+
+        const eposMonthlyMap: Record<string, { total: number; count: number }> = {};
+        const recentEpos: Array<{ id: string; orderId: string; amount: string; status: string | null; createdAt: Date }> = [];
+        let eposEarned = 0;
+        for (const order of eposCatalogueOrders) {
+          const items = await db.select().from(customerOrderItems).where(eq(customerOrderItems.orderId, order.id));
+          const itemsTotal = items.reduce((s, i) => s + parseFloat(i.totalPrice), 0);
+          const rate = parseFloat((order as any).commissionRateApplied || partnerDetails?.commissionRate || '10') / 100;
+          const earnings = itemsTotal * rate;
+          eposEarned += earnings;
+          const month = new Date(order.orderDate).toISOString().slice(0, 7);
+          if (!eposMonthlyMap[month]) eposMonthlyMap[month] = { total: 0, count: 0 };
+          eposMonthlyMap[month].total += earnings;
+          eposMonthlyMap[month].count += 1;
+          recentEpos.push({ id: order.id, orderId: order.id, amount: earnings.toFixed(2), status: order.status, createdAt: order.orderDate });
+        }
+        const eposTotalOrders = eposCatalogueOrders.length;
 
         // Storefront earnings from reseller_customer_orders
         let sfWhere: any = and(eq(resellerCustomerOrders.resellerId, id), ne(resellerCustomerOrders.status, 'cancelled'));
@@ -29636,21 +29704,20 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
           totalOrders: sql<number>`COUNT(*)`
         }).from(resellerCustomerOrders).where(sfWhere);
 
-        // Monthly breakdown combining both
-        const eposMonthly = await db.select({
-          month: sql<string>`TO_CHAR(${commissions.createdAt}, 'YYYY-MM')`,
-          total: sql<string>`COALESCE(SUM(${commissions.commissionAmount}::numeric), 0)::text`,
-          cnt: sql<number>`COUNT(*)`
-        }).from(commissions).where(eposWhere).groupBy(sql`TO_CHAR(${commissions.createdAt}, 'YYYY-MM')`).orderBy(sql`TO_CHAR(${commissions.createdAt}, 'YYYY-MM') DESC`).limit(24);
-
         const sfMonthly = await db.select({
           month: sql<string>`TO_CHAR(${resellerCustomerOrders.orderDate}, 'YYYY-MM')`,
           total: sql<string>`COALESCE(SUM(reseller_earnings::numeric), 0)::text`,
           cnt: sql<number>`COUNT(*)`
         }).from(resellerCustomerOrders).where(sfWhere).groupBy(sql`TO_CHAR(${resellerCustomerOrders.orderDate}, 'YYYY-MM')`).orderBy(sql`TO_CHAR(${resellerCustomerOrders.orderDate}, 'YYYY-MM') DESC`).limit(24);
 
+        // Monthly breakdown combining both
         const mMap: Record<string, { total: number; count: number }> = {};
-        for (const r of [...eposMonthly, ...sfMonthly]) {
+        for (const [month, v] of Object.entries(eposMonthlyMap)) {
+          if (!mMap[month]) mMap[month] = { total: 0, count: 0 };
+          mMap[month].total += v.total;
+          mMap[month].count += v.count;
+        }
+        for (const r of sfMonthly) {
           if (!mMap[r.month]) mMap[r.month] = { total: 0, count: 0 };
           mMap[r.month].total += parseFloat(r.total);
           mMap[r.month].count += Number(r.cnt);
@@ -29661,16 +29728,14 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
         const [paidRow] = await db.select({ paid: sql<string>`COALESCE(SUM(${payoutRequests.amount}::numeric), 0)::text` }).from(payoutRequests).where(and(eq(payoutRequests.resellerId, id), eq(payoutRequests.status, 'paid')));
         const [pendingRow] = await db.select({ pending: sql<string>`COALESCE(SUM(${payoutRequests.amount}::numeric), 0)::text` }).from(payoutRequests).where(and(eq(payoutRequests.resellerId, id), or(eq(payoutRequests.status, 'pending'), eq(payoutRequests.status, 'approved'), eq(payoutRequests.status, 'processing'))));
 
-        const eposEarned = parseFloat(eposSummary?.totalEarned || '0');
         const sfEarned = parseFloat(sfSummary?.totalEarned || '0');
         const totalEarned = (eposEarned + sfEarned).toFixed(2);
-        const totalOrders = Number(eposSummary?.totalOrders || 0) + Number(sfSummary?.totalOrders || 0);
+        const totalOrders = eposTotalOrders + Number(sfSummary?.totalOrders || 0);
 
         // Recent transactions
-        const recentEpos = await db.select().from(commissions).where(and(eq(commissions.resellerId, id), ne(commissions.status, 'cancelled'))).orderBy(desc(commissions.createdAt)).limit(25);
         const recentSf = await db.select().from(resellerCustomerOrders).where(and(eq(resellerCustomerOrders.resellerId, id), ne(resellerCustomerOrders.status, 'cancelled'))).orderBy(desc(resellerCustomerOrders.orderDate)).limit(25);
         const recentCommissions = [
-          ...recentEpos.map(r => ({ id: r.id, orderId: r.orderId, amount: r.commissionAmount, status: r.status, createdAt: r.createdAt, source: 'EPOS' })),
+          ...recentEpos.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()).slice(0, 25).map(r => ({ ...r, source: 'EPOS' })),
           ...recentSf.map(r => ({ id: r.id, orderId: r.id, amount: r.resellerEarnings, status: r.status, createdAt: r.orderDate, source: 'Storefront' }))
         ].sort((a,b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()).slice(0,50);
 

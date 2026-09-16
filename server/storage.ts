@@ -4040,9 +4040,6 @@ export class DatabaseStorage implements IStorage {
     let ownProductsRevenue = 0;
     
     if (reseller) {
-      // Get reseller's commission rate
-      const commissionRate = parseFloat(reseller.commissionRate || '10') / 100;
-      
       // Get EPOS orders for this reseller
       const eposOrders = await db.select().from(customerOrders)
         .where(eq(customerOrders.resellerId, resellerId));
@@ -4062,6 +4059,10 @@ export class DatabaseStorage implements IStorage {
       for (const order of eposOrders) {
         if (!eposCancelledStatuses.includes(order.status || '')) {
           const isOwnChannel = ownChannels.has(order.channel || '');
+          // Use the commission rate locked in on the order at the moment of sale,
+          // not the reseller's current live rate — so changing a reseller's rate
+          // today never retroactively recalculates commission on past orders.
+          const orderCommissionRate = parseFloat((order as any).commissionRateApplied || reseller.commissionRate || '10') / 100;
           const items = await db.select().from(customerOrderItems)
             .where(eq(customerOrderItems.orderId, order.id));
 
@@ -4077,7 +4078,7 @@ export class DatabaseStorage implements IStorage {
               }
             } else {
               // Catalogue product - reseller earns commission (needs payout)
-              eposCatalogueCommission += itemTotal * commissionRate;
+              eposCatalogueCommission += itemTotal * orderCommissionRate;
             }
           }
         }

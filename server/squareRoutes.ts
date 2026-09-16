@@ -406,6 +406,15 @@ export function registerSquareRoutes(app: Express) {
       );
       const channel = allOwnProducts ? 'reseller_epos_own' : 'reseller_epos';
 
+      // Lock in the reseller's commission rate at the moment of this sale, so a
+      // later rate change never retroactively recalculates this order's earnings.
+      let commissionRateApplied: string | null = null;
+      if (pending.resellerId) {
+        const resellerRows = await db.select({ commissionRate: resellers.commissionRate })
+          .from(resellers).where(eq(resellers.id, pending.resellerId)).limit(1);
+        commissionRateApplied = resellerRows[0]?.commissionRate || '10.00';
+      }
+
       await db.insert(customerOrders).values({
         id: orderId,
         orderNumber,
@@ -430,6 +439,7 @@ export function registerSquareRoutes(app: Express) {
         ownSquarePaid: pending.ownSquare === true,
         channel,
         resellerId: pending.resellerId || null,
+        commissionRateApplied,
         notes: `Auto-recovered: Square QR payment ${opts.squarePaymentId} confirmed server-side. Ref: ${pending.referenceId}`,
         orderDate: new Date(),
       } as any);

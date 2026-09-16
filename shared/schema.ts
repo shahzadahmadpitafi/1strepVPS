@@ -754,6 +754,12 @@ export const customerOrders = pgTable("customer_orders", {
   // Channels: 'website', 'customer_epos', 'reseller_storefront', 'reseller_epos', 'vendor_storefront', 'vendor_epos', 'admin'
   channel: text("channel").default("website"),
   resellerId: varchar("reseller_id").references(() => resellers.id), // Track reseller attribution for reseller sales
+  // The reseller's catalogue commission rate (%) locked in at the moment this
+  // order was placed. Earnings/commission calculations must always use THIS
+  // value for the order, never the reseller's current live commissionRate —
+  // otherwise changing a reseller's rate retroactively recalculates every past
+  // order's commission instead of only affecting orders placed after the change.
+  commissionRateApplied: decimal("commission_rate_applied", { precision: 5, scale: 2 }),
   vendorId: varchar("vendor_id").references(() => vendors.id), // Track vendor attribution for vendor sales
   eposTerminalId: varchar("epos_terminal_id").references(() => eposTerminals.id), // Track which EPOS terminal was used
   
