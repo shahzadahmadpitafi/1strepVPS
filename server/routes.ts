@@ -8212,10 +8212,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         let _catRev = 0, _ownRev = 0, _catEarnings = 0, _ownEarnings = 0;
 
+        // Own-vs-catalogue is decided by the order's channel — set server-side
+        // at the moment of sale — not by matching each item's vendorProductId
+        // against the reseller's current live product catalog. That per-item
+        // check silently misclassified real sales whenever a product's
+        // vendorId didn't match (e.g. a mislabeled/duplicated catalogue entry),
+        // even though the order itself unambiguously records whose sale it was.
+        const isOwnChannel = order.channel === 'reseller_epos_own' || order.channel === 'reseller_epos_own_stripe';
+
         if (items.length === 0) {
           // No line-items recorded — use channel as classifier
           const orderTotal = parseFloat(order.totalAmount || '0');
-          const isOwnChannel = order.channel === 'reseller_epos_own' || order.channel === 'reseller_epos_own_stripe';
           if (isOwnChannel) {
             _ownRev = orderTotal;
             // If payment went directly to reseller's own Square, 1stRep never held
@@ -8230,7 +8237,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else {
           for (const item of items) {
             const itemRevenue = parseFloat(item.unitPrice) * item.quantity;
-            if (item.vendorProductId) {
+            if (isOwnChannel) {
               _ownRev += itemRevenue;
               // Same BYOS check for line-item level (order-level flag applies to all items)
               const itemOwnEarnings = (order as any).ownSquarePaid ? 0 : itemRevenue;
