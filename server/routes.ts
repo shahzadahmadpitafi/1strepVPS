@@ -25576,42 +25576,53 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
           .leftJoin(products, eq(customerOrderItems.productId, products.id))
           .where(inArray(customerOrderItems.orderId, orderIds));
       }
-      
+
+      // Revenue/profit/product totals must exclude cancelled/refunded/failed
+      // orders - a cancelled order isn't a real sale, and counting it here
+      // silently inflated Total Revenue, Gross Profit and Top Products by
+      // however much was cancelled in the period. `byStatus` below still uses
+      // the full, unfiltered order set, since it exists specifically to show
+      // that breakdown including cancellations.
+      const cancelledOrderStatuses = ['cancelled', 'refunded', 'failed'];
+      const validOrders = allOrders.filter(o => !cancelledOrderStatuses.includes(o.status || ''));
+      const validOrderIds = new Set(validOrders.map(o => o.id));
+      const validItems = allItems.filter(item => validOrderIds.has(item.orderId));
+
       // Calculate summary metrics including profit
-      const totalRevenue = allOrders.reduce((sum, o) => sum + parseFloat(o.totalAmount || '0'), 0);
-      const totalCost = allItems.reduce((sum, item) => sum + (parseFloat(item.costPrice || '0') * item.quantity), 0);
+      const totalRevenue = validOrders.reduce((sum, o) => sum + parseFloat(o.totalAmount || '0'), 0);
+      const totalCost = validItems.reduce((sum, item) => sum + (parseFloat(item.costPrice || '0') * item.quantity), 0);
       const grossProfit = totalRevenue - totalCost;
       const profitMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
-      const totalOrders = allOrders.length;
+      const totalOrders = validOrders.length;
       const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-      
+
       // Group by status
       const byStatus = allOrders.reduce((acc, order) => {
         acc[order.status] = (acc[order.status] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
-      
+
       // Group by channel
-      const byChannel = allOrders.reduce((acc, order) => {
+      const byChannel = validOrders.reduce((acc, order) => {
         const channel = order.channel || 'website';
         acc[channel] = acc[channel] || { count: 0, revenue: 0 };
         acc[channel].count++;
         acc[channel].revenue += parseFloat(order.totalAmount || '0');
         return acc;
       }, {} as Record<string, { count: number; revenue: number }>);
-      
+
       // Create order to items mapping for profit calculations
       const orderItemsMap = new Map<string, any[]>();
-      allItems.forEach(item => {
+      validItems.forEach(item => {
         if (!orderItemsMap.has(item.orderId)) {
           orderItemsMap.set(item.orderId, []);
         }
         orderItemsMap.get(item.orderId)!.push(item);
       });
-      
+
       // Group by date (day/week/month) with profit data
       const salesByDate: Record<string, { date: string; orders: number; revenue: number; cost: number; profit: number }> = {};
-      allOrders.forEach(order => {
+      validOrders.forEach(order => {
         const date = new Date(order.orderDate!);
         let key: string;
         if (groupBy === 'month') {
@@ -25640,7 +25651,7 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
       
       // Top selling products from order items (already fetched above)
       const productSales: Record<string, { productId: string; name: string; quantity: number; revenue: number; cost: number; profit: number; margin: number }> = {};
-      allItems.forEach(item => {
+      validItems.forEach(item => {
         if (!productSales[item.productId]) {
           productSales[item.productId] = { productId: item.productId, name: item.productName, quantity: 0, revenue: 0, cost: 0, profit: 0, margin: 0 };
         }
@@ -25795,15 +25806,20 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
       // Get all products
       const allProducts = await db.select().from(products);
       
-      // Get all customer orders in date range
+      // Get all customer orders in date range - excluding cancelled/refunded/
+      // failed ones, same as the Sales report, so units-sold/revenue/profit
+      // here aren't inflated by orders that were never actually fulfilled.
+      const productReportCancelledStatuses = ['cancelled', 'refunded', 'failed'];
       const ordersInRange = await db.select()
         .from(customerOrders)
         .where(and(
           sql`${customerOrders.orderDate} >= ${start}`,
           sql`${customerOrders.orderDate} <= ${end}`
         ));
-      
-      const orderIds = ordersInRange.map(o => o.id);
+
+      const orderIds = ordersInRange
+        .filter(o => !productReportCancelledStatuses.includes(o.status || ''))
+        .map(o => o.id);
       
       // Build product info lookup map (sku, category)
       const productInfoMap: Record<string, { sku: string; category: string }> = {};
@@ -26100,14 +26116,18 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
       const start = startDate ? new Date(startDate as string) : new Date(new Date().setFullYear(new Date().getFullYear() - 1));
       const end = endDate ? new Date(endDate as string) : new Date();
       
-      // Get all customer orders (includes both registered and guest customers)
-      const allOrders = await db.select()
+      // Get all customer orders (includes both registered and guest customers).
+      // Excludes cancelled/refunded/failed orders, same as the Sales and
+      // Products reports, so a customer's totalSpent/ranking here isn't
+      // inflated by orders that were never actually fulfilled.
+      const customerReportCancelledStatuses = ['cancelled', 'refunded', 'failed'];
+      const allOrders = (await db.select()
         .from(customerOrders)
         .where(and(
           sql`${customerOrders.orderDate} >= ${start}`,
           sql`${customerOrders.orderDate} <= ${end}`
-        ));
-      
+        ))).filter(o => !customerReportCancelledStatuses.includes(o.status || ''));
+
       // Build customer stats from orders (by email - unique identifier for all customers)
       const customerStats: Record<string, { 
         email: string; 
@@ -26292,14 +26312,31 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
         }
       });
 
-      // Process EPOS orders from the main customerOrders table — compute commission from rate
+      // Process EPOS orders from the main customerOrders table — compute commission
+      // per order. Own-product orders (channel reseller_epos_own[_stripe]) earn the
+      // reseller 100% of the sale, not a commission-rate cut — unless the payment
+      // went directly into their own connected Square account (BYOS), in which case
+      // 1stRep never held the funds and nothing is owed. Catalogue orders
+      // (reseller_epos) earn a rate% commission, using the rate LOCKED IN on the
+      // order at the moment of sale (commissionRateApplied), not the reseller's
+      // current live rate — so a later rate change never retroactively
+      // recalculates commission on past orders. Same fix already applied across
+      // the admin/reseller earnings endpoints and Commission Analytics — this
+      // report was the one place still using the old, live-rate/no-channel logic.
       const cancelledStatuses = ['cancelled', 'refunded', 'failed'];
+      const ownChannels = new Set(['reseller_epos_own', 'reseller_epos_own_stripe']);
       for (const order of eposOrders) {
         if (!order.resellerId || !resellerStats[order.resellerId]) continue;
         if (cancelledStatuses.includes(order.status || '')) continue;
         const amount = parseFloat(order.totalAmount || '0');
-        const rateStr = resellerStats[order.resellerId].commissionRate || '10';
-        const commission = amount * (parseFloat(rateStr) / 100);
+        const isOwnChannel = ownChannels.has(order.channel || '');
+        let commission: number;
+        if (isOwnChannel) {
+          commission = (order as any).ownSquarePaid ? 0 : amount;
+        } else {
+          const rateStr = (order as any).commissionRateApplied || resellerStats[order.resellerId].commissionRate || '10';
+          commission = amount * (parseFloat(rateStr) / 100);
+        }
         resellerStats[order.resellerId].eposOrders++;
         resellerStats[order.resellerId].eposSales += amount;
         resellerStats[order.resellerId].eposCommission += commission;
@@ -26448,13 +26485,24 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
         resellerMap[o.resellerId].totalCommission += commission;
       });
 
-      // Process EPOS orders
+      // Process EPOS orders. Own-product orders earn 100% (or £0 if paid directly
+      // into the reseller's own connected Square account — BYOS, 1stRep never held
+      // the funds), catalogue orders earn commission at the rate LOCKED IN on the
+      // order at the moment of sale, not the reseller's current live rate — same
+      // fix already applied across the admin/reseller earnings endpoints.
+      const ownChannels = new Set(['reseller_epos_own', 'reseller_epos_own_stripe']);
       eposOrders.forEach(o => {
         if (!o.resellerId || !resellerMap[o.resellerId]) return;
         if (cancelledStatuses.includes(o.status || '')) return;
         const amount = parseFloat(o.totalAmount || '0');
-        const rate = parseFloat(resellerMap[o.resellerId].commissionRate) / 100;
-        const commission = amount * rate;
+        const isOwnChannel = ownChannels.has(o.channel || '');
+        let commission: number;
+        if (isOwnChannel) {
+          commission = (o as any).ownSquarePaid ? 0 : amount;
+        } else {
+          const rateStr = (o as any).commissionRateApplied || resellerMap[o.resellerId].commissionRate || '10';
+          commission = amount * (parseFloat(rateStr) / 100);
+        }
         resellerMap[o.resellerId].eposOrders++;
         resellerMap[o.resellerId].eposSales += amount;
         resellerMap[o.resellerId].eposCommission += commission;
@@ -26499,40 +26547,37 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
       
       switch (reportType) {
         case 'sales': {
+          // Was querying the wholesale `orders` table (resellers restocking from
+          // 1stRep) while filtering on `customerOrders.orderDate` - a table not
+          // even joined here, which Postgres rejects outright, so this export
+          // crashed every time. `orders` also has no channel/customerEmail/
+          // paymentStatus columns at all - real B2C sales live in
+          // `customerOrders`, the same table the on-screen Sales report reads.
           const allOrders = await db.select()
-            .from(orders)
-            .where(and(
-              sql`${customerOrders.orderDate} >= ${start}`,
-              sql`${customerOrders.orderDate} <= ${end}`
-            ))
-            .orderBy(desc(orders.orderDate));
-          
-          csvData = 'Order ID,Order Number,Date,Status,Channel,Total Amount,Customer Email,Payment Status\n';
+            .from(customerOrders)
+            .where(and(gte(customerOrders.orderDate, start), lte(customerOrders.orderDate, end)))
+            .orderBy(desc(customerOrders.orderDate));
+
+          csvData = 'Order ID,Order Number,Date,Status,Channel,Total Amount,Customer Email,Paid\n';
           for (const order of allOrders) {
-            const customer = order.userId ? await db.select().from(users).where(eq(users.id, order.userId)).then(r => r[0]) : null;
-            csvData += `"${order.id}","${order.orderNumber}","${order.orderDate}","${order.status}","${order.channel || 'website'}","${order.totalAmount}","${customer?.email || 'Guest'}","${order.paymentStatus}"\n`;
+            csvData += `"${order.id}","${order.orderNumber}","${order.orderDate}","${order.status}","${order.channel || 'website'}","${order.totalAmount}","${order.customerEmail}","${order.isPaid ? 'Paid' : 'Unpaid'}"\n`;
           }
           filename = `sales-report-${start.toISOString().split('T')[0]}-to-${end.toISOString().split('T')[0]}.csv`;
           break;
         }
-        
+
         case 'orders': {
-          const allOrders = await db.select({
-            order: orders,
-            customer: users
-          })
-            .from(orders)
-            .leftJoin(users, eq(orders.userId, users.id))
-            .where(and(
-              sql`${customerOrders.orderDate} >= ${start}`,
-              sql`${customerOrders.orderDate} <= ${end}`
-            ))
-            .orderBy(desc(orders.orderDate));
-          
+          // Same wrong-table bug as 'sales' above - rebuilt against
+          // customerOrders, which actually has the subtotal/shipping/tax/
+          // customer fields this CSV's header promises.
+          const allOrders = await db.select().from(customerOrders)
+            .where(and(gte(customerOrders.orderDate, start), lte(customerOrders.orderDate, end)))
+            .orderBy(desc(customerOrders.orderDate));
+
           csvData = 'Order Number,Date,Customer Name,Customer Email,Status,Subtotal,Shipping,Tax,Total,Payment Method,Channel\n';
-          allOrders.forEach(({ order, customer }) => {
-            const name = customer ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() : 'Guest';
-            csvData += `"${order.orderNumber}","${order.orderDate}","${name}","${customer?.email || order.guestEmail || ''}","${order.status}","${order.subtotal}","${order.shippingAmount}","${order.taxAmount}","${order.totalAmount}","${order.paymentMethod}","${order.channel || 'website'}"\n`;
+          allOrders.forEach(order => {
+            const name = `${order.customerFirstName || ''} ${order.customerLastName || ''}`.trim() || 'Guest';
+            csvData += `"${order.orderNumber}","${order.orderDate}","${name}","${order.customerEmail}","${order.status}","${order.subtotal}","${order.shippingCost}","${order.taxAmount}","${order.totalAmount}","${order.paymentMethod}","${order.channel || 'website'}"\n`;
           });
           filename = `orders-report-${start.toISOString().split('T')[0]}-to-${end.toISOString().split('T')[0]}.csv`;
           break;
@@ -26569,21 +26614,36 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
         }
         
         case 'customers': {
+          // Was matching against the wholesale `orders` table by userId - but
+          // `orders` is resellers restocking from 1stRep and has no userId
+          // column pointing at customer accounts at all, so every real
+          // customer showed 0 orders / £0 spent here. Customer purchases live
+          // in `customerOrders`.
           const allCustomers = await db.select().from(users).where(eq(users.role, 'customer'));
-          const allOrders = await db.select().from(orders);
-          
+          const allCustomerOrders = await db.select().from(customerOrders);
+
           csvData = 'Customer ID,Email,Name,Registered Date,Total Orders,Total Spent\n';
           allCustomers.forEach(customer => {
-            const customerOrders = allOrders.filter(o => o.userId === customer.id);
-            const totalSpent = customerOrders.reduce((sum, o) => sum + parseFloat(o.totalAmount || '0'), 0);
+            const custOrders = allCustomerOrders.filter(o => o.userId === customer.id);
+            const totalSpent = custOrders.reduce((sum, o) => sum + parseFloat(o.totalAmount || '0'), 0);
             const name = `${customer.firstName || ''} ${customer.lastName || ''}`.trim();
-            csvData += `"${customer.id}","${customer.email}","${name}","${customer.createdAt}","${customerOrders.length}","${totalSpent.toFixed(2)}"\n`;
+            csvData += `"${customer.id}","${customer.email}","${name}","${customer.createdAt}","${custOrders.length}","${totalSpent.toFixed(2)}"\n`;
           });
           filename = `customers-report-${new Date().toISOString().split('T')[0]}.csv`;
           break;
         }
         
         case 'commissions': {
+          // Previously queried the wholesale `orders` table while filtering on
+          // `customerOrders.orderDate` - a table that isn't even joined here, which
+          // Postgres rejects outright ("missing FROM-clause entry"), so this export
+          // crashed every time it was used. It also only ever looked at wholesale
+          // orders (resellers buying stock from 1stRep), which don't generate
+          // commission at all - the real commission comes from storefront and EPOS
+          // customer sales, entirely missing here. Rebuilt to match the same
+          // storefront + EPOS commission calculation as the on-screen Commissions
+          // report (GET /api/admin/reports/commissions) so the export agrees with
+          // what's displayed.
           const resellerData = await db.select({
             reseller: resellers,
             user: users
@@ -26591,21 +26651,39 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
             .from(resellers)
             .leftJoin(users, eq(resellers.userId, users.id))
             .where(eq(resellers.approvalStatus, 'approved'));
-          
-          const resellerOrders = await db.select()
-            .from(orders)
-            .where(and(
-              sql`${orders.resellerId} IS NOT NULL`,
-              sql`${customerOrders.orderDate} >= ${start}`,
-              sql`${customerOrders.orderDate} <= ${end}`
-            ));
-          
+
+          const csvStorefrontOrders = await db.select().from(resellerCustomerOrders)
+            .where(and(gte(resellerCustomerOrders.orderDate, start), lte(resellerCustomerOrders.orderDate, end)));
+          const csvEposOrders = await db.select().from(customerOrders)
+            .where(and(isNotNull(customerOrders.resellerId), gte(customerOrders.orderDate, start), lte(customerOrders.orderDate, end)));
+
+          const csvCancelledStatuses = ['cancelled', 'refunded', 'failed'];
+          const csvOwnChannels = new Set(['reseller_epos_own', 'reseller_epos_own_stripe']);
+
           csvData = 'Reseller ID,Business Name,Contact Email,Total Orders,Total Sales,Total Commission\n';
           resellerData.forEach(({ reseller, user }) => {
-            const orders = resellerOrders.filter(o => o.resellerId === reseller.id);
-            const totalSales = orders.reduce((sum, o) => sum + parseFloat(o.totalAmount || '0'), 0);
-            const totalCommission = orders.reduce((sum, o) => sum + parseFloat(o.commissionAmount || '0'), 0);
-            csvData += `"${reseller.id}","${reseller.businessName}","${user?.email || ''}","${orders.length}","${totalSales.toFixed(2)}","${totalCommission.toFixed(2)}"\n`;
+            let totalOrders = 0, totalSales = 0, totalCommission = 0;
+
+            csvStorefrontOrders.filter(o => o.resellerId === reseller.id).forEach(o => {
+              totalOrders++;
+              totalSales += parseFloat(o.totalAmount || '0');
+              totalCommission += parseFloat(o.resellerEarnings || '0');
+            });
+
+            csvEposOrders
+              .filter(o => o.resellerId === reseller.id && !csvCancelledStatuses.includes(o.status || ''))
+              .forEach(o => {
+                const amount = parseFloat(o.totalAmount || '0');
+                const isOwnChannel = csvOwnChannels.has(o.channel || '');
+                const commission = isOwnChannel
+                  ? ((o as any).ownSquarePaid ? 0 : amount)
+                  : amount * (parseFloat((o as any).commissionRateApplied || reseller.commissionRate || '10') / 100);
+                totalOrders++;
+                totalSales += amount;
+                totalCommission += commission;
+              });
+
+            csvData += `"${reseller.id}","${reseller.businessName}","${user?.email || ''}","${totalOrders}","${totalSales.toFixed(2)}","${totalCommission.toFixed(2)}"\n`;
           });
           filename = `commissions-report-${start.toISOString().split('T')[0]}-to-${end.toISOString().split('T')[0]}.csv`;
           break;
