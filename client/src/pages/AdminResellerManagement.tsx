@@ -42,7 +42,8 @@ import {
   AlertTriangle,
   Printer,
   Download,
-  RefreshCw
+  RefreshCw,
+  History
 } from "lucide-react";
 
 export default function AdminResellerManagement() {
@@ -154,6 +155,15 @@ export default function AdminResellerManagement() {
   // Fetch comprehensive reseller stats
   const { data: resellerStatsData, isLoading: statsLoading } = useQuery<any>({
     queryKey: ["/api/admin/resellers", selectedReseller?.id, "stats"],
+    enabled: !!selectedReseller?.id && manageResellerDialog,
+  });
+
+  // Fetch commission rate change history
+  const { data: commissionHistoryData, isLoading: commissionHistoryLoading } = useQuery<{
+    currentRate: string | null;
+    history: Array<{ id: string; oldRate: string | null; newRate: string | null; description: string; changedAt: string; changedBy: string }>;
+  }>({
+    queryKey: ["/api/admin/resellers", selectedReseller?.id, "commission-history"],
     enabled: !!selectedReseller?.id && manageResellerDialog,
   });
 
@@ -357,6 +367,7 @@ export default function AdminResellerManagement() {
       toast({ title: "Reseller updated successfully" });
       setManageResellerDialog(false);
       queryClient.invalidateQueries({ queryKey: ["/api/admin/resellers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/resellers", selectedReseller?.id, "commission-history"] });
     },
   });
 
@@ -2998,6 +3009,47 @@ export default function AdminResellerManagement() {
                   </div>
                 </div>
               </div>
+
+              {/* Commission Rate History */}
+              <div className="p-4 bg-muted rounded-md space-y-3" data-testid="section-commission-history">
+                <h4 className="font-semibold flex items-center gap-2">
+                  <History className="w-4 h-4" />
+                  Commission Rate History
+                </h4>
+                {commissionHistoryLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : !commissionHistoryData?.history?.length ? (
+                  <p className="text-sm text-muted-foreground">
+                    No commission rate changes recorded yet. Current rate: {commissionHistoryData?.currentRate ? `${commissionHistoryData.currentRate}%` : "Default"}
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {commissionHistoryData.history.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="flex items-center justify-between text-sm border-b border-border/50 pb-2 last:border-0 last:pb-0"
+                        data-testid={`row-commission-history-${entry.id}`}
+                      >
+                        <div>
+                          <span className="font-medium">
+                            {entry.oldRate ?? "unset"}% → {entry.newRate ?? "unset"}%
+                          </span>
+                          <span className="text-muted-foreground"> · by {entry.changedBy}</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
+                          {new Date(entry.changedAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Orders lock in whichever rate was active when they were placed — changing the rate here only affects new orders going forward.
+                </p>
+              </div>
+
               <Button
                 onClick={() => {
                   if (!selectedReseller) return;

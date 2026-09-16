@@ -7782,19 +7782,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(rate) || rate < 0 || rate > 100) {
         return res.status(400).json({ error: "Commission rate must be between 0 and 100" });
       }
-      
+
+      const existingReseller = await storage.getReseller(id);
+      if (!existingReseller) {
+        return res.status(404).json({ error: "Reseller not found" });
+      }
+      const previousRate = existingReseller.commissionRate;
+
       const reseller = await storage.updateResellerCommissionRate(id, commissionRate);
-      
+
       if (!reseller) {
         return res.status(404).json({ error: "Reseller not found" });
       }
 
-      // Log the commission update activity
+      // Log the commission update activity — this is the record "Commission
+      // History" reads back, so it must capture the OLD rate too, not just the new one.
       await storage.createActivityLog({
         resellerId: reseller.id,
         adminUserId: req.user!.id,
         actionType: "commission_update",
-        description: `Commission rate updated to ${commissionRate}%`,
+        description: `Commission rate changed from ${previousRate ?? 'unset'}% to ${commissionRate}%`,
+        oldValue: JSON.stringify({ commissionRate: previousRate }),
         newValue: JSON.stringify({ commissionRate }),
       });
 
@@ -7802,6 +7810,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Update reseller commission error:", error);
       res.status(500).json({ error: "Failed to update commission rate" });
+    }
+  });
+
+  // Commission rate change history — every time an admin changed this
+  // reseller's commission rate, oldest last. Each entry's rate was locked
+  // in on orders placed while it was active (see customerOrders.commissionRateApplied),
+  // so this is the audit trail behind those numbers.
+  app.get("/api/admin/resellers/:id/commission-history", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const reseller = await storage.getReseller(id);
+      if (!reseller) {
+        return res.status(404).json({ error: "Reseller not found" });
+      }
+
+      const allLogs = await storage.getResellerActivityLogs(id);
+      const commissionLogs = allLogs.filter(log => log.actionType === 'commission_update');
+
+      const adminIds = Array.from(new Set(commissionLogs.map(l => l.adminUserId).filter(Boolean)));
+      const adminUsers = adminIds.length > 0
+        ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName, email: users.email })
+            .from(users).where(inArray(users.id, adminIds as string[]))
+        : [];
+      const adminMap = new Map(adminUsers.map(a => [a.id, a]));
+
+      const history = commissionLogs.map(log => {
+        let oldRate: string | null = null;
+        let newRate: string | null = null;
+        try { oldRate = log.oldValue ? JSON.parse(log.oldValue).commissionRate : null; } catch {}
+        try { newRate = log.newValue ? JSON.parse(log.newValue).commissionRate : null; } catch {}
+        const admin = log.adminUserId ? adminMap.get(log.adminUserId) : null;
+        return {
+          id: log.id,
+          oldRate,
+          newRate,
+          description: log.description,
+          changedAt: log.createdAt,
+          changedBy: admin ? (`${admin.firstName || ''} ${admin.lastName || ''}`.trim() || admin.email) : 'Unknown',
+        };
+      });
+
+      res.json({
+        currentRate: reseller.commissionRate,
+        history,
+      });
+    } catch (error) {
+      console.error("Get reseller commission history error:", error);
+      res.status(500).json({ error: "Failed to load commission history" });
     }
   });
 
@@ -13924,15 +13980,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updates.discountPercentage = tierDiscounts[updates.tier];
       }
 
+      const existingReseller = await storage.getReseller(id);
+      const previousCommissionRate = existingReseller?.commissionRate ?? null;
+
       const reseller = await storage.updateReseller(id, updates);
-      
+
       if (!reseller) {
         return res.status(404).json({ error: "Reseller not found" });
       }
 
       // Log the activity
-      const actionType = updates.tier !== undefined ? "tier_change" : 
-                         updates.creditLimit !== undefined ? "credit_adjust" : 
+      const actionType = updates.tier !== undefined ? "tier_change" :
+                         updates.creditLimit !== undefined ? "credit_adjust" :
                          "profile_update";
       await storage.createActivityLog({
         resellerId: reseller.id,
@@ -13941,6 +14000,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: `Admin updated reseller: ${Object.keys(updates).join(", ")}`,
         newValue: JSON.stringify(updates),
       });
+
+      // Commission rate changes get their own dedicated log entry (with the
+      // actual old/new rate) so "Commission History" can show a clean,
+      // rate-specific timeline instead of digging through generic profile edits.
+      const newCommissionRate = updates.commissionRate !== undefined ? String(updates.commissionRate) : null;
+      if (newCommissionRate !== null && newCommissionRate !== previousCommissionRate) {
+        await storage.createActivityLog({
+          resellerId: reseller.id,
+          adminUserId: req.user!.id,
+          actionType: "commission_update",
+          description: `Commission rate changed from ${previousCommissionRate ?? 'unset'}% to ${newCommissionRate}%`,
+          oldValue: JSON.stringify({ commissionRate: previousCommissionRate }),
+          newValue: JSON.stringify({ commissionRate: newCommissionRate }),
+        });
+      }
 
       res.json({ message: "Reseller updated successfully", reseller });
     } catch (error) {
