@@ -43,6 +43,7 @@ const notificationIcons: Record<string, typeof Bell> = {
   system: Bell,
   licence_request: Users,
   wholesale_order: Package,
+  sms_reply: Smartphone,
 };
 
 const notificationColors: Record<string, string> = {
@@ -60,6 +61,7 @@ const notificationColors: Record<string, string> = {
   system: "text-gray-500",
   licence_request: "text-cyan-500",
   wholesale_order: "text-emerald-500",
+  sms_reply: "text-sky-500",
 };
 
 export function AdminNotificationBell() {

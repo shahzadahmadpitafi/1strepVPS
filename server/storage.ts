@@ -6718,7 +6718,7 @@ export class DatabaseStorage implements IStorage {
   // Notification types that also alert ADMIN_ALERT_PHONE by SMS, in addition
   // to the usual admin bell/panel entry. Kept to a short, deliberate list —
   // add a type here only when someone has actually asked for it by name.
-  private static SMS_ALERT_TYPES = new Set(["new_order", "review_submitted"]);
+  private static SMS_ALERT_TYPES = new Set(["new_order", "review_submitted", "sms_reply"]);
 
   async createAdminNotification(data: InsertAdminNotification): Promise<AdminNotification> {
     const [notification] = await db.insert(adminNotifications).values(data).returning();

@@ -4415,6 +4415,7 @@ export const adminNotificationTypeEnum = pgEnum("admin_notification_type", [
   "review_submitted",
   "stock_alert",
   "return_request",
+  "sms_reply",
   "system"
 ]);
 

@@ -16828,6 +16828,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Twilio calls this the instant an SMS arrives on our number — the only
+  // real-time signal for "a customer or reseller replied by SMS". Before
+  // this, the SMS thread views only showed a reply if an admin happened to
+  // open that specific order/reseller and refresh; the 24h reminder job
+  // checks Twilio for a reply too, but only to silently skip its own
+  // follow-up nudge — it never notifies anyone either way. Public endpoint
+  // (Twilio can't authenticate as our admin), so it's protected by Twilio's
+  // own request-signature scheme instead.
+  const validateTwilioSignature = (url: string, params: Record<string, any>, signature: string, authToken: string): boolean => {
+    let data = url;
+    for (const key of Object.keys(params).sort()) {
+      data += key + params[key];
+    }
+    const expected = crypto.createHmac('sha1', authToken).update(Buffer.from(data, 'utf-8')).digest('base64');
+    const expectedBuf = Buffer.from(expected);
+    const signatureBuf = Buffer.from(signature);
+    return expectedBuf.length === signatureBuf.length && crypto.timingSafeEqual(expectedBuf, signatureBuf);
+  };
+
+  const phoneVariants = (normalised: string): string[] => {
+    const variants = new Set<string>([normalised]);
+    if (normalised.startsWith('+44')) {
+      variants.add(`0${normalised.slice(3)}`); // UK local format: 07528968053
+      variants.add(normalised.slice(1));        // bare digits, no +: 447528968053
+    }
+    return Array.from(variants);
+  };
+
+  const emptyTwiml = () => `<?xml version="1.0" encoding="UTF-8"?><Response></Response>`;
+
+  app.post("/api/webhooks/twilio/sms-inbound", async (req, res) => {
+    try {
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+      const signature = req.headers['x-twilio-signature'] as string | undefined;
+      if (authToken) {
+        const webhookUrl = `${process.env.BASE_URL || "https://1strep.com"}/api/webhooks/twilio/sms-inbound`;
+        if (!signature || !validateTwilioSignature(webhookUrl, req.body, signature, authToken)) {
+          console.warn('Twilio inbound SMS webhook: signature validation failed');
+          return res.status(403).send('Invalid signature');
+        }
+      }
+
+      const fromRaw = req.body.From as string | undefined;
+      const body = ((req.body.Body as string | undefined) || '').trim();
+      if (!fromRaw) {
+        res.set('Content-Type', 'text/xml');
+        return res.send(emptyTwiml());
+      }
+
+      const variants = phoneVariants(normalisePhone(fromRaw));
+
+      const [matchedReseller] = await db.select({ businessName: resellers.businessName })
+        .from(resellers)
+        .where(inArray(resellers.phoneNumber, variants))
+        .limit(1);
+
+      let title: string;
+      let label: string;
+      let link: string;
+
+      if (matchedReseller) {
+        title = 'Reseller replied by SMS';
+        label = matchedReseller.businessName || fromRaw;
+        link = '/admin/resellers';
+      } else {
+        const [matchedOrder] = await db.select({
+          orderNumber: customerOrders.orderNumber,
+          customerFirstName: customerOrders.customerFirstName,
+          customerLastName: customerOrders.customerLastName,
+        })
+          .from(customerOrders)
+          .where(inArray(customerOrders.customerPhone, variants))
+          .orderBy(desc(customerOrders.orderDate))
+          .limit(1);
+
+        if (matchedOrder) {
+          title = 'Customer replied by SMS';
+          label = `${matchedOrder.customerFirstName || ''} ${matchedOrder.customerLastName || ''}`.trim() || fromRaw;
+          link = '/admin/orders';
+        } else {
+          title = 'New SMS reply';
+          label = fromRaw;
+          link = '/admin/orders';
+        }
+      }
+
+      await storage.createAdminNotification({
+        type: 'sms_reply',
+        title,
+        message: body ? `${label}: "${body.slice(0, 140)}${body.length > 140 ? '…' : ''}"` : `${label} replied by SMS`,
+        link,
+        isRead: false,
+      });
+
+      res.set('Content-Type', 'text/xml');
+      res.send(emptyTwiml());
+    } catch (error: any) {
+      console.error('Twilio inbound SMS webhook error:', error);
+      // Empty TwiML even on error, so Twilio doesn't treat this as a hard
+      // failure and retry aggressively — the reply itself already arrived.
+      res.set('Content-Type', 'text/xml');
+      res.status(200).send(emptyTwiml());
+    }
+  });
+
   // Send custom email to customer (admin only)
   app.post("/api/admin/orders/:id/email", requireAuth, requireAdmin, async (req, res) => {
     try {
