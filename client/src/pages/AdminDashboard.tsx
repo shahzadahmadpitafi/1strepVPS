@@ -1794,6 +1794,9 @@ function AdminAthleteContent() {
 
 function SettingsTab() {
   const { toast } = useToast();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [bannerMessage, setBannerMessage] = useState("");
   const [bannerVisible, setBannerVisible] = useState(false);
   const [newVideoTitle, setNewVideoTitle] = useState("");
@@ -1819,6 +1822,55 @@ function SettingsTab() {
   }>({
     queryKey: ["/api/site-settings"],
   });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: (data: { currentPassword: string; newPassword: string }) =>
+      apiRequest("POST", "/api/auth/admin/change-password", data),
+    onSuccess: () => {
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+      toast({
+        title: "Password changed",
+        description: "Your admin password has been updated successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to change password",
+        description: error.message || "Please check your current password and try again",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleChangePassword = () => {
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      toast({
+        title: "All fields required",
+        description: "Please fill in your current password and new password twice",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast({
+        title: "Password too short",
+        description: "New password must be at least 6 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      toast({
+        title: "Passwords don't match",
+        description: "New password and confirmation must match",
+        variant: "destructive",
+      });
+      return;
+    }
+    changePasswordMutation.mutate({ currentPassword, newPassword });
+  };
 
   const { data: banner, isLoading: bannerLoading } = useQuery<{
     message: string;
@@ -2183,6 +2235,56 @@ function SettingsTab() {
     <div className="p-4 md:p-6">
       <h2 className="text-2xl md:text-3xl font-bold mb-4 md:mb-6">Settings</h2>
       <div className="max-w-4xl space-y-4 md:space-y-6">
+        {/* Admin Account Security */}
+        <div className="p-4 md:p-6 border border-border rounded-lg">
+          <h3 className="text-base md:text-lg font-semibold mb-2">Change Password</h3>
+          <p className="text-sm md:text-base text-muted-foreground mb-4 md:mb-6">
+            Update the password for your own admin login.
+          </p>
+          <div className="space-y-4 max-w-sm">
+            <div className="space-y-2">
+              <Label htmlFor="current-password">Current Password</Label>
+              <Input
+                id="current-password"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                autoComplete="current-password"
+                data-testid="input-current-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-password">New Password</Label>
+              <Input
+                id="new-password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                autoComplete="new-password"
+                data-testid="input-new-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm-new-password">Confirm New Password</Label>
+              <Input
+                id="confirm-new-password"
+                type="password"
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                autoComplete="new-password"
+                data-testid="input-confirm-new-password"
+              />
+            </div>
+            <Button
+              onClick={handleChangePassword}
+              disabled={changePasswordMutation.isPending}
+              data-testid="button-change-password"
+            >
+              {changePasswordMutation.isPending ? "Updating..." : "Update Password"}
+            </Button>
+          </div>
+        </div>
+
         {/* Homepage Theme Selector */}
         <div className="p-4 md:p-6 border border-border rounded-lg">
           <h3 className="text-base md:text-lg font-semibold mb-2">Homepage Theme</h3>

@@ -746,6 +746,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin change own password — requires the current password even though
+  // the request is already authenticated (session hijack / shared-device
+  // safeguard), matching the pattern of every other password-set flow here.
+  app.post("/api/auth/admin/change-password", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { currentPassword, newPassword } = z.object({
+        currentPassword: z.string().min(1, "Current password is required"),
+        newPassword: z.string().min(6, "New password must be at least 6 characters"),
+      }).parse(req.body);
+
+      const user = await storage.getUser(req.user!.id);
+      if (!user || !user.password) {
+        return res.status(404).json({ error: "Admin account not found" });
+      }
+
+      const isValid = await bcrypt.compare(currentPassword, user.password);
+      if (!isValid) {
+        return res.status(401).json({ error: "Current password is incorrect" });
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 12);
+      await storage.updateUserPassword(user.id, hashedPassword);
+
+      res.json({ message: "Password changed successfully" });
+    } catch (error) {
+      console.error("Admin change password error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0]?.message || "Invalid input" });
+      }
+      res.status(500).json({ error: "Failed to change password" });
+    }
+  });
+
   // Logout
   app.post("/api/auth/logout", async (req, res) => {
     try {
