@@ -746,6 +746,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Invalidate every other active session for a user (every device/browser
+  // still logged in under their old password) when the admin changes their
+  // own password. Sessions live in the connect-pg-simple `user_sessions`
+  // table (sess.userId set at login), so this is a direct delete rather
+  // than anything token-based. exceptSessionId leaves the session that
+  // JUST made the change alone, so the admin isn't logged out of the
+  // device they're using right now.
+  const invalidateOtherSessions = async (userId: string, exceptSessionId?: string): Promise<void> => {
+    try {
+      if (exceptSessionId) {
+        await db.execute(sql`DELETE FROM user_sessions WHERE sess->>'userId' = ${userId} AND sid != ${exceptSessionId}`);
+      } else {
+        await db.execute(sql`DELETE FROM user_sessions WHERE sess->>'userId' = ${userId}`);
+      }
+    } catch (err) {
+      console.error(`Failed to invalidate sessions for user ${userId}:`, err);
+    }
+  };
+
   // Admin change own password — requires the current password even though
   // the request is already authenticated (session hijack / shared-device
   // safeguard), matching the pattern of every other password-set flow here.
@@ -768,6 +787,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const hashedPassword = await bcrypt.hash(newPassword, 12);
       await storage.updateUserPassword(user.id, hashedPassword);
+      await invalidateOtherSessions(user.id, req.sessionID);
 
       res.json({ message: "Password changed successfully" });
     } catch (error) {
@@ -1352,7 +1372,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update user's password
       await storage.updateUserPassword(user.id, hashedPassword);
-      
+
       // Delete the used OTP
       await storage.deletePasswordResetOTP(email, otp);
       
@@ -1391,7 +1411,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update user's password
       await storage.updateUserPassword(resetToken.userId, hashedPassword);
-      
+
       // Delete the used token
       await storage.deletePasswordResetToken(hashedToken);
       
