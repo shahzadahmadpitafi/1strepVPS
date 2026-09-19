@@ -15,22 +15,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Plus, Pencil, Barcode, RefreshCw, Loader2 } from "lucide-react";
+import { Search, Plus, Pencil, Barcode } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import BarcodeGenerator from "@/components/BarcodeGenerator";
 import InventoryManager from "@/components/InventoryManager";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 
 type InventoryItem = {
   id: string;
@@ -93,29 +82,6 @@ export default function AdminInventory() {
       toast({
         title: "Error",
         description: error.message || "Failed to update variant",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const syncInventoryMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/admin/sync-inventory-to-variants");
-      return response.json();
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/products/all"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-      toast({
-        title: "Inventory Synced",
-        description: data.message || `Successfully synced ${data.synced} products to their variants`,
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Sync Failed",
-        description: error.message || "Failed to sync inventory",
         variant: "destructive",
       });
     },
@@ -269,45 +235,6 @@ export default function AdminInventory() {
                 data-testid="input-search-inventory"
               />
             </div>
-            
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  className="gap-2"
-                  data-testid="button-sync-inventory"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Sync All Inventory
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Sync Warehouse Inventory to Product Variants</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will update all product variant stock quantities based on the total warehouse inventory for each product. 
-                    This ensures the EPOS and storefront show correct stock availability.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction 
-                    onClick={() => syncInventoryMutation.mutate()}
-                    disabled={syncInventoryMutation.isPending}
-                    data-testid="button-confirm-sync"
-                  >
-                    {syncInventoryMutation.isPending ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Syncing...
-                      </>
-                    ) : (
-                      'Sync Inventory'
-                    )}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
           </div>
 
       {productsWithoutVariants.length > 0 && (

@@ -4781,67 +4781,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Sync warehouse inventory to product variants (Admin only)
-  // This updates product_variants.stock_quantity based on warehouse inventory totals
+  // REMOVED: /api/admin/sync-inventory-to-variants ("Sync All Inventory" button
+  // in AdminInventory.tsx). It overwrote productVariants.stockQuantity — the
+  // field every real sale (website, EPOS, back-in-stock notifications) reads
+  // and writes — with a value derived from warehouseInventory, a separate,
+  // sparsely-populated ledger (43 rows in production, only touched by manual
+  // admin adjustments and warehouse-to-warehouse transfers, never by a sale).
+  // Worse, for any product it DID touch, it took that product's warehouse
+  // total and divided it EVENLY across all of that product's variants,
+  // discarding each variant's real, distinct stock level (e.g. a 50/10/0
+  // split across sizes S/M/L would become ~20/20/20). Removed rather than
+  // "fixed" — there's no correct direction to sync in, since
+  // productVariants.stockQuantity is already the real, live-updated source.
   app.post("/api/admin/sync-inventory-to-variants", requireAuth, requireAdmin, async (req, res) => {
-    try {
-      console.log("🔄 Starting warehouse inventory to product variants sync...");
-      
-      // Get all warehouse inventory grouped by productId
-      const allInventory = await db.select({
-        productId: warehouseInventory.productId,
-        totalQuantity: sql<number>`COALESCE(sum(${warehouseInventory.quantity}), 0)`.as('totalQuantity')
-      })
-        .from(warehouseInventory)
-        .groupBy(warehouseInventory.productId);
-      
-      let synced = 0;
-      let errors = 0;
-      
-      for (const inv of allInventory) {
-        if (!inv.productId || inv.totalQuantity <= 0) continue;
-        
-        try {
-          // Get all variants for this product
-          const variants = await storage.getProductVariants(inv.productId);
-          if (variants.length === 0) continue;
-          
-          // Distribute stock across variants
-          const stockPerVariant = Math.floor(inv.totalQuantity / variants.length);
-          const remainder = inv.totalQuantity % variants.length;
-          
-          for (let i = 0; i < variants.length; i++) {
-            const variant = variants[i];
-            const variantStock = stockPerVariant + (i < remainder ? 1 : 0);
-            
-            await db
-              .update(productVariants)
-              .set({
-                stockQuantity: variantStock,
-                updatedAt: new Date()
-              })
-              .where(eq(productVariants.id, variant.id));
-          }
-          
-          synced++;
-          console.log(`✅ Synced ${inv.totalQuantity} units to ${variants.length} variants for product ${inv.productId}`);
-        } catch (err) {
-          console.error(`Failed to sync product ${inv.productId}:`, err);
-          errors++;
-        }
-      }
-      
-      console.log(`🔄 Sync complete: ${synced} products synced, ${errors} errors`);
-      res.json({ 
-        success: true, 
-        message: `Synced inventory for ${synced} products to their variants`,
-        synced,
-        errors
-      });
-    } catch (error) {
-      console.error("Sync inventory error:", error);
-      res.status(500).json({ error: "Failed to sync inventory" });
-    }
+    return res.status(410).json({ error: "This sync has been removed — it corrupted real stock data. productVariants.stockQuantity is already the live, correct source and needs no syncing." });
   });
 
   // Seed initial products (Admin only - one-time setup)
@@ -26041,16 +25994,20 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
         }
       });
       
-      // Get current stock levels from warehouseInventory + per-variant stock
-      const [whStockData, allVariantsData] = await Promise.all([
-        db.select({ productId: warehouseInventory.productId, variantId: warehouseInventory.variantId, quantity: warehouseInventory.quantity }).from(warehouseInventory),
-        db.select().from(productVariants)
-      ]);
+      // Get current stock levels directly from productVariants.stockQuantity —
+      // the field actually decremented by every real sale (website checkout,
+      // EPOS, back-in-stock notifications all read/write it). warehouseInventory
+      // is a separate, manually-maintained ledger (stock transfers, manual
+      // admin adjustments) that no checkout path has ever written to — it only
+      // has 43 rows in production, so reading it here showed near-zero stock
+      // for virtually every real product regardless of what's actually in stock.
+      const allVariantsData = await db.select().from(productVariants);
       const stockByProduct: Record<string, number> = {};
       const stockByVariant: Record<string, number> = {};
-      whStockData.forEach(ws => {
-        stockByProduct[ws.productId] = (stockByProduct[ws.productId] || 0) + (ws.quantity || 0);
-        if (ws.variantId) stockByVariant[ws.variantId] = (stockByVariant[ws.variantId] || 0) + (ws.quantity || 0);
+      allVariantsData.forEach(v => {
+        const qty = v.stockQuantity || 0;
+        stockByProduct[v.productId] = (stockByProduct[v.productId] || 0) + qty;
+        stockByVariant[v.id] = qty;
       });
 
       // Build variant stock lookup per product: { productId -> [{ size, color, stock, sku }] }
@@ -26116,26 +26073,39 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
         variantsByProduct[v.productId].push(v);
       });
 
-      // Build stock lookup from warehouseInventory (authoritative source)
+      // Stock is read directly from productVariants.stockQuantity — the field
+      // every real sale (website, EPOS, back-in-stock notifications) actually
+      // decrements. warehouseInventory is a separate, manually-maintained
+      // ledger (stock transfers, manual admin counts) that no checkout path
+      // has ever written to — with only 43 rows in production, using it here
+      // showed near-zero/out-of-stock for virtually the entire real catalogue.
+      // Still used below for the genuinely per-warehouse breakdown, which
+      // can't be derived from stockQuantity at all.
+      const stockByVariant: Record<string, number> = {};
+      const stockByProductFromVariants: Record<string, number> = {};
+      allVariants.forEach(v => {
+        const qty = v.stockQuantity || 0;
+        stockByVariant[v.id] = qty;
+        stockByProductFromVariants[v.productId] = (stockByProductFromVariants[v.productId] || 0) + qty;
+      });
+
+      // Build stock lookup from warehouseInventory — still used for the
+      // per-warehouse breakdown further down, which has no equivalent in
+      // productVariants.
       const whStockByProduct: Record<string, number> = {};
-      const whStockByVariant: Record<string, number> = {};
       allWarehouseInventory.forEach(inv => {
         whStockByProduct[inv.productId] = (whStockByProduct[inv.productId] || 0) + (inv.quantity || 0);
-        if (inv.variantId) {
-          whStockByVariant[inv.variantId] = (whStockByVariant[inv.variantId] || 0) + (inv.quantity || 0);
-        }
       });
-      
+
       // Calculate inventory stats
       const inventoryReport = allProducts.map(product => {
         const variants = variantsByProduct[product.id] || [];
-        // Use warehouseInventory as authoritative stock source
-        const totalStock = whStockByProduct[product.id] || 0;
+        const totalStock = stockByProductFromVariants[product.id] || 0;
         const lowStockVariants = variants.filter(v => {
-          const s = whStockByVariant[v.id] || 0;
+          const s = stockByVariant[v.id] || 0;
           return s > 0 && s < 10;
         });
-        const outOfStockVariants = variants.filter(v => (whStockByVariant[v.id] || 0) === 0);
+        const outOfStockVariants = variants.filter(v => (stockByVariant[v.id] || 0) === 0);
         const retailPrice = parseFloat(product.retailPrice || '0');
         const costPrice = parseFloat(product.costPrice || '0');
         const retailValue = totalStock * retailPrice;
@@ -26160,7 +26130,7 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
             id: v.id,
             size: v.size,
             color: v.color,
-            stock: whStockByVariant[v.id] || 0,
+            stock: stockByVariant[v.id] || 0,
             sku: v.sku
           }))
         };
@@ -31142,15 +31112,18 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
         
         salesByProduct.set(sale.productId, existing);
       }
-      
-      // Get current stock levels
+
+      // Get current stock levels from productVariants.stockQuantity — the
+      // field every real sale actually decrements, not warehouseInventory
+      // (a separate, manually-maintained ledger no checkout path writes to).
       const stockLevels = await db.select({
-        productId: warehouseInventory.productId,
-        totalStock: sql<number>`SUM(${warehouseInventory.quantity})::int`
+        productId: productVariants.productId,
+        totalStock: sql<number>`SUM(${productVariants.stockQuantity})::int`
       })
-      .from(warehouseInventory)
-      .groupBy(warehouseInventory.productId);
-      
+      .from(productVariants)
+      .where(eq(productVariants.isActive, true))
+      .groupBy(productVariants.productId);
+
       const stockMap = new Map(stockLevels.map(s => [s.productId, s.totalStock]));
       
       // Update or insert velocity metrics
@@ -31262,14 +31235,22 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
         demandClass: salesVelocityMetrics.demandClass
       }).from(salesVelocityMetrics);
       
-      // Get current stock by warehouse
-      const stockByWarehouse = await db.select({
-        warehouseId: warehouseInventory.warehouseId,
-        productId: warehouseInventory.productId,
-        quantity: warehouseInventory.quantity,
-        minStockLevel: warehouseInventory.minStockLevel
-      }).from(warehouseInventory);
-      
+      // Get current stock per product, summed from productVariants.stockQuantity
+      // — the field every real sale actually decrements. warehouseInventory is
+      // a separate, manually-maintained ledger (stock transfers, manual admin
+      // counts) that no checkout path has ever written to; with only 43 rows
+      // in production, reading it here made every well-stocked product look
+      // like an urgent reorder (currentStock 0 <= reorderPoint) while silently
+      // producing no suggestion at all for products it had no row for.
+      const allVariantStock = await db.select({
+        productId: productVariants.productId,
+        stockQuantity: productVariants.stockQuantity,
+      }).from(productVariants).where(eq(productVariants.isActive, true));
+      const stockByProductMap = new Map<string, number>();
+      for (const v of allVariantStock) {
+        stockByProductMap.set(v.productId, (stockByProductMap.get(v.productId) || 0) + (v.stockQuantity || 0));
+      }
+
       // Get product prices for cost estimation
       const productPrices = await db.select({
         id: products.id,
@@ -31290,39 +31271,36 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
         // Calculate reorder point (lead time demand + safety stock)
         const reorderPoint = Math.ceil(avgDaily * leadTimeDays) + safetyStock;
         
-        // Get stock for this product across warehouses
-        const productStock = stockByWarehouse.filter(s => s.productId === velocity.productId);
-        
-        for (const stock of productStock) {
-          const currentStock = stock.quantity || 0;
-          const daysRemaining = avgDaily > 0 ? currentStock / avgDaily : 999;
-          
-          // Only suggest reorder if stock is below reorder point
-          if (currentStock <= reorderPoint) {
+        // Total current stock for this product (all variants, all locations)
+        const currentStock = stockByProductMap.get(velocity.productId) || 0;
+        const daysRemaining = avgDaily > 0 ? currentStock / avgDaily : 999;
+
+        // Only suggest reorder if stock is below reorder point
+        if (currentStock <= reorderPoint) {
             // Calculate suggested order quantity (Economic Order Quantity simplified)
             const monthlyDemand = avgDaily * 30;
             const suggestedQuantity = Math.max(
               Math.ceil(monthlyDemand * 2), // 2 months supply
               reorderPoint - currentStock + safetyStock
             );
-            
+
             // Calculate urgency score (0-100)
             let urgencyScore = 0;
             if (currentStock <= 0) urgencyScore = 100;
             else if (daysRemaining <= leadTimeDays) urgencyScore = 90;
             else if (daysRemaining <= leadTimeDays * 2) urgencyScore = 70;
             else if (currentStock <= reorderPoint) urgencyScore = 50;
-            
+
             // Set priority based on urgency
             let priority: 'critical' | 'warning' | 'info' = 'info';
             if (urgencyScore >= 90) priority = 'critical';
             else if (urgencyScore >= 50) priority = 'warning';
-            
+
             const wholesalePrice = priceMap.get(velocity.productId) || 0;
-            
+
             suggestions.push({
               productId: velocity.productId,
-              warehouseId: stock.warehouseId,
+              warehouseId: null,
               currentStock,
               suggestedOrderQuantity: suggestedQuantity,
               reorderPoint,
@@ -31336,10 +31314,9 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
               status: 'pending',
               expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // Expires in 7 days
             });
-          }
         }
       }
-      
+
       // Insert suggestions (delete old pending ones first)
       await db.delete(reorderSuggestions).where(eq(reorderSuggestions.status, 'pending'));
       
@@ -31415,15 +31392,18 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
       }).from(products);
       
       const productMap = new Map(productDetails.map(p => [p.id, p]));
-      
-      // Get current stock levels
+
+      // Get current stock levels from productVariants.stockQuantity — the
+      // field every real sale actually decrements, not warehouseInventory
+      // (a separate, manually-maintained ledger no checkout path writes to).
       const stockLevels = await db.select({
-        productId: warehouseInventory.productId,
-        totalStock: sql<number>`SUM(${warehouseInventory.quantity})::int`
+        productId: productVariants.productId,
+        totalStock: sql<number>`SUM(${productVariants.stockQuantity})::int`
       })
-      .from(warehouseInventory)
-      .groupBy(warehouseInventory.productId);
-      
+      .from(productVariants)
+      .where(eq(productVariants.isActive, true))
+      .groupBy(productVariants.productId);
+
       const stockMap = new Map(stockLevels.map(s => [s.productId, s.totalStock]));
       
       // Combine data
@@ -31480,25 +31460,21 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
         size: productVariants.size, color: productVariants.color,
         sku: productVariants.sku,
         retailPrice: productVariants.retailPrice, costPrice: productVariants.costPrice,
+        stockQuantity: productVariants.stockQuantity,
       }).from(productVariants);
 
-      // Use warehouseInventory as the authoritative stock source (same as dashboard)
-      const allWarehouseStock = await db.select({
-        productId: warehouseInventory.productId,
-        variantId: warehouseInventory.variantId,
-        size: warehouseInventory.size,
-        color: warehouseInventory.color,
-        quantity: warehouseInventory.quantity,
-      }).from(warehouseInventory);
-
-      // Build stock lookup maps
+      // Stock is read from productVariants.stockQuantity — the field every
+      // real sale actually decrements. warehouseInventory is a separate,
+      // manually-maintained ledger (stock transfers, manual admin counts)
+      // that no checkout path has ever written to; with only 43 rows in
+      // production, using it here showed near-zero stock and "out of stock"
+      // for virtually the entire real catalogue regardless of true stock.
       const stockByProduct = new Map<string, number>();
       const stockByVariant = new Map<string, number>();
-      for (const ws of allWarehouseStock) {
-        stockByProduct.set(ws.productId, (stockByProduct.get(ws.productId) || 0) + ws.quantity);
-        if (ws.variantId) {
-          stockByVariant.set(ws.variantId, (stockByVariant.get(ws.variantId) || 0) + ws.quantity);
-        }
+      for (const v of allVariants) {
+        const qty = v.stockQuantity || 0;
+        stockByProduct.set(v.productId, (stockByProduct.get(v.productId) || 0) + qty);
+        stockByVariant.set(v.id, qty);
       }
 
       const velocityMetrics = await db.select().from(salesVelocityMetrics);
@@ -31514,7 +31490,6 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
 
       const overview = allProducts.map(product => {
         const variants = variantsByProduct.get(product.id) || [];
-        // Use warehouseInventory stock (authoritative source)
         const totalStock = stockByProduct.get(product.id) || 0;
         const costPrice = parseFloat(product.costPrice || '0');
         const retailPrice = parseFloat(product.retailPrice || '0');
@@ -31596,16 +31571,22 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
       
       const lastSaleMap = new Map(lastSales.map(s => [s.productId, new Date(s.lastSaleDate)]));
       
-      // Get current stock
+      // Get current stock from productVariants.stockQuantity — the field
+      // every real sale actually decrements, not warehouseInventory (a
+      // separate, manually-maintained ledger no checkout path writes to).
+      // With that table mostly empty, this report was previously filtering
+      // out almost the entire real catalogue as "no stock = not dead stock",
+      // hiding genuinely dead stock instead of surfacing it.
       const stockLevels = await db.select({
-        productId: warehouseInventory.productId,
-        totalStock: sql<number>`SUM(${warehouseInventory.quantity})::int`
+        productId: productVariants.productId,
+        totalStock: sql<number>`SUM(${productVariants.stockQuantity})::int`
       })
-      .from(warehouseInventory)
-      .groupBy(warehouseInventory.productId);
-      
+      .from(productVariants)
+      .where(eq(productVariants.isActive, true))
+      .groupBy(productVariants.productId);
+
       const stockMap = new Map(stockLevels.map(s => [s.productId, s.totalStock]));
-      
+
       // Find dead stock
       const deadStock = allProducts
         .filter(p => {
@@ -31985,20 +31966,26 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
       .from(reorderSuggestions)
       .where(eq(reorderSuggestions.status, 'pending'));
       
-      // Get total stock value (wholesale) and cost value
+      // Get total stock value (wholesale) and cost value — from
+      // productVariants.stockQuantity, the field every real sale actually
+      // decrements. warehouseInventory is a separate, manually-maintained
+      // ledger (stock transfers, manual admin counts) that no checkout path
+      // has ever written to; with only 43 rows in production, using it here
+      // showed a near-zero stock value for the entire real catalogue.
       const stockValue = await db.select({
-        totalValue: sql<string>`COALESCE(SUM(${warehouseInventory.quantity} * COALESCE(${products.wholesalePrice}::numeric, 0)), 0)`,
-        totalCostValue: sql<string>`COALESCE(SUM(${warehouseInventory.quantity} * COALESCE(${products.costPrice}::numeric, 0)), 0)`
+        totalValue: sql<string>`COALESCE(SUM(${productVariants.stockQuantity} * COALESCE(${products.wholesalePrice}::numeric, 0)), 0)`,
+        totalCostValue: sql<string>`COALESCE(SUM(${productVariants.stockQuantity} * COALESCE(${products.costPrice}::numeric, 0)), 0)`
       })
-      .from(warehouseInventory)
-      .innerJoin(products, eq(warehouseInventory.productId, products.id));
-      
-      // Get low stock count
+      .from(productVariants)
+      .innerJoin(products, eq(productVariants.productId, products.id))
+      .where(eq(productVariants.isActive, true));
+
+      // Get low stock count (same <10 threshold used by the Inventory Report)
       const lowStockCount = await db.select({
         count: sql<number>`COUNT(*)::int`
       })
-      .from(warehouseInventory)
-      .where(sql`${warehouseInventory.quantity} <= ${warehouseInventory.minStockLevel}`);
+      .from(productVariants)
+      .where(and(eq(productVariants.isActive, true), sql`${productVariants.stockQuantity} < 10`));
       
       // Get products by demand class
       const demandClasses = await db.select({
@@ -32044,25 +32031,30 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
       
       for (const rule of rules) {
         if (rule.alertType === 'low_stock' || rule.alertType === 'out_of_stock') {
-          // Find products with low stock
+          // Find products with low stock. Reads productVariants.stockQuantity —
+          // the field every real sale actually decrements — not
+          // warehouseInventory, a separate manually-maintained ledger (stock
+          // transfers, manual admin counts) that no checkout path has ever
+          // written to. With only 43 rows in production, checking it here
+          // would flag virtually the entire real catalogue as out of stock.
           const threshold = rule.thresholdValue || 0;
-          
+
           const lowStockItems = await db.select({
-            warehouseId: warehouseInventory.warehouseId,
-            productId: warehouseInventory.productId,
-            variantId: warehouseInventory.variantId,
-            quantity: warehouseInventory.quantity,
+            productId: productVariants.productId,
+            variantId: productVariants.id,
+            quantity: productVariants.stockQuantity,
             productName: products.name
           })
-          .from(warehouseInventory)
-          .innerJoin(products, eq(warehouseInventory.productId, products.id))
+          .from(productVariants)
+          .innerJoin(products, eq(productVariants.productId, products.id))
           .where(
             and(
-              sql`${warehouseInventory.quantity} <= ${threshold}`,
-              eq(products.isActive, true)
+              sql`${productVariants.stockQuantity} <= ${threshold}`,
+              eq(products.isActive, true),
+              eq(productVariants.isActive, true)
             )
           );
-          
+
           for (const item of lowStockItems) {
             // Check if alert already exists
             const existing = await db.select()
@@ -32083,7 +32075,7 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
                 severity: rule.severity,
                 productId: item.productId,
                 variantId: item.variantId,
-                warehouseId: item.warehouseId,
+                warehouseId: null,
                 title: `${rule.alertType === 'out_of_stock' ? 'Out of Stock' : 'Low Stock'}: ${item.productName}`,
                 message: `Current stock: ${item.quantity || 0} units (threshold: ${threshold})`,
                 currentValue: item.quantity || 0,
