@@ -166,6 +166,36 @@ function summariseOrderItems(items: { name: string; quantity: number }[]): strin
   return `${firstLabel} + ${extra} more item${extra === 1 ? '' : 's'}`;
 }
 
+const EPOS_OWN_CHANNELS = new Set(['reseller_epos_own', 'reseller_epos_own_stripe']);
+
+// Splits an EPOS order's items into own-product vs 1stRep-catalogue revenue/earnings.
+// Own-vs-catalogue is decided PER ITEM (vendorProductId set = own, productId set =
+// catalogue) rather than by the order's single channel field. A single EPOS cart
+// can genuinely mix a reseller's own product with a catalogue item in one checkout
+// (e.g. NOCCO + a 1stRep tee) — the order's channel alone can't represent that
+// split, and trusting it wholesale was charging commission on own-product items
+// that happened to share an order with a catalogue item. Falls back to the order's
+// channel only for an item that carries no own/catalogue signal of its own.
+function classifyEposItems(
+  items: Array<{ vendorProductId: string | null; productId?: string | null; unitPrice: string; quantity: number }>,
+  opts: { orderChannel: string | null; ownSquarePaid: boolean; commissionRate: number }
+): { ownRevenue: number; catalogueRevenue: number; ownEarnings: number; catalogueEarnings: number } {
+  let ownRevenue = 0, catalogueRevenue = 0, ownEarnings = 0, catalogueEarnings = 0;
+  const orderIsOwnChannel = EPOS_OWN_CHANNELS.has(opts.orderChannel || '');
+  for (const item of items) {
+    const isOwn = item.vendorProductId != null ? true : item.productId ? false : orderIsOwnChannel;
+    const rev = parseFloat(item.unitPrice) * item.quantity;
+    if (isOwn) {
+      ownRevenue += rev;
+      ownEarnings += opts.ownSquarePaid ? 0 : rev;
+    } else {
+      catalogueRevenue += rev;
+      catalogueEarnings += rev * opts.commissionRate;
+    }
+  }
+  return { ownRevenue, catalogueRevenue, ownEarnings, catalogueEarnings };
+}
+
 // Initialize Stripe only if the secret key is available
 let stripe: Stripe | null = null;
 if (process.env.STRIPE_SECRET_KEY) {
@@ -8119,33 +8149,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .orderBy(desc(customerOrders.orderDate));
       
       // Get items for EPOS orders
-      // Own-vs-catalogue is decided by the order's channel, set server-side at the
-      // moment of sale — not by matching each item's vendorProductId against the
-      // reseller's current live product catalog (same fix applied to
-      // getResellerEarningsBalance and the admin/reseller earnings endpoints).
+      // Own-vs-catalogue is decided PER ITEM via item.vendorProductId, falling
+      // back to the order's channel only when an item carries no own/catalogue
+      // signal of its own (same fix applied to getResellerEarningsBalance and
+      // the admin/reseller earnings endpoints) — a single EPOS cart can
+      // genuinely mix a reseller's own product with a catalogue item.
       const eposOrderCancelledStatuses = ['cancelled', 'refunded', 'failed'];
-      const eposOrderOwnChannels = new Set(['reseller_epos_own', 'reseller_epos_own_stripe']);
       const eposOrdersWithItems = await Promise.all(
         eposOrdersRaw.map(async (order) => {
           const items = await db.select().from(customerOrderItems)
             .where(eq(customerOrderItems.orderId, order.id));
           const isCancelled = eposOrderCancelledStatuses.includes(order.status || '');
-          const isOwnChannel = eposOrderOwnChannels.has(order.channel || '');
-          const itemsTotal = items.reduce((sum, item) => sum + parseFloat(item.totalPrice), 0);
-          const vendorProductTotal = isOwnChannel ? itemsTotal : 0;
-          const catalogProductTotal = isOwnChannel ? 0 : itemsTotal;
           // Use the commission rate locked in on the order at the moment of sale,
           // not the reseller's current live rate — so changing the rate today
           // never retroactively recalculates commission on past orders.
           const resellerRate = parseFloat((order as any).commissionRateApplied || reseller.commissionRate || '10') / 100;
-          const catalogEarnings = isCancelled ? 0 : catalogProductTotal * resellerRate;
-          // Own-product sale paid directly into the reseller's own Square account (BYOS)
-          // never touched 1stRep's balance, so nothing is owed for it via payout.
-          const ownEarnings = isCancelled || (order as any).ownSquarePaid ? 0 : vendorProductTotal;
-          const totalEarnings = ownEarnings + catalogEarnings;
-          const platformFee = catalogProductTotal - catalogEarnings;
-          
-          return { 
+          const { ownRevenue: vendorProductTotal, catalogueRevenue: catalogProductTotal, ownEarnings: ownEarningsRaw, catalogueEarnings: catalogEarnings } =
+            classifyEposItems(items, { orderChannel: order.channel, ownSquarePaid: !!(order as any).ownSquarePaid, commissionRate: resellerRate });
+          const ownEarnings = isCancelled ? 0 : ownEarningsRaw;
+          const catalogEarningsFinal = isCancelled ? 0 : catalogEarnings;
+          const totalEarnings = ownEarnings + catalogEarningsFinal;
+          const platformFee = catalogProductTotal - catalogEarningsFinal;
+
+          return {
             ...order, 
             items,
             itemCount: items.length,
@@ -8284,13 +8310,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         let _catRev = 0, _ownRev = 0, _catEarnings = 0, _ownEarnings = 0;
 
-        // Own-vs-catalogue is decided by the order's channel — set server-side
-        // at the moment of sale — not by matching each item's vendorProductId
-        // against the reseller's current live product catalog. That per-item
-        // check silently misclassified real sales whenever a product's
-        // vendorId didn't match (e.g. a mislabeled/duplicated catalogue entry),
-        // even though the order itself unambiguously records whose sale it was.
-        const isOwnChannel = order.channel === 'reseller_epos_own' || order.channel === 'reseller_epos_own_stripe';
+        // Own-vs-catalogue is decided PER ITEM via item.vendorProductId, falling
+        // back to the order's channel only when an item carries no own/catalogue
+        // signal of its own. A single EPOS cart can genuinely mix a reseller's
+        // own product with a catalogue item — trusting the order's channel for
+        // every item in that case wrongly charged commission on own-product
+        // items sharing an order with a catalogue item.
+        const orderIsOwnChannel = order.channel === 'reseller_epos_own' || order.channel === 'reseller_epos_own_stripe';
         // Use the commission rate locked in on the order at the moment of sale,
         // not the reseller's current live rate — so changing a reseller's rate
         // today never retroactively recalculates commission on past orders.
@@ -8299,7 +8325,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (items.length === 0) {
           // No line-items recorded — use channel as classifier
           const orderTotal = parseFloat(order.totalAmount || '0');
-          if (isOwnChannel) {
+          if (orderIsOwnChannel) {
             _ownRev = orderTotal;
             // If payment went directly to reseller's own Square, 1stRep never held
             // these funds — earnings owed = 0. Revenue still shows for reporting.
@@ -8313,7 +8339,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else {
           for (const item of items) {
             const itemRevenue = parseFloat(item.unitPrice) * item.quantity;
-            if (isOwnChannel) {
+            const isOwnItem = item.vendorProductId != null ? true : item.productId ? false : orderIsOwnChannel;
+            if (isOwnItem) {
               _ownRev += itemRevenue;
               // Same BYOS check for line-item level (order-level flag applies to all items)
               const itemOwnEarnings = (order as any).ownSquarePaid ? 0 : itemRevenue;
@@ -14392,10 +14419,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       // Process EPOS orders
-      // Own-vs-catalogue is decided by the order's channel, set server-side at the
-      // moment of sale — not by matching each item's vendorProductId against the
-      // reseller's CURRENT live product catalog (same fix as getResellerEarningsBalance
-      // and the admin Manage Reseller Earnings tab, which this panel must agree with).
+      // Own-vs-catalogue is decided PER ITEM via item.vendorProductId, falling
+      // back to the order's channel only when an item carries no own/catalogue
+      // signal of its own (same fix as getResellerEarningsBalance and the admin
+      // Manage Reseller Earnings tab, which this panel must agree with) — a
+      // single EPOS cart can genuinely mix a reseller's own product with a
+      // catalogue item.
       const eposCancelledStatuses = ['cancelled', 'refunded', 'failed'];
       const ownChannels = new Set(['reseller_epos_own', 'reseller_epos_own_stripe']);
       for (const order of eposOrders) {
@@ -14403,11 +14432,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const items = await db.select().from(customerOrderItems)
           .where(eq(customerOrderItems.orderId, order.id));
 
-        const isOwnChannel = ownChannels.has(order.channel || '');
+        const orderIsOwnChannel = ownChannels.has(order.channel || '');
+        const isOwnItem = (item: typeof items[number]) =>
+          item.vendorProductId != null ? true : item.productId ? false : orderIsOwnChannel;
         // Own product sale paid directly into the reseller's own Square account (BYOS)
         // never touched 1stRep's balance, so it isn't part of the payout-relevant total.
-        const ownProductItems = isOwnChannel && !(order as any).ownSquarePaid ? items : [];
-        const catalogueItems = isOwnChannel ? [] : items;
+        const ownProductItems = !(order as any).ownSquarePaid ? items.filter(isOwnItem) : [];
+        const catalogueItems = items.filter(i => !isOwnItem(i));
 
         // Own products revenue (100% to reseller)
         if (ownProductItems.length > 0) {
@@ -15538,10 +15569,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(eq(customerOrders.resellerId, req.reseller!.id));
       
       // Calculate EPOS stats using item-level totals for accuracy.
-      // Own-vs-catalogue is decided by the order's channel, set server-side at the
-      // moment of sale — not by matching each item's vendorProductId against the
-      // reseller's current live product catalog (same fix applied elsewhere).
-      const orderStatsOwnChannels = new Set(['reseller_epos_own', 'reseller_epos_own_stripe']);
+      // Own-vs-catalogue is decided PER ITEM via item.vendorProductId, falling
+      // back to the order's channel only when an item carries no own/catalogue
+      // signal of its own — a single EPOS cart can genuinely mix a reseller's
+      // own product with a catalogue item.
       const eposTotalOrders = eposOrders.length;
       let eposTotalRevenue = 0;
       let eposTotalEarnings = 0;
@@ -15549,15 +15580,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const order of eposOrders) {
         const items = await db.select().from(customerOrderItems)
           .where(eq(customerOrderItems.orderId, order.id));
-        const isOwnChannel = orderStatsOwnChannels.has(order.channel || '');
         const orderItemsTotal = items.reduce((sum, item) => sum + parseFloat(item.totalPrice), 0);
-        const vendorProductTotal = isOwnChannel ? orderItemsTotal : 0;
-        const catalogProductTotal = isOwnChannel ? 0 : orderItemsTotal;
-
-        eposTotalRevenue += orderItemsTotal;
-        // Own-product sale paid directly into the reseller's own Square account (BYOS)
-        // never touched 1stRep's balance, so nothing is owed for it via payout.
-        const ownEarnings = (order as any).ownSquarePaid ? 0 : vendorProductTotal;
         // Use the commission rate locked in on the order at the moment of sale,
         // not the reseller's current live rate — so changing the rate today
         // never retroactively recalculates commission on past orders.
@@ -15565,7 +15588,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const orderCommissionRate = (rateApplied !== null && rateApplied !== undefined && rateApplied !== '')
           ? parseFloat(rateApplied) / 100
           : resellerCommissionRate;
-        eposTotalEarnings += ownEarnings + (catalogProductTotal * orderCommissionRate);
+        // Own-product sale paid directly into the reseller's own Square account (BYOS)
+        // never touched 1stRep's balance, so nothing is owed for it via payout.
+        const { ownEarnings, catalogueEarnings } = classifyEposItems(items, {
+          orderChannel: order.channel, ownSquarePaid: !!(order as any).ownSquarePaid, commissionRate: orderCommissionRate,
+        });
+
+        eposTotalRevenue += orderItemsTotal;
+        eposTotalEarnings += ownEarnings + catalogueEarnings;
       }
       
       const eposPendingOrders = eposOrders.filter(order => 
@@ -26402,6 +26432,16 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
           gte(customerOrders.orderDate, start),
           lte(customerOrders.orderDate, end)
         ));
+      const eposOrderItemsByOrder = new Map<string, Array<{ vendorProductId: string | null; productId: string | null; unitPrice: string; quantity: number }>>();
+      if (eposOrders.length > 0) {
+        const eposItemRows = await db.select().from(customerOrderItems)
+          .where(inArray(customerOrderItems.orderId, eposOrders.map(o => o.id)));
+        for (const item of eposItemRows) {
+          const list = eposOrderItemsByOrder.get(item.orderId) || [];
+          list.push(item);
+          eposOrderItemsByOrder.set(item.orderId, list);
+        }
+      }
       
       // Calculate commission stats per reseller with channel breakdown
       const resellerStats: Record<string, { 
@@ -26472,29 +26512,33 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
       });
 
       // Process EPOS orders from the main customerOrders table — compute commission
-      // per order. Own-product orders (channel reseller_epos_own[_stripe]) earn the
-      // reseller 100% of the sale, not a commission-rate cut — unless the payment
-      // went directly into their own connected Square account (BYOS), in which case
-      // 1stRep never held the funds and nothing is owed. Catalogue orders
-      // (reseller_epos) earn a rate% commission, using the rate LOCKED IN on the
-      // order at the moment of sale (commissionRateApplied), not the reseller's
-      // current live rate — so a later rate change never retroactively
-      // recalculates commission on past orders. Same fix already applied across
-      // the admin/reseller earnings endpoints and Commission Analytics — this
-      // report was the one place still using the old, live-rate/no-channel logic.
+      // PER ITEM via item.vendorProductId, falling back to the order's channel only
+      // when an item carries no own/catalogue signal of its own. Own-product items
+      // earn the reseller 100% of the sale, not a commission-rate cut — unless the
+      // payment went directly into their own connected Square account (BYOS), in
+      // which case 1stRep never held the funds and nothing is owed. Catalogue items
+      // earn a rate% commission, using the rate LOCKED IN on the order at the moment
+      // of sale (commissionRateApplied), not the reseller's current live rate — so a
+      // later rate change never retroactively recalculates commission on past
+      // orders. A single EPOS cart can genuinely mix a reseller's own product with
+      // a catalogue item, which trusting the order's channel alone can't represent.
       const cancelledStatuses = ['cancelled', 'refunded', 'failed'];
-      const ownChannels = new Set(['reseller_epos_own', 'reseller_epos_own_stripe']);
       for (const order of eposOrders) {
         if (!order.resellerId || !resellerStats[order.resellerId]) continue;
         if (cancelledStatuses.includes(order.status || '')) continue;
         const amount = parseFloat(order.totalAmount || '0');
-        const isOwnChannel = ownChannels.has(order.channel || '');
+        const rateStr = (order as any).commissionRateApplied || resellerStats[order.resellerId].commissionRate || '10';
+        const items = eposOrderItemsByOrder.get(order.id) || [];
         let commission: number;
-        if (isOwnChannel) {
-          commission = (order as any).ownSquarePaid ? 0 : amount;
+        if (items.length === 0) {
+          // No line-items recorded — use channel as classifier
+          const orderIsOwnChannel = EPOS_OWN_CHANNELS.has(order.channel || '');
+          commission = orderIsOwnChannel ? ((order as any).ownSquarePaid ? 0 : amount) : amount * (parseFloat(rateStr) / 100);
         } else {
-          const rateStr = (order as any).commissionRateApplied || resellerStats[order.resellerId].commissionRate || '10';
-          commission = amount * (parseFloat(rateStr) / 100);
+          const { ownEarnings, catalogueEarnings } = classifyEposItems(items, {
+            orderChannel: order.channel, ownSquarePaid: !!(order as any).ownSquarePaid, commissionRate: parseFloat(rateStr) / 100,
+          });
+          commission = ownEarnings + catalogueEarnings;
         }
         resellerStats[order.resellerId].eposOrders++;
         resellerStats[order.resellerId].eposSales += amount;
@@ -26586,6 +26630,16 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
       const cancelledStatuses = ['cancelled', 'refunded', 'failed'];
       const eposOrders = await db.select().from(customerOrders)
         .where(and(isNotNull(customerOrders.resellerId), gte(customerOrders.orderDate, start), lte(customerOrders.orderDate, end)));
+      const eposOrderItemsByOrderId = new Map<string, Array<{ vendorProductId: string | null; productId: string | null; unitPrice: string; quantity: number }>>();
+      if (eposOrders.length > 0) {
+        const eposItemRows = await db.select().from(customerOrderItems)
+          .where(inArray(customerOrderItems.orderId, eposOrders.map(o => o.id)));
+        for (const item of eposItemRows) {
+          const list = eposOrderItemsByOrderId.get(item.orderId) || [];
+          list.push(item);
+          eposOrderItemsByOrderId.set(item.orderId, list);
+        }
+      }
 
       // Build per-reseller stats
       const resellerMap: Record<string, {
@@ -26644,23 +26698,28 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
         resellerMap[o.resellerId].totalCommission += commission;
       });
 
-      // Process EPOS orders. Own-product orders earn 100% (or £0 if paid directly
+      // Process EPOS orders. Own-product ITEMS earn 100% (or £0 if paid directly
       // into the reseller's own connected Square account — BYOS, 1stRep never held
-      // the funds), catalogue orders earn commission at the rate LOCKED IN on the
+      // the funds), catalogue items earn commission at the rate LOCKED IN on the
       // order at the moment of sale, not the reseller's current live rate — same
       // fix already applied across the admin/reseller earnings endpoints.
-      const ownChannels = new Set(['reseller_epos_own', 'reseller_epos_own_stripe']);
+      // Classified PER ITEM via vendorProductId since a single EPOS cart can
+      // genuinely mix a reseller's own product with a catalogue item.
       eposOrders.forEach(o => {
         if (!o.resellerId || !resellerMap[o.resellerId]) return;
         if (cancelledStatuses.includes(o.status || '')) return;
         const amount = parseFloat(o.totalAmount || '0');
-        const isOwnChannel = ownChannels.has(o.channel || '');
+        const rateStr = (o as any).commissionRateApplied || resellerMap[o.resellerId].commissionRate || '10';
+        const items = eposOrderItemsByOrderId.get(o.id) || [];
         let commission: number;
-        if (isOwnChannel) {
-          commission = (o as any).ownSquarePaid ? 0 : amount;
+        if (items.length === 0) {
+          const orderIsOwnChannel = EPOS_OWN_CHANNELS.has(o.channel || '');
+          commission = orderIsOwnChannel ? ((o as any).ownSquarePaid ? 0 : amount) : amount * (parseFloat(rateStr) / 100);
         } else {
-          const rateStr = (o as any).commissionRateApplied || resellerMap[o.resellerId].commissionRate || '10';
-          commission = amount * (parseFloat(rateStr) / 100);
+          const { ownEarnings, catalogueEarnings } = classifyEposItems(items, {
+            orderChannel: o.channel, ownSquarePaid: !!(o as any).ownSquarePaid, commissionRate: parseFloat(rateStr) / 100,
+          });
+          commission = ownEarnings + catalogueEarnings;
         }
         resellerMap[o.resellerId].eposOrders++;
         resellerMap[o.resellerId].eposSales += amount;
@@ -26815,9 +26874,18 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
             .where(and(gte(resellerCustomerOrders.orderDate, start), lte(resellerCustomerOrders.orderDate, end)));
           const csvEposOrders = await db.select().from(customerOrders)
             .where(and(isNotNull(customerOrders.resellerId), gte(customerOrders.orderDate, start), lte(customerOrders.orderDate, end)));
+          const csvEposItemsByOrderId = new Map<string, Array<{ vendorProductId: string | null; productId: string | null; unitPrice: string; quantity: number }>>();
+          if (csvEposOrders.length > 0) {
+            const csvEposItemRows = await db.select().from(customerOrderItems)
+              .where(inArray(customerOrderItems.orderId, csvEposOrders.map(o => o.id)));
+            for (const item of csvEposItemRows) {
+              const list = csvEposItemsByOrderId.get(item.orderId) || [];
+              list.push(item);
+              csvEposItemsByOrderId.set(item.orderId, list);
+            }
+          }
 
           const csvCancelledStatuses = ['cancelled', 'refunded', 'failed'];
-          const csvOwnChannels = new Set(['reseller_epos_own', 'reseller_epos_own_stripe']);
 
           csvData = 'Reseller ID,Business Name,Contact Email,Total Orders,Total Sales,Total Commission\n';
           resellerData.forEach(({ reseller, user }) => {
@@ -26833,10 +26901,18 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
               .filter(o => o.resellerId === reseller.id && !csvCancelledStatuses.includes(o.status || ''))
               .forEach(o => {
                 const amount = parseFloat(o.totalAmount || '0');
-                const isOwnChannel = csvOwnChannels.has(o.channel || '');
-                const commission = isOwnChannel
-                  ? ((o as any).ownSquarePaid ? 0 : amount)
-                  : amount * (parseFloat((o as any).commissionRateApplied || reseller.commissionRate || '10') / 100);
+                const rateStr = (o as any).commissionRateApplied || reseller.commissionRate || '10';
+                const items = csvEposItemsByOrderId.get(o.id) || [];
+                let commission: number;
+                if (items.length === 0) {
+                  const orderIsOwnChannel = EPOS_OWN_CHANNELS.has(o.channel || '');
+                  commission = orderIsOwnChannel ? ((o as any).ownSquarePaid ? 0 : amount) : amount * (parseFloat(rateStr) / 100);
+                } else {
+                  const { ownEarnings, catalogueEarnings } = classifyEposItems(items, {
+                    orderChannel: o.channel, ownSquarePaid: !!(o as any).ownSquarePaid, commissionRate: parseFloat(rateStr) / 100,
+                  });
+                  commission = ownEarnings + catalogueEarnings;
+                }
                 totalOrders++;
                 totalSales += amount;
                 totalCommission += commission;
@@ -29674,11 +29750,21 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
       let eposTotal = 0;
       let eposCount = 0;
 
-      // Own-vs-catalogue is decided by the order's channel, set server-side at the
-      // moment of sale — not by matching each item's vendorProductId against the
-      // reseller's current live product catalog (same fix applied elsewhere).
-      const eposOwnChannels = new Set(['reseller_epos_own', 'reseller_epos_own_stripe']);
+      // Own-vs-catalogue is decided PER ITEM via item.vendorProductId, falling
+      // back to the order's channel only when an item carries no own/catalogue
+      // signal of its own — a single EPOS cart can genuinely mix a reseller's
+      // own product with a catalogue item.
       const eposOrdersList = await db.select().from(customerOrders).where(isNotNull(customerOrders.resellerId));
+      const dashEposItemsByOrderId = new Map<string, Array<{ vendorProductId: string | null; productId: string | null; unitPrice: string; quantity: number }>>();
+      if (eposOrdersList.length > 0) {
+        const dashEposItemRows = await db.select().from(customerOrderItems)
+          .where(inArray(customerOrderItems.orderId, eposOrdersList.map(o => o.id)));
+        for (const item of dashEposItemRows) {
+          const list = dashEposItemsByOrderId.get(item.orderId) || [];
+          list.push(item);
+          dashEposItemsByOrderId.set(item.orderId, list);
+        }
+      }
       for (const order of eposOrdersList) {
         if (eposCancelledStatuses.includes(order.status || '')) continue;
         const resellerInfo = allResellersList.find(r => r.id === order.resellerId);
@@ -29686,20 +29772,18 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
         // not the reseller's current live rate — so changing the rate today
         // never retroactively recalculates commission on past orders.
         const rate = parseFloat((order as any).commissionRateApplied || resellerInfo?.commissionRate || resellerInfo?.discountPercentage || '10') / 100;
-        const isOwnChannel = eposOwnChannels.has(order.channel || '');
         // Own-product sale paid directly into the reseller's own Square account (BYOS)
         // never touched 1stRep's balance, so nothing is owed for it via payout.
         const ownSquarePaid = !!(order as any).ownSquarePaid;
-        const items = await db.select().from(customerOrderItems).where(eq(customerOrderItems.orderId, order.id));
+        const items = dashEposItemsByOrderId.get(order.id) || [];
         let orderEarnings = 0;
         if (items.length === 0) {
           const orderTotal = parseFloat(order.totalAmount || '0');
-          orderEarnings = isOwnChannel ? (ownSquarePaid ? 0 : orderTotal) : orderTotal * rate;
+          const orderIsOwnChannel = EPOS_OWN_CHANNELS.has(order.channel || '');
+          orderEarnings = orderIsOwnChannel ? (ownSquarePaid ? 0 : orderTotal) : orderTotal * rate;
         } else {
-          for (const item of items) {
-            const rev = parseFloat(item.unitPrice) * item.quantity;
-            orderEarnings += isOwnChannel ? (ownSquarePaid ? 0 : rev) : rev * rate;
-          }
+          const { ownEarnings, catalogueEarnings } = classifyEposItems(items, { orderChannel: order.channel, ownSquarePaid, commissionRate: rate });
+          orderEarnings = ownEarnings + catalogueEarnings;
         }
         eposTotal += orderEarnings;
         eposCount++;
@@ -29724,12 +29808,15 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
       for (const order of thisMonthEposOrders) {
         const resellerInfo = allResellersList.find(r => r.id === order.resellerId);
         const rate = parseFloat((order as any).commissionRateApplied || resellerInfo?.commissionRate || resellerInfo?.discountPercentage || '10') / 100;
-        const isOwnChannel = eposOwnChannels.has(order.channel || '');
-        const orderTotal = parseFloat(order.totalAmount || '0');
-        if (isOwnChannel) {
-          thisMonthEposTotal += (order as any).ownSquarePaid ? 0 : orderTotal;
+        const ownSquarePaid = !!(order as any).ownSquarePaid;
+        const items = dashEposItemsByOrderId.get(order.id) || [];
+        if (items.length === 0) {
+          const orderTotal = parseFloat(order.totalAmount || '0');
+          const orderIsOwnChannel = EPOS_OWN_CHANNELS.has(order.channel || '');
+          thisMonthEposTotal += orderIsOwnChannel ? (ownSquarePaid ? 0 : orderTotal) : orderTotal * rate;
         } else {
-          thisMonthEposTotal += orderTotal * rate;
+          const { ownEarnings, catalogueEarnings } = classifyEposItems(items, { orderChannel: order.channel, ownSquarePaid, commissionRate: rate });
+          thisMonthEposTotal += ownEarnings + catalogueEarnings;
         }
       }
       const thisMonthTotal = parseFloat(thisMonthStorefront[0]?.total || '0') + thisMonthEposTotal;

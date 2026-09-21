@@ -4048,17 +4048,18 @@ export class DatabaseStorage implements IStorage {
       // EPOS = point-of-sale: goods are handed over immediately at payment,
       // so all non-cancelled orders count towards earnings (no need to wait for 'delivered')
       //
-      // Own-vs-catalogue is decided by the order's channel, set server-side at the
-      // moment of sale — not by matching each item's vendorProductId against the
-      // reseller's CURRENT live product catalog. That per-item cross-check silently
-      // dropped real earnings whenever a product's vendorId didn't match (e.g. a
-      // mislabeled/duplicated product row from another vendor), even though the
-      // order itself unambiguously records this as the reseller's own-product sale.
+      // Own-vs-catalogue is decided PER ITEM via item.vendorProductId (set at
+      // insertion time from the real cart), falling back to the order's channel
+      // only when an item carries no own/catalogue signal of its own. A single
+      // EPOS cart can genuinely mix a reseller's own product with a catalogue
+      // item — trusting the order's channel for every item in that case wrongly
+      // charged commission on own-product items sharing an order with a
+      // catalogue item.
       const eposCancelledStatuses = ['cancelled', 'refunded', 'failed'];
       const ownChannels = new Set(['reseller_epos_own', 'reseller_epos_own_stripe']);
       for (const order of eposOrders) {
         if (!eposCancelledStatuses.includes(order.status || '')) {
-          const isOwnChannel = ownChannels.has(order.channel || '');
+          const orderIsOwnChannel = ownChannels.has(order.channel || '');
           // Use the commission rate locked in on the order at the moment of sale,
           // not the reseller's current live rate — so changing a reseller's rate
           // today never retroactively recalculates commission on past orders.
@@ -4068,8 +4069,9 @@ export class DatabaseStorage implements IStorage {
 
           for (const item of items) {
             const itemTotal = parseFloat(item.totalPrice || '0');
+            const isOwnItem = item.vendorProductId != null ? true : item.productId ? false : orderIsOwnChannel;
 
-            if (isOwnChannel) {
+            if (isOwnItem) {
               // Own product sale — 100% revenue to reseller, unless it was paid
               // directly into the reseller's own Square account (BYOS), in which
               // case 1stRep never held the funds and nothing is owed via payout.
