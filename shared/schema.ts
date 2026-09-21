@@ -10,7 +10,7 @@ export const userRoleEnum = pgEnum("user_role", ["customer", "reseller", "vendor
 export const orderStatusEnum = pgEnum("order_status", ["pending", "confirmed", "shipped", "delivered", "cancelled"]);
 
 // Customer order status enum (for customer-facing orders)
-export const customerOrderStatusEnum = pgEnum("customer_order_status", ["pending", "processing", "shipped", "delivered", "cancelled", "refunded"]);
+export const customerOrderStatusEnum = pgEnum("customer_order_status", ["pending", "processing", "shipped", "delivered", "cancelled", "refunded", "completed"]);
 
 // Interaction type enum (for CRM tracking)
 export const interactionTypeEnum = pgEnum("interaction_type", ["email", "support_ticket", "purchase", "cart_abandonment", "review", "complaint", "inquiry"]);

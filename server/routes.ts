@@ -13238,6 +13238,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`🔧 Order ${existing.orderNumber} exists but has no items — inserting ${items.length} item(s) now`);
             try {
               const resellerForItems = await storage.getResellerByUserId(resellerId);
+
+              // CRITICAL: the order's channel was decided earlier (by
+              // autoCreateEposOrderFromPending, from eposPendingPayments.items)
+              // — a snapshot that can disagree with the items actually being
+              // inserted here. Confirmed live: single-own-product carts (e.g.
+              // a reseller's own drinks brand) were ending up on a
+              // 'reseller_epos' (catalogue, commission-rate) order instead of
+              // 'reseller_epos_own' (100% to reseller), understating what
+              // multiple resellers were owed. These freshly-arrived items are
+              // the true, final contents of the order, so re-decide the
+              // channel from them before trusting the earlier snapshot.
+              if (existing.orderId) {
+                const allItemsAreOwnProductsBackfill = items.every((item: any) =>
+                  item.isResellerProduct || item.productType === 'own_product'
+                );
+                if (allItemsAreOwnProductsBackfill) {
+                  try {
+                    const vendorForItems = await storage.getVendorByUserId(resellerId);
+                    await db.update(customerOrders)
+                      .set({
+                        channel: 'reseller_epos_own',
+                        vendorId: vendorForItems?.id || null,
+                      })
+                      .where(eq(customerOrders.id, existing.orderId));
+                    console.log(`🔧 Corrected channel to reseller_epos_own for order ${existing.orderNumber} (all backfilled items are own-products)`);
+                  } catch (channelFixErr: any) {
+                    console.warn(`⚠️ Could not correct channel for ${existing.orderNumber}:`, channelFixErr?.message);
+                  }
+                }
+              }
+
               for (const item of items) {
                 const itemTotal = (parseFloat(item.unitPrice) * item.quantity).toFixed(2);
                 const isVendorProduct = item.isResellerProduct || item.productType === 'own_product';
