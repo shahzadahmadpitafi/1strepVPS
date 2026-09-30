@@ -3179,7 +3179,7 @@ export class DatabaseStorage implements IStorage {
     const [coupon] = await db
       .select()
       .from(coupons)
-      .where(sql`LOWER(${coupons.code}) = LOWER(${code})`);
+      .where(sql`LOWER(TRIM(${coupons.code})) = LOWER(TRIM(${code}))`);
     return coupon || undefined;
   }
 

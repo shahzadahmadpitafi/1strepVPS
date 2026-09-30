@@ -5751,6 +5751,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Convert date strings to Date objects
       const couponData = {
         ...req.body,
+        code: typeof req.body.code === "string" ? req.body.code.trim().toUpperCase() : req.body.code,
         startDate: req.body.startDate ? new Date(req.body.startDate) : undefined,
         endDate: req.body.endDate ? new Date(req.body.endDate) : undefined,
         createdBy: req.user!.id
@@ -5771,6 +5772,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Convert date strings to Date objects if present
       const updates: any = { ...req.body };
+      if (typeof updates.code === "string") {
+        updates.code = updates.code.trim().toUpperCase();
+      }
       if (updates.startDate) {
         updates.startDate = new Date(updates.startDate);
       }
