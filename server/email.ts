@@ -79,9 +79,11 @@ async function sendEmailViaSmtp(to: string, subject: string, htmlBody: string, h
     port,
     secure: port === 465,
     auth: { user, pass: password },
-    connectionTimeout: 5000,
-    greetingTimeout: 5000,
-    socketTimeout: 5000,
+    // 5s was too tight: ~6% of a 205-email run timed out against the provider's
+    // SMTP server (an occasional slow reply, not a rate limit).
+    connectionTimeout: 20000,
+    greetingTimeout: 20000,
+    socketTimeout: 30000,
   });
 
   await transporter.sendMail({
