@@ -1141,7 +1141,11 @@ export function registerSquareRoutes(app: Express) {
       const originalCatalogueSubtotalPence = orderLineItems.reduce((sum: number, li: any, i: number) => {
         return isOwnLineItem[i] ? sum : sum + Number(li.basePriceMoney.amount) * Number(li.quantity);
       }, 0);
-      const promoDiscountPence = (originalCatalogueSubtotalPence > 0 && isPromoActive())
+      const promoDiscountPence = (originalCatalogueSubtotalPence > 0 && isPromoActive(new Date(), [
+        resellerId,
+        (req.session as any)?.resellerEposSession?.resellerId,
+        (req as any).user?.id,
+      ]))
         ? Math.round(originalCatalogueSubtotalPence * (PROMO_DISCOUNT_PCT / 100))
         : 0;
 
@@ -1548,7 +1552,10 @@ export function registerSquareRoutes(app: Express) {
       const originalCatalogueSubtotalPence = orderLineItems.reduce((sum: number, li: any, i: number) => {
         return isOwnLineItem[i] ? sum : sum + Number(li.basePriceMoney.amount) * Number(li.quantity);
       }, 0);
-      const promoDiscountPence = (originalCatalogueSubtotalPence > 0 && isPromoActive())
+      const promoDiscountPence = (originalCatalogueSubtotalPence > 0 && isPromoActive(new Date(), [
+        resellerId,
+        (req as any).user?.id,
+      ]))
         ? Math.round(originalCatalogueSubtotalPence * (PROMO_DISCOUNT_PCT / 100))
         : 0;
 

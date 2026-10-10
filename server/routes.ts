@@ -13494,7 +13494,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // catalogue items only, never the reseller's own products. Computed
         // here from the server's own clock and the real catalogue subtotal —
         // the client's discountAmount is never trusted for this path.
-        orderDiscountAmount = catItemsTotal * (isPromoActive() ? PROMO_DISCOUNT_PCT / 100 : 0);
+        orderDiscountAmount = catItemsTotal * (isPromoActive(new Date(), [resellerId]) ? PROMO_DISCOUNT_PCT / 100 : 0);
         isAutoPromoDiscount = true;
       }
 

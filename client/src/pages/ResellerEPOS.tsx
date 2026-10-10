@@ -26,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { usePaypalCheckout } from "@/hooks/usePaypalCheckout";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatCurrency, sortSizes } from "@/lib/utils";
-import { isPromoActive, DISCOUNT_PCT as PROMO_DISCOUNT_PCT } from "@shared/promo";
+import { isPromoActive, isPromoExcluded, DISCOUNT_PCT as PROMO_DISCOUNT_PCT } from "@shared/promo";
 import { motion, AnimatePresence } from "framer-motion";
 import { SiApplepay, SiGooglepay } from "react-icons/si";
 import QRPayment from "@/components/epos/QRPayment";
@@ -412,7 +412,7 @@ export default function ResellerEPOS() {
     const arm = () => {
       clearTimeout(timer);
       timer = setTimeout(() => {
-        if (terminalStatusRef.current === "idle" && !activeAd) {
+        if (terminalStatusRef.current === "idle" && !activeAd && !isPromoExcluded([resellerProfile?.id])) {
           setShowPromoTakeover(true);
         }
       }, IDLE_MS);
@@ -424,7 +424,7 @@ export default function ResellerEPOS() {
       clearTimeout(timer);
       events.forEach((e) => window.removeEventListener(e, arm));
     };
-  }, [activeAd]);
+  }, [activeAd, resellerProfile?.id]);
 
   useSocket({
     room: "epos",
@@ -904,7 +904,8 @@ export default function ResellerEPOS() {
   // needed, live only during the promo window (shared/promo.ts). 1stRep
   // absorbs this: item unitPrice sent to checkout stays at full retail price,
   // so reseller commission (calculated from unitPrice server-side) is unaffected.
-  const promoDiscountAmount = isPromoActive() ? firstRepSubtotal * (PROMO_DISCOUNT_PCT / 100) : 0;
+  const promoActive = isPromoActive(new Date(), [resellerProfile?.id]);
+  const promoDiscountAmount = promoActive ? firstRepSubtotal * (PROMO_DISCOUNT_PCT / 100) : 0;
 
   // Total discount actually applied — coupon and promo stack (a coupon can
   // still be used on top of the automatic promo).
@@ -2370,7 +2371,7 @@ export default function ResellerEPOS() {
                       </div>
                       <div className="flex items-center justify-between gap-2">
                         <div>
-                          {product.productType !== 'own_product' && isPromoActive() ? (
+                          {product.productType !== 'own_product' && promoActive ? (
                             <div className="flex items-baseline gap-2">
                               <p className={`font-bold text-yellow-400 ${
                                 viewMode === "large" ? "text-2xl" : "text-lg"
@@ -2581,7 +2582,7 @@ export default function ResellerEPOS() {
 
                 {/* Price */}
                 <div className="space-y-1">
-                  {selectedProduct.productType !== 'own_product' && isPromoActive() ? (
+                  {selectedProduct.productType !== 'own_product' && promoActive ? (
                     <div className="flex items-baseline gap-3">
                       <p className="text-2xl md:text-3xl font-semibold text-yellow-400" data-testid="text-product-price">
                         {formatCurrency(parseFloat(selectedProduct.retailPrice) * (1 - PROMO_DISCOUNT_PCT / 100))}
