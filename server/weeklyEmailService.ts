@@ -116,6 +116,11 @@ function emailSafeImg(url: string | null, fallbackName: string): string {
   if (url.includes("dropbox.com")) {
     return url.replace(/[?&]dl=0/, (m) => m.replace("dl=0", "dl=1"));
   }
+  // Product photos are stored as site-relative paths (/public-objects/x.jpg).
+  // An email client has no site to resolve those against, so make them absolute.
+  if (!/^https?:\/\//i.test(url)) {
+    return `https://1strep.com/${url.replace(/^\/+/, "")}`;
+  }
   return url;
 }
 
