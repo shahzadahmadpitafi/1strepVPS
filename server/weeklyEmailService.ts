@@ -659,7 +659,7 @@ export async function getWeeklyRecipients(): Promise<WeeklyRecipient[]> {
       FROM customer_orders
       WHERE customer_email IS NOT NULL
         AND is_paid = true
-        AND status NOT IN ('cancelled', 'refunded', 'failed')
+        AND status NOT IN ('cancelled', 'refunded')
       GROUP BY lower(trim(customer_email))
     ),
     subs AS (
