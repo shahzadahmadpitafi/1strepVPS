@@ -87,6 +87,7 @@ import ContactSupport from "@/pages/ContactSupport";
 import FAQ from "@/pages/FAQ";
 import CookiePolicy from "@/pages/CookiePolicy";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import Unsubscribe from "@/pages/Unsubscribe";
 import ReferralDashboard from "@/pages/ReferralDashboard";
 import TicketPortal from "@/pages/TicketPortal";
 import InfluencerLogin from "@/pages/InfluencerLogin";
@@ -187,6 +188,7 @@ function Router() {
       <Route path="/faq" component={FAQ}/>
       <Route path="/cookie-policy" component={CookiePolicy}/>
       <Route path="/privacy-policy" component={PrivacyPolicy}/>
+      <Route path="/unsubscribe" component={Unsubscribe}/>
       <Route path="/profile" component={CustomerProfile}/>
       <Route path="/orders" component={CustomerOrders}/>
       <Route path="/account" component={CustomerLogin}/>

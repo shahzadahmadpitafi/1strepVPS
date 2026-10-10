@@ -66,7 +66,7 @@ function createEmailMessage(to: string, subject: string, htmlBody: string): stri
   return Buffer.from(email).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-async function sendEmailViaSmtp(to: string, subject: string, htmlBody: string): Promise<boolean> {
+async function sendEmailViaSmtp(to: string, subject: string, htmlBody: string, headers?: Record<string, string>): Promise<boolean> {
   const password = process.env.SMTP_PASSWORD;
   if (!password) return false;
 
@@ -89,15 +89,16 @@ async function sendEmailViaSmtp(to: string, subject: string, htmlBody: string): 
     to,
     subject,
     html: htmlBody,
+    ...(headers ? { headers } : {}),
   });
   return true;
 }
 
-export async function sendEmail(to: string, subject: string, htmlBody: string): Promise<boolean> {
+export async function sendEmail(to: string, subject: string, htmlBody: string, options?: { headers?: Record<string, string> }): Promise<boolean> {
   try {
     if (process.env.SMTP_PASSWORD) {
       try {
-        await sendEmailViaSmtp(to, subject, htmlBody);
+        await sendEmailViaSmtp(to, subject, htmlBody, options?.headers);
         console.log(`[SMTP] Email sent to ${to}: ${subject}`);
         return true;
       } catch (smtpError: any) {

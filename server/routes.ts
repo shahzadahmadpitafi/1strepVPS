@@ -32972,12 +32972,81 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
     }
   });
 
+  // Send the real weekly email to ONE address only (never touches customers) —
+  // for checking how it looks and whether it lands in the inbox.
+  app.post("/api/admin/weekly-email/test-send", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const to = String(req.body?.to || "").trim();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) {
+        return res.status(400).json({ error: "A valid email address is required" });
+      }
+      const { sendWeeklyEmail } = await import("./weeklyEmailService");
+      const result = await sendWeeklyEmail("manual", { onlyTo: to });
+      res.json({ ...result, to });
+    } catch (err) {
+      console.error("Weekly email test send error:", err);
+      res.status(500).json({ error: "Failed to send test email" });
+    }
+  });
+
+  // How many people the weekly email would go to right now (no sending).
+  app.get("/api/admin/weekly-email/recipients", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { getWeeklyRecipients } = await import("./weeklyEmailService");
+      const recipients = await getWeeklyRecipients();
+      res.json({
+        total: recipients.length,
+        purchase: recipients.filter((x) => x.source === "purchase").length,
+        newsletter: recipients.filter((x) => x.source === "newsletter").length,
+      });
+    } catch (err) {
+      console.error("Weekly email recipients error:", err);
+      res.status(500).json({ error: "Failed to count recipients" });
+    }
+  });
+
+  // Public unsubscribe — the link in every marketing email carries an HMAC of the
+  // address, so only the real recipient can unsubscribe it.
+  async function applyEmailUnsubscribe(emailRaw: string, token: string, reason: string): Promise<boolean> {
+    const { verifyUnsubscribeToken } = await import("./weeklyEmailService");
+    const email = String(emailRaw || "").trim().toLowerCase();
+    if (!email || !verifyUnsubscribeToken(email, String(token || ""))) return false;
+    if (!(await storage.isEmailUnsubscribed(email))) {
+      await storage.unsubscribeEmail({ email, reason });
+    }
+    await storage.unsubscribeFromNewsletter(email);
+    return true;
+  }
+
+  app.post("/api/email/unsubscribe", async (req, res) => {
+    try {
+      const ok = await applyEmailUnsubscribe(req.body?.email, req.body?.token, "weekly_email_link");
+      if (!ok) return res.status(400).json({ error: "This unsubscribe link is not valid" });
+      res.json({ message: "You have been unsubscribed" });
+    } catch (err) {
+      console.error("Email unsubscribe error:", err);
+      res.status(500).json({ error: "Failed to unsubscribe" });
+    }
+  });
+
+  // RFC 8058 one-click: Gmail/Outlook POST here from their own Unsubscribe button.
+  app.post("/api/email/unsubscribe/one-click", async (req, res) => {
+    try {
+      const ok = await applyEmailUnsubscribe(String(req.query.e || ""), String(req.query.t || ""), "one_click_header");
+      if (!ok) return res.status(400).send("Invalid link");
+      res.status(200).send("Unsubscribed");
+    } catch (err) {
+      console.error("One-click unsubscribe error:", err);
+      res.status(500).send("Failed");
+    }
+  });
+
   app.get("/api/admin/weekly-email/preview", requireAuth, requireAdmin, async (req, res) => {
     try {
       const { getWeeklyEmailData, buildWeeklyEmailHtml, getWeeklyEmailConfig } = await import("./weeklyEmailService");
       const cfg = await getWeeklyEmailConfig();
       const data = await getWeeklyEmailData({ maxNewProducts: cfg.maxNewProducts, newProductsDays: cfg.newProductsDays });
-      const html = buildWeeklyEmailHtml({ firstName: "Jane", data, unsubscribeToken: "preview-token" });
+      const html = buildWeeklyEmailHtml({ firstName: "Jane", data, unsubscribeUrl: "https://1strep.com/unsubscribe" });
       res.setHeader("Content-Type", "text/html");
       res.send(html);
     } catch (err) {
@@ -32992,7 +33061,7 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
       const { getWeeklyEmailData, buildWeeklyEmailHtml, getWeeklyEmailConfig } = await import("./weeklyEmailService");
       const cfg = await getWeeklyEmailConfig();
       const data = await getWeeklyEmailData({ maxNewProducts: cfg.maxNewProducts, newProductsDays: cfg.newProductsDays });
-      const html = buildWeeklyEmailHtml({ firstName: "Alex", data, unsubscribeToken: "demo-preview-token" });
+      const html = buildWeeklyEmailHtml({ firstName: "Alex", data, unsubscribeUrl: "https://1strep.com/unsubscribe" });
       res.setHeader("Content-Type", "text/html");
       res.send(html);
     } catch (err) {

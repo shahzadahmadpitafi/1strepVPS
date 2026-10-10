@@ -6,6 +6,7 @@
 
 import { db } from "./db";
 import { sql } from "drizzle-orm";
+import crypto from "crypto";
 import { sendEmail } from "./email";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -123,11 +124,10 @@ function emailSafeImg(url: string | null, fallbackName: string): string {
 export function buildWeeklyEmailHtml(opts: {
   firstName: string;
   data: WeeklyEmailData;
-  unsubscribeToken: string;
+  unsubscribeUrl: string;
 }): string {
-  const { firstName, data, unsubscribeToken } = opts;
+  const { firstName, data, unsubscribeUrl: unsubUrl } = opts;
   const name = firstName || "there";
-  const unsubUrl = `https://1strep.com/unsubscribe?token=${unsubscribeToken}`;
 
   // ── 1. Hero: Top Product ──────────────────────────────────────────────────
   let heroHtml = "";
@@ -401,14 +401,14 @@ export function buildWeeklyEmailHtml(opts: {
             <tr>
               <td style="padding-top:20px;">
                 <p style="margin:0 0 8px;font-size:11px;color:${C.subtle};font-family:${FONT};line-height:1.6;">
-                  You are receiving this weekly digest because you have a registered account at 1stRep.
+                  You are receiving this email because you have bought from, or signed up to, 1stRep.
                   If you no longer wish to receive these emails,
                   <a href="${unsubUrl}" style="color:${C.body};text-decoration:underline;font-family:${FONT};">unsubscribe here</a>.
                 </p>
                 <p style="margin:0;font-size:10px;color:${C.subtle};font-family:${FONT};">
                   &copy; ${new Date().getFullYear()} 1stRep Ltd. Registered in England &amp; Wales.
                   &nbsp;|&nbsp;
-                  <a href="https://1strep.com/privacy" style="color:${C.subtle};text-decoration:underline;
+                  <a href="https://1strep.com/privacy-policy" style="color:${C.subtle};text-decoration:underline;
                     font-family:${FONT};">Privacy Policy</a>
                   &nbsp;|&nbsp;
                   <a href="https://1strep.com/terms" style="color:${C.subtle};text-decoration:underline;
@@ -601,7 +601,102 @@ export async function getWeeklyEmailData(opts?: { maxNewProducts?: number; newPr
   };
 }
 
-export async function sendWeeklyEmails(): Promise<{ sent: number; failed: number }> {
+// ─── Unsubscribe links ────────────────────────────────────────────────────────
+// The link carries an HMAC of the email address, so only someone holding a real
+// email we sent can unsubscribe that address — nobody can unsubscribe others.
+
+function unsubscribeSecret(): string {
+  return process.env.SESSION_SECRET || "dev-secret-key-change-in-production";
+}
+
+export function makeUnsubscribeToken(email: string): string {
+  return crypto
+    .createHmac("sha256", unsubscribeSecret())
+    .update(email.trim().toLowerCase())
+    .digest("hex")
+    .slice(0, 40);
+}
+
+export function verifyUnsubscribeToken(email: string, token: string): boolean {
+  if (!email || !token) return false;
+  const expected = makeUnsubscribeToken(email);
+  const a = Buffer.from(expected);
+  const b = Buffer.from(String(token));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+export function buildUnsubscribeUrl(email: string): string {
+  return `https://1strep.com/unsubscribe?e=${encodeURIComponent(email)}&t=${makeUnsubscribeToken(email)}`;
+}
+
+// Target of the List-Unsubscribe header: mail apps POST here directly (RFC 8058 one-click).
+export function buildOneClickUnsubscribeUrl(email: string): string {
+  return `https://1strep.com/api/email/unsubscribe/one-click?e=${encodeURIComponent(email)}&t=${makeUnsubscribeToken(email)}`;
+}
+
+// ─── Recipients ───────────────────────────────────────────────────────────────
+
+export interface WeeklyRecipient {
+  email: string;
+  firstName: string | null;
+  source: "purchase" | "newsletter" | "account";
+}
+
+/**
+ * Everyone we may legitimately market to, de-duplicated by email:
+ *  - anyone with a PAID order (includes guest and in-gym EPOS buyers, who have
+ *    no website account) — UK "soft opt-in" for existing customers,
+ *  - active newsletter subscribers,
+ * minus anyone who has unsubscribed (email_unsubscribes or newsletter opt-out).
+ * Account holders who never bought or subscribed are deliberately NOT included.
+ */
+export async function getWeeklyRecipients(): Promise<WeeklyRecipient[]> {
+  const result = await db.execute(sql`
+    WITH buyers AS (
+      SELECT lower(trim(customer_email)) AS email,
+             max(NULLIF(trim(customer_first_name), '')) AS first_name,
+             'purchase'::text AS source
+      FROM customer_orders
+      WHERE customer_email IS NOT NULL
+        AND is_paid = true
+        AND status NOT IN ('cancelled', 'refunded', 'failed')
+      GROUP BY lower(trim(customer_email))
+    ),
+    subs AS (
+      SELECT lower(trim(email)) AS email,
+             max(NULLIF(trim(first_name), '')) AS first_name,
+             'newsletter'::text AS source
+      FROM newsletter_subscriptions
+      WHERE is_active = true AND unsubscribed_at IS NULL
+      GROUP BY lower(trim(email))
+    ),
+    everyone AS (
+      SELECT * FROM buyers
+      UNION ALL
+      SELECT * FROM subs
+    )
+    SELECT e.email,
+           max(e.first_name) AS "firstName",
+           min(e.source) AS source
+    FROM everyone e
+    WHERE e.email ~ '^[^@[:space:]]+@[^@[:space:]]+[.][^@[:space:]]+$'
+      AND e.email NOT LIKE '%@epos.local'
+      AND e.email NOT LIKE '%@1strep.internal'
+      AND e.email NOT IN (SELECT lower(trim(email)) FROM email_unsubscribes)
+      AND e.email NOT IN (
+        SELECT lower(trim(email)) FROM newsletter_subscriptions WHERE unsubscribed_at IS NOT NULL
+      )
+    GROUP BY e.email
+    ORDER BY e.email
+  `);
+  return result.rows as unknown as WeeklyRecipient[];
+}
+
+// ─── Sending ──────────────────────────────────────────────────────────────────
+
+export async function sendWeeklyEmails(
+  opts: { onlyTo?: string } = {},
+): Promise<{ sent: number; failed: number }> {
   let sent = 0;
   let failed = 0;
 
@@ -609,30 +704,32 @@ export async function sendWeeklyEmails(): Promise<{ sent: number; failed: number
     const cfg = await getWeeklyEmailConfig();
     const data = await getWeeklyEmailData({ maxNewProducts: cfg.maxNewProducts, newProductsDays: cfg.newProductsDays });
 
-    const customersResult = await db.execute(sql`
-      SELECT u.id, u.email, u.first_name as "firstName",
-             up.weekly_digest_unsubscribe_token as "unsubscribeToken"
-      FROM users u
-      LEFT JOIN user_preferences up ON u.id = up.user_id
-      WHERE u.role = 'customer'
-        AND u.email IS NOT NULL
-        AND (up.weekly_digest_opted_in IS NULL OR up.weekly_digest_opted_in = true)
-      LIMIT 1000
-    `);
+    // A test send goes to ONE address and never touches real customers.
+    const recipients: WeeklyRecipient[] = opts.onlyTo
+      ? [{ email: opts.onlyTo.trim().toLowerCase(), firstName: null, source: "account" }]
+      : await getWeeklyRecipients();
 
-    for (const customer of customersResult.rows as Array<{ id: number; email: string; firstName: string | null; unsubscribeToken: string | null }>) {
+    console.log(`[WeeklyEmail] ${recipients.length} recipient(s)${opts.onlyTo ? " (TEST SEND)" : ""}`);
+
+    for (const customer of recipients) {
       try {
-        const token = customer.unsubscribeToken ?? `${customer.id}-${Date.now()}`;
+        const unsubscribeUrl = buildUnsubscribeUrl(customer.email);
         const html = buildWeeklyEmailHtml({
           firstName: customer.firstName ?? "",
           data,
-          unsubscribeToken: token,
+          unsubscribeUrl,
         });
 
         const success = await sendEmail(
           customer.email,
-          `Your Weekly 1stRep Update — ${data.weekLabel}`,
+          `${cfg.subjectTemplate} — ${data.weekLabel}`,
           html,
+          {
+            headers: {
+              "List-Unsubscribe": `<${buildOneClickUnsubscribeUrl(customer.email)}>`,
+              "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            },
+          },
         );
 
         if (success) {
@@ -644,6 +741,8 @@ export async function sendWeeklyEmails(): Promise<{ sent: number; failed: number
         console.error(`Failed to send weekly email to ${customer.email}:`, err);
         failed++;
       }
+      // Gentle pace so the SMTP provider doesn't throttle a burst.
+      await new Promise((r) => setTimeout(r, 400));
     }
   } catch (err) {
     console.error("Failed to fetch weekly email data:", err);
@@ -731,11 +830,14 @@ export async function upsertWeeklyEmailConfig(data: {
 }
 
 /** Alias used by the cron scheduler and the send-now admin route */
-export async function sendWeeklyEmail(trigger: "scheduler" | "manual"): Promise<{ sent: number; failed: number }> {
+export async function sendWeeklyEmail(
+  trigger: "scheduler" | "manual",
+  opts: { onlyTo?: string } = {},
+): Promise<{ sent: number; failed: number }> {
   console.log(`[WeeklyEmail] sendWeeklyEmail called — trigger: ${trigger}`);
-  const result = await sendWeeklyEmails();
+  const result = await sendWeeklyEmails(opts);
 
-  if (result.sent > 0 || trigger === "manual") {
+  if (!opts.onlyTo && (result.sent > 0 || trigger === "manual")) {
     // Record last-sent timestamp
     await db.execute(sql`
       UPDATE weekly_email_config
