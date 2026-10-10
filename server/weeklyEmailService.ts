@@ -714,8 +714,13 @@ export async function sendWeeklyEmails(
     for (const customer of recipients) {
       try {
         const unsubscribeUrl = buildUnsubscribeUrl(customer.email);
+        // "ABBY" -> "Abby"; names already in normal case are left alone.
+        const rawName = customer.firstName ?? "";
+        const firstName = rawName && rawName === rawName.toUpperCase()
+          ? rawName.toLowerCase().split(/([\s'-]+)/).map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join("")
+          : rawName;
         const html = buildWeeklyEmailHtml({
-          firstName: customer.firstName ?? "",
+          firstName,
           data,
           unsubscribeUrl,
         });

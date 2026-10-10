@@ -33011,10 +33011,16 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
     const { verifyUnsubscribeToken } = await import("./weeklyEmailService");
     const email = String(emailRaw || "").trim().toLowerCase();
     if (!email || !verifyUnsubscribeToken(email, String(token || ""))) return false;
-    if (!(await storage.isEmailUnsubscribed(email))) {
-      await storage.unsubscribeEmail({ email, reason });
-    }
+    // Raw SQL on purpose: the live email_unsubscribes table only has
+    // (id, email, unsubscribed_at), so the storage helper that also writes
+    // user_id/reason/campaign_id fails against it.
+    await db.execute(sql`
+      INSERT INTO email_unsubscribes (email)
+      SELECT ${email}
+      WHERE NOT EXISTS (SELECT 1 FROM email_unsubscribes WHERE lower(email) = ${email})
+    `);
     await storage.unsubscribeFromNewsletter(email);
+    console.log(`📧 Unsubscribed ${email} (${reason})`);
     return true;
   }
 
