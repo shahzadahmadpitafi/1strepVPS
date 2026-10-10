@@ -718,29 +718,7 @@ export async function sendWeeklyEmails(
 
     for (const customer of recipients) {
       try {
-        const unsubscribeUrl = buildUnsubscribeUrl(customer.email);
-        // "ABBY" -> "Abby"; names already in normal case are left alone.
-        const rawName = customer.firstName ?? "";
-        const firstName = rawName && rawName === rawName.toUpperCase()
-          ? rawName.toLowerCase().split(/([\s'-]+)/).map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join("")
-          : rawName;
-        const html = buildWeeklyEmailHtml({
-          firstName,
-          data,
-          unsubscribeUrl,
-        });
-
-        const success = await sendEmail(
-          customer.email,
-          `${cfg.subjectTemplate} — ${data.weekLabel}`,
-          html,
-          {
-            headers: {
-              "List-Unsubscribe": `<${buildOneClickUnsubscribeUrl(customer.email)}>`,
-              "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-            },
-          },
-        );
+        const success = await sendOneWeekly(customer, cfg, data);
 
         if (success) {
           sent++;
@@ -760,6 +738,119 @@ export async function sendWeeklyEmails(
 
   console.log(`Weekly emails: ${sent} sent, ${failed} failed`);
   return { sent, failed };
+}
+
+// ─── One email ────────────────────────────────────────────────────────────────
+
+async function sendOneWeekly(
+  customer: WeeklyRecipient,
+  cfg: WeeklyEmailConfig,
+  data: WeeklyEmailData,
+): Promise<boolean> {
+  const unsubscribeUrl = buildUnsubscribeUrl(customer.email);
+  // "ABBY" -> "Abby"; names already in normal case are left alone.
+  const rawName = customer.firstName ?? "";
+  const firstName = rawName && rawName === rawName.toUpperCase()
+    ? rawName.toLowerCase().split(/([\s'-]+)/).map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join("")
+    : rawName;
+  const html = buildWeeklyEmailHtml({ firstName, data, unsubscribeUrl });
+
+  return sendEmail(
+    customer.email,
+    `${cfg.subjectTemplate} — ${data.weekLabel}`,
+    html,
+    {
+      headers: {
+        "List-Unsubscribe": `<${buildOneClickUnsubscribeUrl(customer.email)}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
+    },
+  );
+}
+
+// ─── Batched campaign sending ─────────────────────────────────────────────────
+// Sends to a limited number of people per run and remembers who has been mailed
+// (weekly_email_log), so the same campaign can be continued over several days
+// without ever emailing anyone twice and without flooding the mail server —
+// the same mailbox also sends order confirmations. Unsubscribes are re-checked
+// on every run, and the run stops early if the server starts refusing mail.
+
+async function ensureCampaignLog(): Promise<void> {
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS weekly_email_log (
+      campaign text NOT NULL,
+      email text NOT NULL,
+      status text NOT NULL,
+      attempts integer NOT NULL DEFAULT 1,
+      error text,
+      sent_at timestamp NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (campaign, email)
+    )
+  `);
+}
+
+export async function sendWeeklyBatch(opts: {
+  campaign: string;
+  limit: number;
+}): Promise<{ sent: number; failed: number; remaining: number; aborted: boolean }> {
+  await ensureCampaignLog();
+
+  const recipients = await getWeeklyRecipients();
+  const logged = await db.execute(sql`
+    SELECT email, status, attempts FROM weekly_email_log WHERE campaign = ${opts.campaign}
+  `);
+  const skip = new Set(
+    (logged.rows as Array<{ email: string; status: string; attempts: number }>)
+      .filter((r) => r.status === "sent" || r.attempts >= 3)
+      .map((r) => r.email),
+  );
+  const pending = recipients.filter((r) => !skip.has(r.email));
+  const batch = pending.slice(0, Math.max(0, opts.limit));
+
+  console.log(`[WeeklyBatch] ${opts.campaign}: ${recipients.length} eligible, ${pending.length} not yet mailed, sending ${batch.length} now`);
+  if (batch.length === 0) return { sent: 0, failed: 0, remaining: pending.length, aborted: false };
+
+  const cfg = await getWeeklyEmailConfig();
+  const data = await getWeeklyEmailData({ maxNewProducts: cfg.maxNewProducts, newProductsDays: cfg.newProductsDays });
+
+  let sent = 0;
+  let failed = 0;
+  let consecutiveFailures = 0;
+  let aborted = false;
+
+  for (const customer of batch) {
+    let ok = false;
+    let errMsg: string | null = null;
+    try {
+      ok = await sendOneWeekly(customer, cfg, data);
+      if (!ok) errMsg = "send returned false";
+    } catch (err: any) {
+      errMsg = String(err?.message || err).slice(0, 300);
+    }
+
+    await db.execute(sql`
+      INSERT INTO weekly_email_log (campaign, email, status, attempts, error)
+      VALUES (${opts.campaign}, ${customer.email}, ${ok ? "sent" : "failed"}, 1, ${errMsg})
+      ON CONFLICT (campaign, email) DO UPDATE
+        SET status = EXCLUDED.status,
+            attempts = weekly_email_log.attempts + 1,
+            error = EXCLUDED.error,
+            sent_at = NOW()
+    `);
+
+    if (ok) { sent++; consecutiveFailures = 0; } else { failed++; consecutiveFailures++; }
+
+    if (consecutiveFailures >= 5) {
+      console.error("[WeeklyBatch] 5 failures in a row — mail server is refusing mail (daily limit?). Stopping this run.");
+      aborted = true;
+      break;
+    }
+    await new Promise((r) => setTimeout(r, 1200));
+  }
+
+  const remaining = pending.length - sent;
+  console.log(`[WeeklyBatch] ${opts.campaign}: ${sent} sent, ${failed} failed, ${remaining} still to send${aborted ? " (ABORTED)" : ""}`);
+  return { sent, failed, remaining, aborted };
 }
 
 // ─── Config helpers (used by admin routes & cron scheduler) ──────────────────
