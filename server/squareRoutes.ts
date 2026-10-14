@@ -37,12 +37,258 @@ function decryptOwnSquareToken(ciphertext: string): string {
 }
 
 /** Create a Square client using a reseller's own credentials, or null if not set up */
-function makeOwnSquareClient(reseller: any): SquareClient | null {
+export function makeOwnSquareClient(reseller: any): SquareClient | null {
   if (!reseller.ownSquareAccessTokenEnc || !reseller.ownSquareLocationId) return null;
   try {
     const token = decryptOwnSquareToken(reseller.ownSquareAccessTokenEnc);
     return new SquareClient({ token, environment: SquareEnvironment.Production });
   } catch { return null; }
+}
+
+// ── Server-side safety net: auto-create EPOS order when payment is confirmed ─
+// Called at every "COMPLETED" branch in verify-payment so the order is
+// guaranteed to exist even if the browser crashes/closes before calling
+// /api/reseller/epos/checkout.
+export async function autoCreateEposOrderFromPending(opts: {
+  referenceId?: string | null;
+  paymentLinkId?: string | null;
+  squarePaymentId: string;
+  /** Set false to create the order silently (no customer confirmation email). */
+  sendEmail?: boolean;
+}): Promise<{ orderNumber: string; created: boolean } | null> {
+  try {
+    // 1. Find the pending record
+    let pending: typeof eposPendingPayments.$inferSelect | null = null;
+    if (opts.referenceId) {
+      const rows = await db.select().from(eposPendingPayments)
+        .where(eq(eposPendingPayments.referenceId, opts.referenceId))
+        .limit(1);
+      pending = rows[0] ?? null;
+    }
+    if (!pending && opts.paymentLinkId) {
+      const rows = await db.select().from(eposPendingPayments)
+        .where(eq(eposPendingPayments.paymentLinkId, opts.paymentLinkId))
+        .limit(1);
+      pending = rows[0] ?? null;
+    }
+    if (!pending) return null;
+
+    // 2. Already completed — return existing order number (idempotency)
+    if (pending.status === 'completed' && pending.orderNumber) {
+      return { orderNumber: pending.orderNumber, created: false };
+    }
+
+    // 3. Check if an order already exists for this Square payment ref
+    const existing = await db.select({ orderNumber: customerOrders.orderNumber })
+      .from(customerOrders)
+      .where(eq(customerOrders.paymentIntentId, opts.squarePaymentId))
+      .limit(1);
+    if (existing.length > 0) {
+      await db.update(eposPendingPayments)
+        .set({ status: 'completed', orderNumber: existing[0].orderNumber, squarePaymentId: opts.squarePaymentId, completedAt: new Date() })
+        .where(eq(eposPendingPayments.id, pending.id));
+      return { orderNumber: existing[0].orderNumber, created: false };
+    }
+
+    // 4. Create the order
+    const ts = Date.now();
+    const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const orderNumber = `RSL-${ts}-${rand}`;
+    const orderId = crypto.randomUUID();
+    const items = (pending.items as any[]) || [];
+    const isCollection = !pending.deliveryMethod || pending.deliveryMethod === 'collection';
+    const deliveryAddr = pending.deliveryAddress as any;
+    const total = parseFloat(pending.totalAmount || '0');
+    const subtotal = parseFloat(pending.subtotal || pending.totalAmount || '0');
+    const discount = parseFloat(pending.discountAmount || '0');
+
+    // Determine channel: if ALL items are own-products → reseller_epos_own
+    // Detection is two-tier:
+    //   1. Explicit flag: i.isResellerProduct === true (set by newer EPOS versions)
+    //   2. DB lookup: productId not found in the 1stRep products catalogue → own product
+    const itemProductIds = items.map((i: any) => i.productId).filter(Boolean);
+    let catalogueProductIds = new Set<string>();
+    if (itemProductIds.length > 0) {
+      try {
+        const catalogueRows = await db.select({ id: products.id })
+          .from(products)
+          .where(inArray(products.id, itemProductIds));
+        catalogueRows.forEach((r: any) => catalogueProductIds.add(r.id));
+      } catch (lookupErr: any) {
+        console.warn('autoCreateEposOrder: product catalogue lookup failed:', lookupErr?.message);
+      }
+    }
+    const allOwnProducts = items.length > 0 && items.every((i: any) =>
+      i.isResellerProduct === true ||
+      (i.productId && !catalogueProductIds.has(i.productId))
+    );
+    const channel = allOwnProducts ? 'reseller_epos_own' : 'reseller_epos';
+
+    // Lock in the reseller's commission rate at the moment of this sale, so a
+    // later rate change never retroactively recalculates this order's earnings.
+    let commissionRateApplied: string | null = null;
+    if (pending.resellerId) {
+      const resellerRows = await db.select({ commissionRate: resellers.commissionRate })
+        .from(resellers).where(eq(resellers.id, pending.resellerId)).limit(1);
+      commissionRateApplied = resellerRows[0]?.commissionRate || '10.00';
+    }
+
+    await db.insert(customerOrders).values({
+      id: orderId,
+      orderNumber,
+      status: 'processing',
+      customerEmail: pending.customerEmail || 'no-email@epos.local',
+      customerFirstName: pending.customerFirstName || 'EPOS',
+      customerLastName: pending.customerLastName || 'Customer',
+      customerPhone: pending.customerPhone || null,
+      shippingAddress: isCollection ? 'Collect from Store' : (deliveryAddr?.address || 'Not provided'),
+      shippingCity: isCollection ? 'Store Collection' : (deliveryAddr?.city || ''),
+      shippingPostalCode: isCollection ? 'N/A' : (deliveryAddr?.postcode || ''),
+      shippingCountry: isCollection ? 'UK' : (deliveryAddr?.country || 'United Kingdom'),
+      subtotal: String(subtotal),
+      shippingCost: '0',
+      taxAmount: '0',
+      totalAmount: String(total),
+      discountAmount: String(discount),
+      paymentMethod: 'card_qr',
+      paymentIntentId: opts.squarePaymentId,
+      isPaid: true,
+      paidAt: new Date(),
+      ownSquarePaid: pending.ownSquare === true,
+      channel,
+      resellerId: pending.resellerId || null,
+      commissionRateApplied,
+      notes: `Auto-recovered: Square QR payment ${opts.squarePaymentId} confirmed server-side. Ref: ${pending.referenceId}`,
+      orderDate: new Date(),
+    } as any);
+
+    // 5. Insert order items
+    for (const item of items) {
+      const unitPrice = parseFloat(item.unitPrice || item.price || '0');
+      const qty = parseInt(item.quantity || '1', 10);
+      // Use the DB-aware isOwnItem check (same logic used for channel detection above)
+      const isOwnItem = item.isResellerProduct === true ||
+        (item.productId && !catalogueProductIds.has(item.productId));
+      await db.insert(customerOrderItems).values({
+        id: crypto.randomUUID(),
+        orderId,
+        productId: isOwnItem ? null : (item.productId || null),
+        vendorProductId: isOwnItem ? (item.vendorProductId || item.productId || null) : null,
+        productName: item.name || 'Product',
+        sku: item.sku || null,
+        size: item.size || null,
+        color: item.color || null,
+        quantity: qty,
+        unitPrice: String(unitPrice),
+        totalPrice: String(unitPrice * qty),
+        locationNote: 'In-store',
+      } as any);
+    }
+
+    // 6. Auto-calculate commission for catalogue items (reseller_epos only — not own-product sales)
+    if (pending.resellerId && channel === 'reseller_epos') {
+      try {
+        const resellerRows = await db.select().from(resellers)
+          .where(eq(resellers.id, pending.resellerId))
+          .limit(1);
+        const resellerRow = resellerRows[0] ?? null;
+        const commissionRate = resellerRow?.commissionRate ? parseFloat(resellerRow.commissionRate) : 10;
+
+        // Only count catalogue items (non-own-product)
+        const catalogueTotal = items
+          .filter((i: any) => !i.isResellerProduct)
+          .reduce((sum: number, i: any) => {
+            const up = parseFloat(i.unitPrice || i.price || '0');
+            const q = parseInt(i.quantity || '1', 10);
+            return sum + up * q;
+          }, 0);
+
+        if (catalogueTotal > 0) {
+          const commissionAmount = (catalogueTotal * commissionRate) / 100;
+          await db.insert(commissions).values({
+            id: crypto.randomUUID(),
+            orderId,
+            orderNumber,
+            commissionType: 'reseller',
+            resellerId: pending.resellerId,
+            orderTotal: catalogueTotal.toFixed(2),
+            commissionRate: commissionRate.toFixed(2),
+            commissionAmount: commissionAmount.toFixed(2),
+            status: 'pending',
+          } as any);
+          console.log(`💰 EPOS commission recorded: £${commissionAmount.toFixed(2)} (${commissionRate}%) for reseller ${pending.resellerId} on order ${orderNumber}`);
+        }
+      } catch (commissionErr: any) {
+        console.warn('EPOS commission recording failed (non-critical):', commissionErr?.message);
+      }
+    }
+
+    // 7. Mark pending record as completed
+    await db.update(eposPendingPayments)
+      .set({ status: 'completed', orderNumber, squarePaymentId: opts.squarePaymentId, completedAt: new Date() })
+      .where(eq(eposPendingPayments.id, pending.id));
+
+    console.log(`✅ Auto-created EPOS order ${orderNumber} from pending payment ${pending.referenceId} (Square: ${opts.squarePaymentId})`);
+
+    // 8. Admin notification
+    const customerName = `${pending.customerFirstName || 'EPOS'} ${pending.customerLastName || 'Customer'}`.trim();
+    try {
+      await storage.createAdminNotification({
+        type: 'new_order',
+        title: 'New EPOS Order Received',
+        message: `EPOS order ${orderNumber} from ${customerName} for £${total.toFixed(2)}`,
+        link: '/admin/orders',
+        isRead: false,
+      });
+      console.log(`🔔 Admin notification created for EPOS order ${orderNumber}`);
+    } catch (notifErr: any) {
+      console.warn('⚠️ Could not create admin notification for EPOS order:', notifErr?.message);
+    }
+
+    // 9. WebSocket event for real-time admin dashboard
+    try {
+      emitOrderEvent({
+        type: 'new_order',
+        orderId,
+        customerName,
+        totalAmount: total,
+        itemCount: items.length,
+        source: 'epos',
+        timestamp: new Date().toISOString(),
+        items: items.map((i: any) => ({
+          productName: i.name || 'Product',
+          quantity: i.quantity || 1,
+          size: i.size || undefined,
+          color: i.color || undefined,
+        })),
+      });
+    } catch (wsErr: any) {
+      console.warn('⚠️ Could not emit EPOS order WebSocket event:', wsErr?.message);
+    }
+
+    // 10. Order confirmation email (non-blocking)
+    if (opts.sendEmail !== false && pending.customerEmail && pending.customerEmail !== 'no-email@epos.local') {
+      sendOrderConfirmation({
+        customerName,
+        customerEmail: pending.customerEmail,
+        orderNumber,
+        orderItems: items.map((i: any) => ({
+          name: i.name || 'Product',
+          quantity: parseInt(i.quantity || '1', 10),
+          price: parseFloat(i.unitPrice || i.price || '0'),
+        })),
+        totalAmount: total,
+        shippingAddress: isCollection ? 'Collect from Store' : (deliveryAddr?.address || 'Not provided'),
+      }).catch((emailErr: any) => {
+        console.warn(`⚠️ EPOS order confirmation email failed for ${orderNumber}:`, emailErr?.message);
+      });
+    }
+
+    return { orderNumber, created: true };
+  } catch (err: any) {
+    console.error('autoCreateEposOrderFromPending error:', err?.message || err);
+    return null;
+  }
 }
 
 export function registerSquareRoutes(app: Express) {
@@ -328,250 +574,6 @@ export function registerSquareRoutes(app: Express) {
       });
     }
   });
-
-  // ── Server-side safety net: auto-create EPOS order when payment is confirmed ─
-  // Called at every "COMPLETED" branch in verify-payment so the order is
-  // guaranteed to exist even if the browser crashes/closes before calling
-  // /api/reseller/epos/checkout.
-  async function autoCreateEposOrderFromPending(opts: {
-    referenceId?: string | null;
-    paymentLinkId?: string | null;
-    squarePaymentId: string;
-  }): Promise<{ orderNumber: string; created: boolean } | null> {
-    try {
-      // 1. Find the pending record
-      let pending: typeof eposPendingPayments.$inferSelect | null = null;
-      if (opts.referenceId) {
-        const rows = await db.select().from(eposPendingPayments)
-          .where(eq(eposPendingPayments.referenceId, opts.referenceId))
-          .limit(1);
-        pending = rows[0] ?? null;
-      }
-      if (!pending && opts.paymentLinkId) {
-        const rows = await db.select().from(eposPendingPayments)
-          .where(eq(eposPendingPayments.paymentLinkId, opts.paymentLinkId))
-          .limit(1);
-        pending = rows[0] ?? null;
-      }
-      if (!pending) return null;
-
-      // 2. Already completed — return existing order number (idempotency)
-      if (pending.status === 'completed' && pending.orderNumber) {
-        return { orderNumber: pending.orderNumber, created: false };
-      }
-
-      // 3. Check if an order already exists for this Square payment ref
-      const existing = await db.select({ orderNumber: customerOrders.orderNumber })
-        .from(customerOrders)
-        .where(eq(customerOrders.paymentIntentId, opts.squarePaymentId))
-        .limit(1);
-      if (existing.length > 0) {
-        await db.update(eposPendingPayments)
-          .set({ status: 'completed', orderNumber: existing[0].orderNumber, squarePaymentId: opts.squarePaymentId, completedAt: new Date() })
-          .where(eq(eposPendingPayments.id, pending.id));
-        return { orderNumber: existing[0].orderNumber, created: false };
-      }
-
-      // 4. Create the order
-      const ts = Date.now();
-      const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
-      const orderNumber = `RSL-${ts}-${rand}`;
-      const orderId = crypto.randomUUID();
-      const items = (pending.items as any[]) || [];
-      const isCollection = !pending.deliveryMethod || pending.deliveryMethod === 'collection';
-      const deliveryAddr = pending.deliveryAddress as any;
-      const total = parseFloat(pending.totalAmount || '0');
-      const subtotal = parseFloat(pending.subtotal || pending.totalAmount || '0');
-      const discount = parseFloat(pending.discountAmount || '0');
-
-      // Determine channel: if ALL items are own-products → reseller_epos_own
-      // Detection is two-tier:
-      //   1. Explicit flag: i.isResellerProduct === true (set by newer EPOS versions)
-      //   2. DB lookup: productId not found in the 1stRep products catalogue → own product
-      const itemProductIds = items.map((i: any) => i.productId).filter(Boolean);
-      let catalogueProductIds = new Set<string>();
-      if (itemProductIds.length > 0) {
-        try {
-          const catalogueRows = await db.select({ id: products.id })
-            .from(products)
-            .where(inArray(products.id, itemProductIds));
-          catalogueRows.forEach((r: any) => catalogueProductIds.add(r.id));
-        } catch (lookupErr: any) {
-          console.warn('autoCreateEposOrder: product catalogue lookup failed:', lookupErr?.message);
-        }
-      }
-      const allOwnProducts = items.length > 0 && items.every((i: any) =>
-        i.isResellerProduct === true ||
-        (i.productId && !catalogueProductIds.has(i.productId))
-      );
-      const channel = allOwnProducts ? 'reseller_epos_own' : 'reseller_epos';
-
-      // Lock in the reseller's commission rate at the moment of this sale, so a
-      // later rate change never retroactively recalculates this order's earnings.
-      let commissionRateApplied: string | null = null;
-      if (pending.resellerId) {
-        const resellerRows = await db.select({ commissionRate: resellers.commissionRate })
-          .from(resellers).where(eq(resellers.id, pending.resellerId)).limit(1);
-        commissionRateApplied = resellerRows[0]?.commissionRate || '10.00';
-      }
-
-      await db.insert(customerOrders).values({
-        id: orderId,
-        orderNumber,
-        status: 'processing',
-        customerEmail: pending.customerEmail || 'no-email@epos.local',
-        customerFirstName: pending.customerFirstName || 'EPOS',
-        customerLastName: pending.customerLastName || 'Customer',
-        customerPhone: pending.customerPhone || null,
-        shippingAddress: isCollection ? 'Collect from Store' : (deliveryAddr?.address || 'Not provided'),
-        shippingCity: isCollection ? 'Store Collection' : (deliveryAddr?.city || ''),
-        shippingPostalCode: isCollection ? 'N/A' : (deliveryAddr?.postcode || ''),
-        shippingCountry: isCollection ? 'UK' : (deliveryAddr?.country || 'United Kingdom'),
-        subtotal: String(subtotal),
-        shippingCost: '0',
-        taxAmount: '0',
-        totalAmount: String(total),
-        discountAmount: String(discount),
-        paymentMethod: 'card_qr',
-        paymentIntentId: opts.squarePaymentId,
-        isPaid: true,
-        paidAt: new Date(),
-        ownSquarePaid: pending.ownSquare === true,
-        channel,
-        resellerId: pending.resellerId || null,
-        commissionRateApplied,
-        notes: `Auto-recovered: Square QR payment ${opts.squarePaymentId} confirmed server-side. Ref: ${pending.referenceId}`,
-        orderDate: new Date(),
-      } as any);
-
-      // 5. Insert order items
-      for (const item of items) {
-        const unitPrice = parseFloat(item.unitPrice || item.price || '0');
-        const qty = parseInt(item.quantity || '1', 10);
-        // Use the DB-aware isOwnItem check (same logic used for channel detection above)
-        const isOwnItem = item.isResellerProduct === true ||
-          (item.productId && !catalogueProductIds.has(item.productId));
-        await db.insert(customerOrderItems).values({
-          id: crypto.randomUUID(),
-          orderId,
-          productId: isOwnItem ? null : (item.productId || null),
-          vendorProductId: isOwnItem ? (item.vendorProductId || item.productId || null) : null,
-          productName: item.name || 'Product',
-          sku: item.sku || null,
-          size: item.size || null,
-          color: item.color || null,
-          quantity: qty,
-          unitPrice: String(unitPrice),
-          totalPrice: String(unitPrice * qty),
-          locationNote: 'In-store',
-        } as any);
-      }
-
-      // 6. Auto-calculate commission for catalogue items (reseller_epos only — not own-product sales)
-      if (pending.resellerId && channel === 'reseller_epos') {
-        try {
-          const resellerRows = await db.select().from(resellers)
-            .where(eq(resellers.id, pending.resellerId))
-            .limit(1);
-          const resellerRow = resellerRows[0] ?? null;
-          const commissionRate = resellerRow?.commissionRate ? parseFloat(resellerRow.commissionRate) : 10;
-
-          // Only count catalogue items (non-own-product)
-          const catalogueTotal = items
-            .filter((i: any) => !i.isResellerProduct)
-            .reduce((sum: number, i: any) => {
-              const up = parseFloat(i.unitPrice || i.price || '0');
-              const q = parseInt(i.quantity || '1', 10);
-              return sum + up * q;
-            }, 0);
-
-          if (catalogueTotal > 0) {
-            const commissionAmount = (catalogueTotal * commissionRate) / 100;
-            await db.insert(commissions).values({
-              id: crypto.randomUUID(),
-              orderId,
-              orderNumber,
-              commissionType: 'reseller',
-              resellerId: pending.resellerId,
-              orderTotal: catalogueTotal.toFixed(2),
-              commissionRate: commissionRate.toFixed(2),
-              commissionAmount: commissionAmount.toFixed(2),
-              status: 'pending',
-            } as any);
-            console.log(`💰 EPOS commission recorded: £${commissionAmount.toFixed(2)} (${commissionRate}%) for reseller ${pending.resellerId} on order ${orderNumber}`);
-          }
-        } catch (commissionErr: any) {
-          console.warn('EPOS commission recording failed (non-critical):', commissionErr?.message);
-        }
-      }
-
-      // 7. Mark pending record as completed
-      await db.update(eposPendingPayments)
-        .set({ status: 'completed', orderNumber, squarePaymentId: opts.squarePaymentId, completedAt: new Date() })
-        .where(eq(eposPendingPayments.id, pending.id));
-
-      console.log(`✅ Auto-created EPOS order ${orderNumber} from pending payment ${pending.referenceId} (Square: ${opts.squarePaymentId})`);
-
-      // 8. Admin notification
-      const customerName = `${pending.customerFirstName || 'EPOS'} ${pending.customerLastName || 'Customer'}`.trim();
-      try {
-        await storage.createAdminNotification({
-          type: 'new_order',
-          title: 'New EPOS Order Received',
-          message: `EPOS order ${orderNumber} from ${customerName} for £${total.toFixed(2)}`,
-          link: '/admin/orders',
-          isRead: false,
-        });
-        console.log(`🔔 Admin notification created for EPOS order ${orderNumber}`);
-      } catch (notifErr: any) {
-        console.warn('⚠️ Could not create admin notification for EPOS order:', notifErr?.message);
-      }
-
-      // 9. WebSocket event for real-time admin dashboard
-      try {
-        emitOrderEvent({
-          type: 'new_order',
-          orderId,
-          customerName,
-          totalAmount: total,
-          itemCount: items.length,
-          source: 'epos',
-          timestamp: new Date().toISOString(),
-          items: items.map((i: any) => ({
-            productName: i.name || 'Product',
-            quantity: i.quantity || 1,
-            size: i.size || undefined,
-            color: i.color || undefined,
-          })),
-        });
-      } catch (wsErr: any) {
-        console.warn('⚠️ Could not emit EPOS order WebSocket event:', wsErr?.message);
-      }
-
-      // 10. Order confirmation email (non-blocking)
-      if (pending.customerEmail && pending.customerEmail !== 'no-email@epos.local') {
-        sendOrderConfirmation({
-          customerName,
-          customerEmail: pending.customerEmail,
-          orderNumber,
-          orderItems: items.map((i: any) => ({
-            name: i.name || 'Product',
-            quantity: parseInt(i.quantity || '1', 10),
-            price: parseFloat(i.unitPrice || i.price || '0'),
-          })),
-          totalAmount: total,
-          shippingAddress: isCollection ? 'Collect from Store' : (deliveryAddr?.address || 'Not provided'),
-        }).catch((emailErr: any) => {
-          console.warn(`⚠️ EPOS order confirmation email failed for ${orderNumber}:`, emailErr?.message);
-        });
-      }
-
-      return { orderNumber, created: true };
-    } catch (err: any) {
-      console.error('autoCreateEposOrderFromPending error:', err?.message || err);
-      return null;
-    }
-  }
 
   app.post('/api/square/verify-payment', async (req: Request, res: Response) => {
     try {

@@ -335,6 +335,15 @@ app.use((req, res, next) => {
     // Create database indexes for better query performance
     await createDatabaseIndexes();
 
+    // Payment reconciler: finds till/QR payments that were paid in Square but never became a
+    // portal order (browser closed / polling stopped) and creates the order. See paymentReconciler.ts.
+    try {
+      const { startPaymentReconciler } = await import("./paymentReconciler");
+      startPaymentReconciler();
+    } catch (err) {
+      console.error("[Reconciler] Failed to start:", err);
+    }
+
     // NOTE (cost optimisation): The Weekly Email, Review Request, and
     // Marketing Automation jobs used to run as in-process cron timers here.
     // That forced this web server to stay alive 24/7, which defeats
