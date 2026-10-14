@@ -55,6 +55,8 @@ export async function autoCreateEposOrderFromPending(opts: {
   squarePaymentId: string;
   /** Set false to create the order silently (no customer confirmation email). */
   sendEmail?: boolean;
+  /** When the customer actually paid (used when recovering a payment after the fact). */
+  paidAt?: Date;
 }): Promise<{ orderNumber: string; created: boolean } | null> {
   try {
     // 1. Find the pending record
@@ -153,13 +155,13 @@ export async function autoCreateEposOrderFromPending(opts: {
       paymentMethod: 'card_qr',
       paymentIntentId: opts.squarePaymentId,
       isPaid: true,
-      paidAt: new Date(),
+      paidAt: opts.paidAt ?? new Date(),
       ownSquarePaid: pending.ownSquare === true,
       channel,
       resellerId: pending.resellerId || null,
       commissionRateApplied,
       notes: `Auto-recovered: Square QR payment ${opts.squarePaymentId} confirmed server-side. Ref: ${pending.referenceId}`,
-      orderDate: new Date(),
+      orderDate: opts.paidAt ?? new Date(),
     } as any);
 
     // 5. Insert order items

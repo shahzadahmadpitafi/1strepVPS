@@ -105,7 +105,7 @@ export async function reconcileEposPendingPayments(opts: ReconcileOptions = {}):
 
       // A tender is not proof of payment on its own (declined cards create one).
       // Confirm each against the Payments API: COMPLETED and not fully refunded.
-      const completed: { id: string; amount: bigint }[] = [];
+      const completed: { id: string; amount: bigint; at?: Date }[] = [];
       for (const t of tenders) {
         const paymentId = (t as any).paymentId || t.id;
         if (!paymentId) continue;
@@ -114,7 +114,7 @@ export async function reconcileEposPendingPayments(opts: ReconcileOptions = {}):
         const paid = BigInt(p.amountMoney?.amount ?? 0);
         const refunded = BigInt(p.refundedMoney?.amount ?? 0);
         if (paid > BigInt(0) && refunded >= paid) continue; // fully refunded — no order to make
-        completed.push({ id: p.id!, amount: paid });
+        completed.push({ id: p.id!, amount: paid, at: p.createdAt ? new Date(p.createdAt) : undefined });
       }
       if (!completed.length) continue;
 
@@ -133,6 +133,7 @@ export async function reconcileEposPendingPayments(opts: ReconcileOptions = {}):
         paymentLinkId: row.paymentLinkId,
         squarePaymentId: first.id,
         sendEmail: opts.sendEmail,
+        paidAt: first.at,
       });
       if (!created) { result.errors.push(`${row.referenceId}: paid in Square (${first.id}) but the order could not be created — see server log`); continue; }
       if (!created.created) { result.alreadyHandled++; continue; }
