@@ -254,7 +254,7 @@ export default function ProductReviews({
     ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
     : 0;
   
-  const userReview = reviews.find(r => r.userId === currentUserId);
+  const userReview = currentUserId ? reviews.find(r => r.userId === currentUserId) : undefined;
   
   if (isLoading) {
     return (
