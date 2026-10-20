@@ -45,6 +45,37 @@ export async function restockReturnedItems(orderId: string, itemsToReturnJson: s
 
   const orderItems = await db.select().from(customerOrderItems).where(eq(customerOrderItems.orderId, orderId));
 
+  // Total returned per product name, to recognise "returned everything they bought of this product".
+  const returnedByName = new Map<string, number>();
+  for (const it of items) {
+    const k = norm(it?.name);
+    returnedByName.set(k, (returnedByName.get(k) ?? 0) + Math.max(1, Number(it?.quantity) || 1));
+  }
+  const alreadyRestockedNames = new Set<string>();
+
+  const restockVariant = async (oi: (typeof orderItems)[number], name: string, quantity: number) => {
+    const [variant] = await db
+      .select()
+      .from(productVariants)
+      .where(
+        and(
+          eq(productVariants.productId, oi.productId as string),
+          sql`${productVariants.size} IS NOT DISTINCT FROM ${oi.size}`,
+          sql`${productVariants.color} IS NOT DISTINCT FROM ${oi.color}`,
+        ),
+      );
+    if (!variant) {
+      result.skipped.push({ name, quantity, reason: `no ${oi.size ?? ""} ${oi.color ?? ""} variant exists any more`.replace(/\s+/g, " ") });
+      return;
+    }
+    await db
+      .update(productVariants)
+      .set({ stockQuantity: sql`${productVariants.stockQuantity} + ${quantity}`, updatedAt: new Date() })
+      .where(eq(productVariants.id, variant.id));
+    result.restocked.push({ name, size: oi.size ?? null, color: oi.color ?? null, quantity });
+    console.log(`↩️  Return restock: ${name} (${oi.size}, ${oi.color}) +${quantity}`);
+  };
+
   for (const item of items) {
     const quantity = Math.max(1, Number(item?.quantity) || 1);
     const name = String(item?.name ?? "").trim();
@@ -60,32 +91,19 @@ export async function restockReturnedItems(orderId: string, itemsToReturnJson: s
       continue;
     }
     if (distinct.size > 1) {
-      result.skipped.push({ name, quantity, reason: "bought in more than one size/colour, so the size returned is unclear" });
+      // Bought in several sizes/colours. If they are sending back everything they bought of it, it is certain.
+      const boughtTotal = candidates.reduce((sum, oi) => sum + oi.quantity, 0);
+      if (!item?.size && !item?.color && returnedByName.get(norm(name)) === boughtTotal) {
+        if (alreadyRestockedNames.has(norm(name))) continue; // handled when the first line of this product was processed
+        alreadyRestockedNames.add(norm(name));
+        for (const oi of candidates) await restockVariant(oi, name, oi.quantity);
+      } else {
+        result.skipped.push({ name, quantity, reason: "bought in more than one size/colour, so the size returned is unclear" });
+      }
       continue;
     }
 
-    const oi = Array.from(distinct.values())[0];
-    const [variant] = await db
-      .select()
-      .from(productVariants)
-      .where(
-        and(
-          eq(productVariants.productId, oi.productId as string),
-          sql`${productVariants.size} IS NOT DISTINCT FROM ${oi.size}`,
-          sql`${productVariants.color} IS NOT DISTINCT FROM ${oi.color}`,
-        ),
-      );
-    if (!variant) {
-      result.skipped.push({ name, quantity, reason: `no ${oi.size ?? ""} ${oi.color ?? ""} variant exists any more`.replace(/\s+/g, " ") });
-      continue;
-    }
-
-    await db
-      .update(productVariants)
-      .set({ stockQuantity: sql`${productVariants.stockQuantity} + ${quantity}`, updatedAt: new Date() })
-      .where(eq(productVariants.id, variant.id));
-    result.restocked.push({ name, size: oi.size ?? null, color: oi.color ?? null, quantity });
-    console.log(`↩️  Return restock: ${name} (${oi.size}, ${oi.color}) +${quantity}`);
+    await restockVariant(Array.from(distinct.values())[0], name, quantity);
   }
 
   return result;
