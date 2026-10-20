@@ -98,6 +98,7 @@ export default function AdminDashboard() {
   const getTabFromPath = (path: string) => {
     if (path.startsWith("/admin/")) {
       const tabName = path.replace("/admin/", "").split("/")[0];
+      if (tabName === "vendors" || tabName === "b2b-partners") return "resellers";
       return tabName || "overview";
     }
     return "overview";
@@ -472,7 +473,7 @@ export default function AdminDashboard() {
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto pt-20 lg:pt-0">
-        {activeTab === "overview" && <OverviewTab setActiveTab={setActiveTab} />}
+        {activeTab === "overview" && <OverviewTab setActiveTab={(tab: string) => handleMenuItemClick(tab)} />}
         {activeTab === "orders" && <AdminOrders />}
         {activeTab === "resellers" && <AdminResellerManagement />}
         {activeTab === "payouts" && <AdminPayouts />}

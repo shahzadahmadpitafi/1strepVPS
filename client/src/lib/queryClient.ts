@@ -48,7 +48,8 @@ export const queryClient = new QueryClient({
       refetchInterval: false,
       refetchOnWindowFocus: true,
       staleTime: 60000,
-      retry: false,
+      // One quick retry for network/server hiccups (not for 4xx), so a page doesn't stay empty until a manual refresh.
+      retry: (failureCount, error) => failureCount < 1 && !/^4dd:/.test(String((error as Error)?.message ?? "")),
     },
     mutations: {
       retry: false,

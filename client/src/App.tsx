@@ -225,6 +225,8 @@ function Router() {
       <Route path="/admin/payouts" component={AdminDashboard}/>
       <Route path="/admin/orders" component={AdminDashboard}/>
       <Route path="/admin/resellers" component={AdminDashboard}/>
+      <Route path="/admin/vendors" component={AdminDashboard}/>
+      <Route path="/admin/b2b-partners" component={AdminDashboard}/>
       <Route path="/admin/products" component={AdminDashboard}/>
       <Route path="/admin/categories" component={AdminDashboard}/>
       <Route path="/admin/sections" component={AdminDashboard}/>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useSocket } from "@/hooks/useSocket";
@@ -64,6 +64,24 @@ const notificationColors: Record<string, string> = {
   sms_reply: "text-sky-500",
 };
 
+// Older notifications were saved with links to pages that do not exist (404); point them at the real page.
+const LEGACY_LINKS: Record<string, string> = {
+  "/admin/vendors": "/admin/resellers",
+  "/admin/b2b-partners": "/admin/resellers",
+};
+export function normaliseAdminLink(link: string): string {
+  const [path, query] = link.split("?");
+  const target = LEGACY_LINKS[path] || path;
+  return query ? `${target}?${query}` : target;
+}
+
+/** Mark all cached admin data stale so the page we open refetches instead of showing old data. */
+function refreshAdminData() {
+  queryClient.invalidateQueries({
+    predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).startsWith("/api/admin"),
+  });
+}
+
 export function AdminNotificationBell() {
   const [, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
@@ -79,6 +97,15 @@ export function AdminNotificationBell() {
     queryKey: ["/api/admin/notifications/unread-count"],
     refetchInterval: 15000,
   });
+
+  // When a new notification arrives, refresh the cached admin pages so the thing it is about is there.
+  const newestNotificationId = notifications[0]?.id;
+  const seenNewestRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!newestNotificationId) return;
+    if (seenNewestRef.current && seenNewestRef.current !== newestNotificationId) refreshAdminData();
+    seenNewestRef.current = newestNotificationId;
+  }, [newestNotificationId]);
 
   // Real-time: immediately refresh notifications when any order event fires via WebSocket
   useSocket({
@@ -191,7 +218,10 @@ export function AdminNotificationBell() {
     }
     if (notification.link) {
       setIsOpen(false);
-      setLocation(notification.link);
+      // The page we are about to open may hold data cached up to a minute ago (before this
+      // event happened), which looked like a blank/old page until a manual refresh.
+      refreshAdminData();
+      setLocation(normaliseAdminLink(notification.link));
     }
   };
 

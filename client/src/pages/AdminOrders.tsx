@@ -413,7 +413,8 @@ export default function AdminOrders() {
   const handledDeepLinkRef = useRef<string | null>(null);
   useEffect(() => {
     const orderId = new URLSearchParams(urlSearch).get("order");
-    if (!orderId || isLoading || handledDeepLinkRef.current === orderId) return;
+    if (!orderId) { handledDeepLinkRef.current = null; return; }
+    if (isLoading || handledDeepLinkRef.current === orderId) return;
     const target = orders.find((o) => o.id === orderId);
     handledDeepLinkRef.current = orderId;
     window.history.replaceState(null, "", window.location.pathname);

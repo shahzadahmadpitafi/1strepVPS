@@ -97,7 +97,8 @@ export default function AdminResellerManagement() {
   useEffect(() => {
     const params = new URLSearchParams(urlSearch);
     const resellerId = params.get("reseller");
-    if (!resellerId || resellersLoading || handledDeepLinkRef.current === resellerId) return;
+    if (!resellerId) { handledDeepLinkRef.current = null; return; }
+    if (resellersLoading || handledDeepLinkRef.current === resellerId) return;
     const target = resellers.find((r: any) => r.id === resellerId);
     handledDeepLinkRef.current = resellerId;
     window.history.replaceState(null, "", window.location.pathname);

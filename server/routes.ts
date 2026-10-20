@@ -1076,7 +1076,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           type: 'vendor_application',
           title: 'New Vendor Application',
           message: `${businessName} has applied to become a vendor`,
-          link: '/admin/vendors',
+          link: '/admin/resellers',
           isRead: false,
         });
       } catch (notifError) {
@@ -1871,7 +1871,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           type: 'licence_activated',
           title: 'Reseller Subscription Activated',
           message: `${fullReseller.businessName} subscribed to the ${tier.charAt(0).toUpperCase() + tier.slice(1)} tier via Square`,
-          link: '/admin/b2b-partners',
+          link: '/admin/resellers',
           isRead: false
         });
       } catch (notifErr) {
