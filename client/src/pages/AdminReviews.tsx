@@ -98,6 +98,16 @@ export default function AdminReviews() {
     onError: () => toast({ title: "Failed to delete review", variant: "destructive" }),
   });
 
+  const toggleProductVisibility = useMutation({
+    mutationFn: ({ id, hide }: { id: string; hide: boolean }) =>
+      apiRequest("PATCH", `/api/admin/reviews/${id}/product-visibility`, { hide }),
+    onSuccess: (_d, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/reviews"] });
+      toast({ title: vars.hide ? "Hidden from product pages" : "Will show on product pages" });
+    },
+    onError: () => toast({ title: "Failed to update", variant: "destructive" }),
+  });
+
   const deleteOrderReview = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/admin/reviews/${id}`),
     onSuccess: () => {
@@ -409,6 +419,17 @@ export default function AdminReviews() {
                           <p className="text-xs text-muted-foreground">
                             {new Date(review.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                           </p>
+                          {review.overallRating >= 4 && review.wouldRecommend !== false && (review.comment || "").trim().length >= 10 && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs"
+                              onClick={() => toggleProductVisibility.mutate({ id: review.id, hide: !review.hideFromProducts })}
+                              data-testid={`button-toggle-product-visibility-${review.id}`}
+                            >
+                              {review.hideFromProducts ? "Hidden from products - show" : "Shows on products - hide"}
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"

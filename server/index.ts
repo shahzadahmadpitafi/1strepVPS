@@ -335,6 +335,20 @@ app.use((req, res, next) => {
     // Create database indexes for better query performance
     await createDatabaseIndexes();
 
+    // Good order feedback shows on product pages: make sure the admin hide column exists and
+    // refresh the star averages/counts of products that have qualifying feedback.
+    try {
+      const { ensureOrderFeedbackColumns } = await import("./orderFeedbackForProducts");
+      await ensureOrderFeedbackColumns();
+      const { db: feedbackDb } = await import("./db");
+      const { sql: feedbackSql } = await import("drizzle-orm");
+      const { storage: feedbackStorage } = await import("./storage");
+      const ids = await feedbackDb.execute(feedbackSql`SELECT DISTINCT i.product_id FROM order_reviews r JOIN customer_order_items i ON i.order_id = r.order_id WHERE i.product_id IS NOT NULL AND r.overall_rating >= 4`);
+      for (const row of ids.rows as any[]) await feedbackStorage.updateProductRatingStats(row.product_id);
+    } catch (err) {
+      console.error("[OrderFeedback] Startup refresh failed:", err);
+    }
+
     // Payment reconciler: finds till/QR payments that were paid in Square but never became a
     // portal order (browser closed / polling stopped) and creates the order. See paymentReconciler.ts.
     try {

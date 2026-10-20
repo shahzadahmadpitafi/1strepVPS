@@ -5179,6 +5179,7 @@ export const orderReviews = pgTable("order_reviews", {
   wouldRecommend: boolean("would_recommend"),
   accessToken: varchar("access_token").notNull(), // Token for anonymous access
   isPublic: boolean("is_public").default(false), // Can be displayed publicly
+  hideFromProducts: boolean("hide_from_products").notNull().default(false), // Admin override: keep this feedback off product pages
   createdAt: timestamp("created_at").notNull().defaultNow(),
   thankYouSmsSentAt: timestamp("thank_you_sms_sent_at"),
 });

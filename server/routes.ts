@@ -17238,6 +17238,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error('❌ Failed to create review notification:', notifError);
       }
 
+      // Good feedback appears on the products in this order: refresh their star averages
+      try {
+        const items = await db.select({ productId: customerOrderItems.productId }).from(customerOrderItems).where(eq(customerOrderItems.orderId, order.id));
+        for (const pid of Array.from(new Set(items.map((i) => i.productId).filter(Boolean) as string[]))) {
+          await storage.updateProductRatingStats(pid);
+        }
+      } catch (statsError) {
+        console.error("Failed to refresh product ratings after feedback:", statsError);
+      }
+
       res.status(201).json({ success: true, message: "Thank you for your feedback!" });
     } catch (error) {
       console.error("Submit review error:", error);
@@ -17382,6 +17392,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         comment: orderReviews.comment,
         wouldRecommend: orderReviews.wouldRecommend,
         isPublic: orderReviews.isPublic,
+        hideFromProducts: orderReviews.hideFromProducts,
         createdAt: orderReviews.createdAt,
       }).from(orderReviews)
         .leftJoin(customerOrders, eq(orderReviews.orderId, customerOrders.id))
@@ -17400,11 +17411,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: show/hide a piece of order feedback on product pages
+  app.patch("/api/admin/reviews/:id/product-visibility", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const hide = req.body?.hide === true;
+      await db.execute(sql`UPDATE order_reviews SET hide_from_products = ${hide} WHERE id = ${id}`);
+      const items = await db.execute(sql`SELECT DISTINCT i.product_id FROM order_reviews r JOIN customer_order_items i ON i.order_id = r.order_id WHERE r.id = ${id} AND i.product_id IS NOT NULL`);
+      for (const row of items.rows as any[]) await storage.updateProductRatingStats(row.product_id);
+      res.json({ success: true, hidden: hide });
+    } catch (error) {
+      console.error("Order feedback visibility error:", error);
+      res.status(500).json({ error: "Failed to update feedback visibility" });
+    }
+  });
+
   // Admin: delete an order review
   app.delete("/api/admin/reviews/:id", requireAuth, requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
+      const affected = await db.execute(sql`SELECT DISTINCT i.product_id FROM order_reviews r JOIN customer_order_items i ON i.order_id = r.order_id WHERE r.id = ${id} AND i.product_id IS NOT NULL`);
       await db.delete(orderReviews).where(eq(orderReviews.id, id));
+      for (const row of affected.rows as any[]) await storage.updateProductRatingStats(row.product_id);
       res.json({ message: "Review deleted" });
     } catch (error) {
       console.error("Delete order review error:", error);

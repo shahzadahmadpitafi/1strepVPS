@@ -2072,8 +2072,18 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(users, eq(productReviews.userId, users.id))
       .where(eq(productReviews.productId, productId))
       .orderBy(desc(productReviews.createdAt));
-    
-    return reviews;
+
+    // Good order feedback (4-5 stars with a comment) also shows on the products in that order
+    let orderFeedback: any[] = [];
+    try {
+      const { getOrderFeedbackForProduct } = await import("./orderFeedbackForProducts");
+      orderFeedback = await getOrderFeedbackForProduct(productId);
+    } catch (err) {
+      console.error("Order feedback for product failed:", err);
+    }
+    return [...reviews, ...orderFeedback].sort(
+      (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
   }
 
   async getUserReviewForProduct(userId: string, productId: string): Promise<ProductReview | undefined> {
@@ -2093,9 +2103,16 @@ export class DatabaseStorage implements IStorage {
       .from(productReviews)
       .where(eq(productReviews.productId, productId));
     
-    const reviewCount = reviews.length;
+    let ratings: number[] = reviews.map((r) => Number(r.rating));
+    try {
+      const { getOrderFeedbackForProduct } = await import("./orderFeedbackForProducts");
+      ratings = ratings.concat((await getOrderFeedbackForProduct(productId)).map((r) => r.rating));
+    } catch (err) {
+      console.error("Order feedback rating stats failed:", err);
+    }
+    const reviewCount = ratings.length;
     const averageRating = reviewCount > 0
-      ? reviews.reduce((sum, review) => sum + Number(review.rating), 0) / reviewCount
+      ? ratings.reduce((sum, r) => sum + r, 0) / reviewCount
       : 0;
     
     await db

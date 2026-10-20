@@ -9,7 +9,7 @@ import { z } from 'zod';
 
 type Review = {
   id: string;
-  userId: string;
+  userId: string | null;
   rating: number;
   comment: string;
   isVerifiedPurchase: boolean;
