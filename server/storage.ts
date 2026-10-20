@@ -421,7 +421,7 @@ export interface IStorage {
   // Product variant operations
   getProductVariants(productId: string): Promise<ProductVariant[]>;
   getProductVariantsByProductIds(productIds: string[]): Promise<ProductVariant[]>;
-  getAllProductVariantsWithProducts(): Promise<any[]>;
+  getAllProductVariantsWithProducts(opts?: { includeInactiveProducts?: boolean }): Promise<any[]>;
   getProductVariant(id: string): Promise<ProductVariant | undefined>;
   getProductVariantByDetails(productId: string, size: string, color?: string): Promise<ProductVariant | undefined>;
   createProductVariant(variant: InsertProductVariant): Promise<ProductVariant>;
@@ -1891,7 +1891,7 @@ export class DatabaseStorage implements IStorage {
       .where(inArray(productVariants.productId, productIds));
   }
 
-  async getAllProductVariantsWithProducts(): Promise<any[]> {
+  async getAllProductVariantsWithProducts(opts: { includeInactiveProducts?: boolean } = {}): Promise<any[]> {
     return await db
       .select({
         id: productVariants.id,
@@ -1909,13 +1909,15 @@ export class DatabaseStorage implements IStorage {
         productSku: products.sku,
         productImage: products.imageUrl,
         category: products.category,
+        productIsActive: products.isActive,
+        productAvailability: products.availabilityStatus,
       })
       .from(productVariants)
       .innerJoin(products, eq(productVariants.productId, products.id))
       .where(and(
         eq(productVariants.isActive, true),
         or(eq(products.isDeleted, false), isNull(products.isDeleted)),
-        or(eq(products.isActive, true), isNull(products.isActive))
+        opts.includeInactiveProducts ? sql`true` : or(eq(products.isActive, true), isNull(products.isActive))
       ))
       .orderBy(products.name, productVariants.size);
   }

@@ -43,6 +43,7 @@ interface ReturnRequest {
   itemsToReturn: string;
   status: string;
   adminNotes: string | null;
+  stockHandledAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -81,6 +82,7 @@ export default function AdminReturns() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedReturn, setSelectedReturn] = useState<ReturnRequest | null>(null);
   const [newStatus, setNewStatus] = useState("");
+  const [restockItems, setRestockItems] = useState(true);
   const [adminNotes, setAdminNotes] = useState("");
 
   const { data: returns = [], isLoading } = useQuery<ReturnRequest[]>({
@@ -88,19 +90,30 @@ export default function AdminReturns() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, status, adminNotes }: { id: string; status: string; adminNotes: string }) => {
+    mutationFn: async ({ id, status, adminNotes, restock }: { id: string; status: string; adminNotes: string; restock: boolean }) => {
       const res = await apiRequest("PATCH", `/api/admin/returns/${id}`, {
         status,
         adminNotes,
+        restock,
       });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/returns"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory?includeInactive=1"] });
       setSelectedReturn(null);
+      const r = data?.stockResult;
+      const restockedText = r?.restocked?.length
+        ? "Back in stock: " + r.restocked.map((x: any) => `${x.quantity} x ${x.name}${x.size ? ` (${x.size}${x.color ? ", " + x.color : ""})` : ""}`).join("; ") + ". "
+        : "";
+      const skippedText = r?.skipped?.length
+        ? "Please add by hand: " + r.skipped.map((x: any) => `${x.quantity} x ${x.name} (${x.reason})`).join("; ") + "."
+        : "";
       toast({
         title: "Return Updated",
-        description: "The return request has been updated successfully.",
+        description: (restockedText + skippedText + (r?.error || "")).trim() || "The return request has been updated successfully.",
+        variant: r?.skipped?.length || r?.error ? "destructive" : undefined,
       });
     },
     onError: () => {
@@ -123,6 +136,7 @@ export default function AdminReturns() {
   const handleOpenDialog = (returnRequest: ReturnRequest) => {
     setSelectedReturn(returnRequest);
     setNewStatus(returnRequest.status);
+    setRestockItems(true);
     setAdminNotes(returnRequest.adminNotes || "");
   };
 
@@ -132,6 +146,7 @@ export default function AdminReturns() {
       id: selectedReturn.id,
       status: newStatus,
       adminNotes,
+      restock: restockItems,
     });
   };
 
@@ -348,6 +363,26 @@ export default function AdminReturns() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {(newStatus === "received" || newStatus === "refunded") &&
+                  selectedReturn.status !== newStatus &&
+                  !selectedReturn.stockHandledAt && (
+                    <label className="flex items-start gap-2 text-sm rounded-md border p-3 cursor-pointer" data-testid="label-restock-items">
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={restockItems}
+                        onChange={(e) => setRestockItems(e.target.checked)}
+                        data-testid="checkbox-restock-items"
+                      />
+                      <span>
+                        Put the returned items back into stock
+                        <span className="block text-xs text-muted-foreground">
+                          Untick if they are damaged or can't be resold.
+                        </span>
+                      </span>
+                    </label>
+                  )}
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Admin Notes</label>

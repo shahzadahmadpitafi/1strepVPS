@@ -5230,6 +5230,7 @@ export const returnRequests = pgTable("return_requests", {
   processedAt: timestamp("processed_at"),
   receivedAt: timestamp("received_at"),
   refundedAt: timestamp("refunded_at"),
+  stockHandledAt: timestamp("stock_handled_at"), // set once returned items have been put back in stock (or admin chose not to)
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -5242,6 +5243,7 @@ export const insertOrderReviewSchema = createInsertSchema(orderReviews).omit({
 
 export const insertReturnRequestSchema = createInsertSchema(returnRequests).omit({
   id: true,
+  stockHandledAt: true,
   processedAt: true,
   receivedAt: true,
   refundedAt: true,

@@ -2932,7 +2932,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Inventory Routes (Admin only)
   app.get("/api/inventory", requireAuth, requireAdmin, async (req, res) => {
     try {
-      const inventory = await storage.getAllProductVariantsWithProducts();
+      // Inventory screen asks for ?includeInactive=1 so hidden/upcoming stock stays visible there;
+      // everything else keeps seeing only products that are live on the website.
+      const inventory = await storage.getAllProductVariantsWithProducts({ includeInactiveProducts: req.query.includeInactive === "1" });
       res.json(inventory);
     } catch (error) {
       console.error("Get inventory error:", error);
@@ -5950,6 +5952,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: item.productName,
           quantity: item.quantity,
           variant: item.variant,
+          size: item.size,
+          color: item.color,
           price: item.unitPrice,
         })),
         subtotal: order.subtotal,
@@ -17590,8 +17594,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/admin/returns/:id", requireAuth, requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
-      const { status, adminNotes, returnLabel, totalRefundAmount } = req.body;
+      const { status, adminNotes, returnLabel, totalRefundAmount, restock } = req.body;
       const adminUser = req.user as User;
+
+      const [existingReturn] = await db.select().from(returnRequests).where(eq(returnRequests.id, id));
+      if (!existingReturn) {
+        return res.status(404).json({ error: "Return request not found" });
+      }
 
       const updateData: any = { updatedAt: new Date() };
       
@@ -17623,7 +17632,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Return request not found" });
       }
 
-      res.json(updated);
+      // Items come back (or are refunded) -> put them back into stock, once. Admin can opt out (e.g. damaged).
+      let stockResult: any = null;
+      const reachedReceivedOrRefunded = (status === 'received' || status === 'refunded') && existingReturn.status !== status;
+      if (reachedReceivedOrRefunded && !existingReturn.stockHandledAt) {
+        try {
+          if (restock !== false) {
+            const { restockReturnedItems } = await import("./returnRestock");
+            stockResult = await restockReturnedItems(updated.orderId, updated.itemsToReturn);
+          } else {
+            stockResult = { restocked: [], skipped: [], declined: true };
+          }
+          await db.execute(sql`UPDATE return_requests SET stock_handled_at = NOW() WHERE id = ${id}`);
+        } catch (restockError) {
+          console.error("Return restock error:", restockError);
+          stockResult = { restocked: [], skipped: [], error: "Stock could not be updated automatically - please update inventory by hand." };
+        }
+      }
+
+      res.json({ ...updated, stockResult });
     } catch (error) {
       console.error("Update return error:", error);
       res.status(500).json({ error: "Failed to update return request" });

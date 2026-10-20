@@ -349,6 +349,13 @@ app.use((req, res, next) => {
       console.error("[OrderFeedback] Startup refresh failed:", err);
     }
 
+    try {
+      const { ensureReturnStockColumn } = await import("./returnRestock");
+      await ensureReturnStockColumn();
+    } catch (err) {
+      console.error("[Returns] Stock column setup failed:", err);
+    }
+
     // Payment reconciler: finds till/QR payments that were paid in Square but never became a
     // portal order (browser closed / polling stopped) and creates the order. See paymentReconciler.ts.
     try {

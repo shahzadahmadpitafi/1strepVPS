@@ -37,6 +37,8 @@ type InventoryItem = {
   retailPrice: string;
   wholesalePrice: string;
   isActive: boolean;
+  productIsActive?: boolean | null;
+  productAvailability?: string | null;
 };
 
 export default function AdminInventory() {
@@ -51,7 +53,8 @@ export default function AdminInventory() {
   const { toast } = useToast();
 
   const { data: inventory = [], isLoading } = useQuery<InventoryItem[]>({
-    queryKey: ["/api/inventory"],
+    // includeInactive: stock for products switched off on the website (e.g. awaiting photography) stays listed here
+    queryKey: ["/api/inventory?includeInactive=1"],
   });
 
   const { data: allProducts = [], isLoading: loadingProducts } = useQuery<any[]>({
@@ -71,6 +74,7 @@ export default function AdminInventory() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory?includeInactive=1"] });
       toast({
         title: "Variant Updated",
         description: "Stock and barcode descriptor have been updated successfully.",
@@ -102,6 +106,8 @@ export default function AdminInventory() {
         productSku: item.productSku,
         productImage: item.productImage,
         category: item.category,
+        productIsActive: item.productIsActive,
+        productAvailability: item.productAvailability,
         variants: [],
         totalStock: 0,
         lowStockCount: 0,
@@ -291,7 +297,15 @@ export default function AdminInventory() {
                     <div>
                       <CardTitle>{product.productName}</CardTitle>
                       <p className="text-sm text-muted-foreground">{product.productSku}</p>
-                      <Badge variant="outline" className="mt-1">{product.category}</Badge>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        <Badge variant="outline">{product.category}</Badge>
+                        {product.productIsActive === false && (
+                          <Badge className="bg-amber-600" data-testid={`badge-not-on-website-${product.productId}`}>Not on website</Badge>
+                        )}
+                        {product.productAvailability === "upcoming" && (
+                          <Badge variant="secondary">Upcoming</Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="text-right">
