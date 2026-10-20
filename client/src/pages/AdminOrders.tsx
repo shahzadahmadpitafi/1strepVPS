@@ -1,11 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSocket } from "@/hooks/useSocket";
+import { useSearch } from "wouter";
 import { format } from "date-fns";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
-import { 
-  Package, 
-  Search, 
+import {
+  MessageSquare,
+  Package,
+  Search,
   Filter,
   Download,
   Eye,
@@ -399,6 +401,36 @@ export default function AdminOrders() {
     },
   });
 
+  // Unread SMS replies per order (shown as a badge on the row; cleared when the order is opened).
+  const { data: smsUnread } = useQuery<{ byOrder: Record<string, number> }>({
+    queryKey: ["/api/admin/sms/unread-summary"],
+    refetchInterval: 15000,
+  });
+
+  // Deep link from a "Customer replied by SMS" notification: /admin/orders?order=<id>&sms=1
+  // opens that exact order and scrolls to its SMS conversation.
+  const urlSearch = useSearch();
+  const handledDeepLinkRef = useRef<string | null>(null);
+  useEffect(() => {
+    const orderId = new URLSearchParams(urlSearch).get("order");
+    if (!orderId || isLoading || handledDeepLinkRef.current === orderId) return;
+    const target = orders.find((o) => o.id === orderId);
+    handledDeepLinkRef.current = orderId;
+    window.history.replaceState(null, "", window.location.pathname);
+    if (!target) {
+      toast({ title: "Order not found", description: "That order is not in the current list — clear any filters and try again.", variant: "destructive" });
+      return;
+    }
+    handleViewOrder(target);
+    let tries = 0;
+    const scrollToSms = () => {
+      const el = document.getElementById("order-sms-section");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      else if (tries++ < 10) setTimeout(scrollToSms, 150);
+    };
+    setTimeout(scrollToSms, 250);
+  }, [urlSearch, orders, isLoading]);
+
   const { data: orderSummary } = useQuery<OrderSummary>({
     queryKey: ["/api/admin/orders/summary", startDate?.toISOString(), endDate?.toISOString()],
     queryFn: async () => {
@@ -762,6 +794,15 @@ export default function AdminOrders() {
   const catalogueCount = orders.filter(o => !isOwnProductOrder(o) || isMixedOrder(o)).length; // catalogue-only + mixed
 
   const handleViewOrder = (order: Order) => {
+    if (smsUnread?.byOrder?.[order.id]) {
+      apiRequest("PATCH", "/api/admin/sms/mark-read", { orderId: order.id })
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/sms/unread-summary"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications/unread-count"] });
+        })
+        .catch(() => {});
+    }
     setSelectedOrder(order);
     setNewStatus(order.status);
     setTrackingNumber(order.trackingNumber || "");
@@ -1288,6 +1329,12 @@ export default function AdminOrders() {
                       <TableCell className="font-medium" data-testid={`text-order-number-${order.orderNumber}`}>
                         <div className="flex items-center gap-2 flex-wrap">
                           {order.orderNumber}
+                          {(smsUnread?.byOrder?.[order.id] || 0) > 0 && (
+                            <Badge className="bg-red-500 text-white gap-1" data-testid={`badge-sms-unread-${order.orderNumber}`}>
+                              <MessageSquare className="h-3 w-3" />
+                              {smsUnread!.byOrder[order.id]} new
+                            </Badge>
+                          )}
                           {hasPreOrderItems(order) && (
                             <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20" data-testid={`badge-preorder-${order.orderNumber}`}>
                               <Clock className="h-3 w-3 mr-1" />
@@ -1680,7 +1727,7 @@ export default function AdminOrders() {
 
               {/* SMS Thread — pulled live from Twilio, both directions */}
               {(selectedOrder.customerPhone || selectedOrder.phoneNumber) && (
-                <div>
+                <div id="order-sms-section">
                   <div className="flex items-center gap-2 mb-2">
                     <h3 className="font-semibold">SMS Messages</h3>
                     {smsThreadLoading && <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground" />}

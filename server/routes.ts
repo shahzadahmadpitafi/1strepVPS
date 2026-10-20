@@ -16950,7 +16950,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const variants = phoneVariants(normalisePhone(fromRaw));
 
-      const [matchedReseller] = await db.select({ businessName: resellers.businessName })
+      const [matchedReseller] = await db.select({ id: resellers.id, businessName: resellers.businessName })
         .from(resellers)
         .where(inArray(resellers.phoneNumber, variants))
         .limit(1);
@@ -16958,26 +16958,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let title: string;
       let label: string;
       let link: string;
+      // Which conversation this reply belongs to, so the notification can open
+      // it directly and the sidebar can count unread replies per order / reseller.
+      let metadata: Record<string, string> = { kind: 'sms_reply', phone: normalisePhone(fromRaw) };
 
       if (matchedReseller) {
         title = 'Reseller replied by SMS';
         label = matchedReseller.businessName || fromRaw;
-        link = '/admin/resellers';
+        link = `/admin/resellers?reseller=${matchedReseller.id}&tab=sms`;
+        metadata = { ...metadata, resellerId: matchedReseller.id };
       } else {
-        const [matchedOrder] = await db.select({
-          orderNumber: customerOrders.orderNumber,
-          customerFirstName: customerOrders.customerFirstName,
-          customerLastName: customerOrders.customerLastName,
-        })
-          .from(customerOrders)
-          .where(inArray(customerOrders.customerPhone, variants))
-          .orderBy(desc(customerOrders.orderDate))
+        // The order they are replying about = the one we last texted them on
+        // (customer_sms_log); fall back to their most recent order.
+        const [lastTexted] = await db.select({ orderId: customerSmsLog.orderId })
+          .from(customerSmsLog)
+          .where(inArray(customerSmsLog.customerPhone, variants))
+          .orderBy(desc(customerSmsLog.sentAt))
           .limit(1);
+
+        let matchedOrder: { id: string; orderNumber: string; customerFirstName: string | null; customerLastName: string | null } | undefined;
+        if (lastTexted?.orderId) {
+          [matchedOrder] = await db.select({
+            id: customerOrders.id,
+            orderNumber: customerOrders.orderNumber,
+            customerFirstName: customerOrders.customerFirstName,
+            customerLastName: customerOrders.customerLastName,
+          }).from(customerOrders).where(eq(customerOrders.id, lastTexted.orderId)).limit(1);
+        }
+        if (!matchedOrder) {
+          [matchedOrder] = await db.select({
+            id: customerOrders.id,
+            orderNumber: customerOrders.orderNumber,
+            customerFirstName: customerOrders.customerFirstName,
+            customerLastName: customerOrders.customerLastName,
+          })
+            .from(customerOrders)
+            .where(inArray(customerOrders.customerPhone, variants))
+            .orderBy(desc(customerOrders.orderDate))
+            .limit(1);
+        }
 
         if (matchedOrder) {
           title = 'Customer replied by SMS';
           label = `${matchedOrder.customerFirstName || ''} ${matchedOrder.customerLastName || ''}`.trim() || fromRaw;
-          link = '/admin/orders';
+          link = `/admin/orders?order=${matchedOrder.id}&sms=1`;
+          metadata = { ...metadata, orderId: matchedOrder.id, orderNumber: matchedOrder.orderNumber };
         } else {
           title = 'New SMS reply';
           label = fromRaw;
@@ -16990,6 +17015,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         title,
         message: body ? `${label}: "${body.slice(0, 140)}${body.length > 140 ? '…' : ''}"` : `${label} replied by SMS`,
         link,
+        metadata: JSON.stringify(metadata),
         isRead: false,
       });
 
@@ -19492,8 +19518,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Unread SMS replies, for the sidebar badges (Orders / B2B Partners) and the
+  // per-order / per-reseller indicators. One unread "sms_reply" notification = one
+  // unread reply, so this stays consistent with the notification bell.
+  const parseSmsMeta = (n: { metadata: string | null }): Record<string, string> => {
+    try { return n.metadata ? JSON.parse(n.metadata) : {}; } catch { return {}; }
+  };
+
+  app.get("/api/admin/sms/unread-summary", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const rows = await db.select({ id: adminNotifications.id, link: adminNotifications.link, metadata: adminNotifications.metadata })
+        .from(adminNotifications)
+        .where(and(eq(adminNotifications.type, 'sms_reply'), eq(adminNotifications.isRead, false)));
+
+      let resellerCount = 0;
+      const byOrder: Record<string, number> = {};
+      const byReseller: Record<string, number> = {};
+      for (const n of rows) {
+        const meta = parseSmsMeta(n);
+        if (meta.resellerId) {
+          byReseller[meta.resellerId] = (byReseller[meta.resellerId] || 0) + 1;
+          resellerCount++;
+        } else if ((n.link || '').startsWith('/admin/resellers')) {
+          resellerCount++;
+        } else if (meta.orderId) {
+          byOrder[meta.orderId] = (byOrder[meta.orderId] || 0) + 1;
+        }
+      }
+      res.json({ total: rows.length, orders: rows.length - resellerCount, resellers: resellerCount, byOrder, byReseller });
+    } catch (error) {
+      console.error("SMS unread summary error:", error);
+      res.status(500).json({ error: "Failed to load unread SMS summary" });
+    }
+  });
+
+  // Mark every unread SMS reply for one order / reseller as read (called when the
+  // admin opens that conversation, so the badge clears itself).
+  app.patch("/api/admin/sms/mark-read", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { orderId, resellerId } = req.body || {};
+      if (!orderId && !resellerId) return res.status(400).json({ error: "orderId or resellerId is required" });
+      const rows = await db.select({ id: adminNotifications.id, metadata: adminNotifications.metadata })
+        .from(adminNotifications)
+        .where(and(eq(adminNotifications.type, 'sms_reply'), eq(adminNotifications.isRead, false)));
+      const ids = rows
+        .filter((n) => {
+          const meta = parseSmsMeta(n);
+          return (orderId && meta.orderId === orderId) || (resellerId && meta.resellerId === resellerId);
+        })
+        .map((n) => n.id);
+      if (ids.length) {
+        await db.update(adminNotifications).set({ isRead: true }).where(inArray(adminNotifications.id, ids));
+      }
+      res.json({ success: true, cleared: ids.length });
+    } catch (error) {
+      console.error("SMS mark-read error:", error);
+      res.status(500).json({ error: "Failed to mark SMS replies as read" });
+    }
+  });
+
   // ==================== RESELLER CRM ROUTES ====================
-  
+
   // Get customers acquired by a reseller
   app.get("/api/resellers/:resellerId/customers", requireAuth, async (req, res) => {
     try {

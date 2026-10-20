@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -88,6 +89,48 @@ export default function AdminResellerManagement() {
   const { data: resellers = [], isLoading: resellersLoading } = useQuery<any[]>({
     queryKey: ["/api/admin/resellers"],
   });
+
+  // Deep link from a "Reseller replied by SMS" notification:
+  // /admin/resellers?reseller=<id>&tab=sms opens that reseller on its SMS tab.
+  const urlSearch = useSearch();
+  const handledDeepLinkRef = useRef<string | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(urlSearch);
+    const resellerId = params.get("reseller");
+    if (!resellerId || resellersLoading || handledDeepLinkRef.current === resellerId) return;
+    const target = resellers.find((r: any) => r.id === resellerId);
+    handledDeepLinkRef.current = resellerId;
+    window.history.replaceState(null, "", window.location.pathname);
+    if (!target) return;
+    setActiveTab("resellers");
+    setSelectedReseller(target);
+    // Same profile-form initialisation as the "Manage" button, so switching tabs afterwards is safe.
+    setEditProfile({
+      businessName: target.businessName,
+      contactPerson: target.contactPerson,
+      phoneNumber: target.phoneNumber,
+      businessAddress: target.businessAddress,
+      tier: target.tier,
+      creditLimit: target.creditLimit,
+      discountPercentage: target.discountPercentage,
+      allowedPaymentMethods: target.allowedPaymentMethods || "both",
+      commissionRate: target.commissionRate || "",
+    });
+    setManageTab(params.get("tab") || "sms");
+    setManageResellerDialog(true);
+  }, [urlSearch, resellers, resellersLoading]);
+
+  // Opening a reseller's SMS tab clears its unread-reply badge.
+  useEffect(() => {
+    if (!manageResellerDialog || manageTab !== "sms" || !selectedReseller?.id) return;
+    apiRequest("PATCH", "/api/admin/sms/mark-read", { resellerId: selectedReseller.id })
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/sms/unread-summary"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications/unread-count"] });
+      })
+      .catch(() => {});
+  }, [manageResellerDialog, manageTab, selectedReseller?.id]);
 
   // Fetch reseller analytics (product counts and sales revenue)
   const { data: resellerAnalytics = [], isLoading: analyticsLoading } = useQuery<Array<{

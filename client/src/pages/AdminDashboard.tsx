@@ -163,6 +163,17 @@ export default function AdminDashboard() {
     }
   }, [adminVerifyError, setLocation, toast]);
 
+  // Unread SMS replies -> red count on the Orders and B2B Partners sidebar items.
+  const { data: smsUnread } = useQuery<{ total: number; orders: number; resellers: number }>({
+    queryKey: ["/api/admin/sms/unread-summary"],
+    enabled: !!authUser && authUser.role === "admin",
+    refetchInterval: 15000,
+  });
+  const navBadgeCounts: Record<string, number> = {
+    orders: smsUnread?.orders || 0,
+    resellers: smsUnread?.resellers || 0,
+  };
+
   if (authLoading || !authUser || authUser.role !== "admin") {
     return null;
   }
@@ -334,10 +345,21 @@ export default function AdminDashboard() {
                 `}>
                   {item.label}
                 </span>
-                
+
+                {/* Unread SMS replies */}
+                {(navBadgeCounts[item.id] || 0) > 0 && (
+                  <span
+                    className="ml-auto min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center"
+                    title={`${navBadgeCounts[item.id]} unread SMS ${navBadgeCounts[item.id] === 1 ? "reply" : "replies"}`}
+                    data-testid={`badge-nav-${item.id}`}
+                  >
+                    {navBadgeCounts[item.id]}
+                  </span>
+                )}
+
                 {/* Arrow for active item */}
                 {isActive && (
-                  <ChevronRight className="w-4 h-4 ml-auto text-primary" />
+                  <ChevronRight className={`w-4 h-4 text-primary ${(navBadgeCounts[item.id] || 0) > 0 ? "" : "ml-auto"}`} />
                 )}
               </motion.button>
             );
