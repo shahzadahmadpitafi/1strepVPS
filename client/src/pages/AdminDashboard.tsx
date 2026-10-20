@@ -163,16 +163,27 @@ export default function AdminDashboard() {
     }
   }, [adminVerifyError, setLocation, toast]);
 
-  // Unread SMS replies -> red count on the Orders and B2B Partners sidebar items.
-  const { data: smsUnread } = useQuery<{ total: number; orders: number; resellers: number }>({
-    queryKey: ["/api/admin/sms/unread-summary"],
+  // Red counts on sidebar items: what needs attention in each section
+  // (new orders + unread SMS replies, pending applications, open tickets, unanswered chatbot questions...).
+  const { data: navBadges } = useQuery<{ counts: Record<string, number>; seenable: Record<string, number> }>({
+    queryKey: ["/api/admin/nav-badges"],
     enabled: !!authUser && authUser.role === "admin",
     refetchInterval: 15000,
   });
-  const navBadgeCounts: Record<string, number> = {
-    orders: smsUnread?.orders || 0,
-    resellers: smsUnread?.resellers || 0,
-  };
+  const navBadgeCounts: Record<string, number> = navBadges?.counts || {};
+
+  // Being on a section counts as having seen its "new since last visit" items (new orders, reviews, stock alerts).
+  const seenInActiveTab = navBadges?.seenable?.[activeTab] || 0;
+  useEffect(() => {
+    if (!seenInActiveTab) return;
+    apiRequest("POST", "/api/admin/nav-badges/seen", { section: activeTab })
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/nav-badges"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications/unread-count"] });
+      })
+      .catch(() => {});
+  }, [activeTab, seenInActiveTab]);
 
   if (authLoading || !authUser || authUser.role !== "admin") {
     return null;

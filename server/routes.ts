@@ -19552,6 +19552,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Sidebar badges: how many items need attention in each admin section.
+  // "Needs attention" is state-based where the data has a clear pending state
+  // (applications, tickets, returns, payout requests, unanswered chatbot questions) so the
+  // number disappears once someone actually deals with it, and notification-based
+  // for event feeds (new orders, reviews, stock alerts), which clear when the admin
+  // opens that section ("seenable"). Unread SMS replies are added to Orders / B2B Partners
+  // and only clear when that specific conversation is opened.
+  const NAV_SEEN_TYPES: Record<string, string[]> = {
+    orders: ['new_order', 'order_cancelled', 'payment_failed'],
+    reviews: ['review_submitted'],
+    inventory: ['low_stock', 'stock_alert'],
+  };
+
+  app.get("/api/admin/nav-badges", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const num = (v: any) => parseInt(String(v ?? 0), 10) || 0;
+      const r = await db.execute(sql`
+        select
+          (select count(*) from admin_notifications where not is_read and type in ('new_order','order_cancelled','payment_failed')) as orders_events,
+          (select count(*) from admin_notifications where not is_read and type = 'review_submitted') as reviews_events,
+          (select count(*) from admin_notifications where not is_read and type in ('low_stock','stock_alert')) as inventory_events,
+          (select count(*) from resellers where approval_status = 'pending') as pending_resellers,
+          (select count(*) from vendors where approval_status = 'pending') as pending_vendors,
+          (select count(*) from reseller_license_requests where status = 'pending_review') as licence_requests,
+          (select count(*) from wholesaler_orders where status = 'pending') as wholesale_orders,
+          (select count(*) from payout_requests where status = 'pending') as payouts,
+          (select count(*) from athlete_applications where status = 'pending') as athletes,
+          (select count(*) from athlete_content_submissions where status = 'pending') as athlete_content,
+          (select count(*) from support_tickets where status = 'open') as support,
+          (select count(*) from return_requests where status = 'pending') as returns,
+          (select count(*) from chatbot_unanswered_queries where status = 'pending') as chatbot
+      `);
+      const row: any = r.rows[0] || {};
+
+      const smsRows = await db.select({ link: adminNotifications.link, metadata: adminNotifications.metadata })
+        .from(adminNotifications)
+        .where(and(eq(adminNotifications.type, 'sms_reply'), eq(adminNotifications.isRead, false)));
+      let smsResellers = 0;
+      for (const n of smsRows) {
+        if (parseSmsMeta(n).resellerId || (n.link || '').startsWith('/admin/resellers')) smsResellers++;
+      }
+      const smsOrders = smsRows.length - smsResellers;
+
+      const counts: Record<string, number> = {
+        orders: num(row.orders_events) + smsOrders,
+        resellers: num(row.pending_resellers) + num(row.pending_vendors) + smsResellers,
+        "licence-requests": num(row.licence_requests),
+        "wholesale-orders": num(row.wholesale_orders),
+        payouts: num(row.payouts),
+        athletes: num(row.athletes),
+        "athlete-content": num(row.athlete_content),
+        support: num(row.support),
+        returns: num(row.returns),
+        reviews: num(row.reviews_events),
+        inventory: num(row.inventory_events),
+        chatbot: num(row.chatbot),
+      };
+      // The part of each count that is just "new since you last looked" and so clears by visiting the section.
+      const seenable: Record<string, number> = {
+        orders: num(row.orders_events),
+        reviews: num(row.reviews_events),
+        inventory: num(row.inventory_events),
+      };
+      res.json({ counts, seenable });
+    } catch (error) {
+      console.error("Nav badges error:", error);
+      res.status(500).json({ error: "Failed to load sidebar counts" });
+    }
+  });
+
+  // The admin opened a section: mark its "new since last visit" notifications as read.
+  app.post("/api/admin/nav-badges/seen", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const types = NAV_SEEN_TYPES[String(req.body?.section || '')];
+      if (!types) return res.json({ success: true, cleared: 0 });
+      const cleared = await db.update(adminNotifications)
+        .set({ isRead: true })
+        .where(and(eq(adminNotifications.isRead, false), inArray(adminNotifications.type, types as any)))
+        .returning({ id: adminNotifications.id });
+      res.json({ success: true, cleared: cleared.length });
+    } catch (error) {
+      console.error("Nav badges seen error:", error);
+      res.status(500).json({ error: "Failed to mark section as seen" });
+    }
+  });
+
   // Mark every unread SMS reply for one order / reseller as read (called when the
   // admin opens that conversation, so the badge clears itself).
   app.patch("/api/admin/sms/mark-read", requireAuth, requireAdmin, async (req, res) => {

@@ -86,6 +86,8 @@ export function AdminNotificationBell() {
     onOrderEvent: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications/unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/nav-badges"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/sms/unread-summary"] });
     },
   });
 
@@ -96,6 +98,8 @@ export function AdminNotificationBell() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications/unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/nav-badges"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/sms/unread-summary"] });
     },
   });
 
@@ -106,6 +110,8 @@ export function AdminNotificationBell() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications/unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/nav-badges"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/sms/unread-summary"] });
     },
   });
 
@@ -116,6 +122,8 @@ export function AdminNotificationBell() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications/unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/nav-badges"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/sms/unread-summary"] });
     },
   });
 

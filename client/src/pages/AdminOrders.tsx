@@ -798,6 +798,7 @@ export default function AdminOrders() {
       apiRequest("PATCH", "/api/admin/sms/mark-read", { orderId: order.id })
         .then(() => {
           queryClient.invalidateQueries({ queryKey: ["/api/admin/sms/unread-summary"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/nav-badges"] });
           queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications"] });
           queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications/unread-count"] });
         })

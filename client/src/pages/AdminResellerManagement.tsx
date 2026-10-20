@@ -126,6 +126,7 @@ export default function AdminResellerManagement() {
     apiRequest("PATCH", "/api/admin/sms/mark-read", { resellerId: selectedReseller.id })
       .then(() => {
         queryClient.invalidateQueries({ queryKey: ["/api/admin/sms/unread-summary"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/nav-badges"] });
         queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications"] });
         queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications/unread-count"] });
       })
