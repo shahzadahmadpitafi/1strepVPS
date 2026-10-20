@@ -882,7 +882,7 @@ export async function getWeeklyEmailConfig(): Promise<WeeklyEmailConfig> {
 
   if (result.rows.length === 0) {
     return {
-      enabled: false,
+      enabled: true,
       sendDayOfWeek: 2,
       sendHour: 19,
       newProductsDays: 14,

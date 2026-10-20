@@ -33126,7 +33126,7 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
       await db.execute(sql`
         CREATE TABLE IF NOT EXISTS weekly_email_config (
           id integer PRIMARY KEY DEFAULT 1,
-          enabled boolean NOT NULL DEFAULT false,
+          enabled boolean NOT NULL DEFAULT true,
           send_day_of_week integer NOT NULL DEFAULT 2,
           send_hour integer NOT NULL DEFAULT 19,
           new_products_days integer NOT NULL DEFAULT 14,
@@ -33137,6 +33137,9 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
           updated_at timestamp DEFAULT NOW()
         )
       `);
+      // Weekly email is ON by default (also for an existing table); make sure the singleton row exists.
+      await db.execute(sql`ALTER TABLE weekly_email_config ALTER COLUMN enabled SET DEFAULT true`);
+      await db.execute(sql`INSERT INTO weekly_email_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING`);
     } catch {}
   })();
 

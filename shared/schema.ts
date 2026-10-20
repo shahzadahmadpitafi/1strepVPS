@@ -5546,7 +5546,7 @@ export type EposPendingPayment = typeof eposPendingPayments.$inferSelect;
 // ─── Weekly Email Digest Config ───────────────────────────────────────────────
 export const weeklyEmailConfig = pgTable("weekly_email_config", {
   id: integer("id").primaryKey().default(1),          // singleton row
-  enabled: boolean("enabled").notNull().default(false),
+  enabled: boolean("enabled").notNull().default(true),
   sendDayOfWeek: integer("send_day_of_week").notNull().default(2), // 0=Sun … 6=Sat, default Tuesday
   sendHour: integer("send_hour").notNull().default(19),            // 24h UK time, default 7 PM
   newProductsDays: integer("new_products_days").notNull().default(14),
