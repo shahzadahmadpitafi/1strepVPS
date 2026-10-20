@@ -13,7 +13,7 @@
 
 import { db } from "./db";
 import { customerOrders, orderReviews } from "@shared/schema";
-import { and, eq, isNull, lte, isNotNull, or } from "drizzle-orm";
+import { and, eq, isNull, lte, isNotNull, or, notInArray } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 
 // Re-use the project's existing Gmail/SMTP send pipeline
@@ -408,6 +408,9 @@ export async function processReviewRequests(): Promise<void> {
           eq(customerOrders.status, "delivered"),
           isNotNull(customerOrders.deliveredAt),
           lte(customerOrders.deliveredAt, threeDaysAgo),
+          // A reseller's own products are sold and handed over at their till (auto-delivered on payment);
+          // "rate your 1stRep order" requests don't make sense for those.
+          or(isNull(customerOrders.channel), notInArray(customerOrders.channel, ["reseller_epos_own", "reseller_epos_own_stripe"])),
           or(isNull(customerOrders.reviewEmailSentAt), isNull(customerOrders.reviewSmsSentAt))
         )
       )

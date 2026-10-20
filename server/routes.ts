@@ -12791,7 +12791,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         discountAmount: '0.00',
         totalAmount: String(totalAmount),
         isPaid: true,
-        status: 'completed',
+        status: 'delivered', // handed over in person at the till
+        deliveredAt: new Date(),
         paymentMethod: 'Card (Stripe Direct)',
         paymentIntentId: sessionId,
         channel: 'reseller_epos_own_stripe',
@@ -13291,6 +13292,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       .set({
                         channel: 'reseller_epos_own',
                         vendorId: vendorForItems?.id || null,
+                        // Own products are handed over at the till: delivered on payment (unless already cancelled/refunded).
+                        status: sql`CASE WHEN ${customerOrders.status} IN ('cancelled','refunded') THEN ${customerOrders.status} ELSE 'delivered' END`,
+                        deliveredAt: sql`COALESCE(${customerOrders.deliveredAt}, NOW())`,
                       })
                       .where(eq(customerOrders.id, existing.orderId));
                     console.log(`🔧 Corrected channel to reseller_epos_own for order ${existing.orderNumber} (all backfilled items are own-products)`);
@@ -13646,7 +13650,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           subtotal: ownItemsTotal.toFixed(2),
           discountAmount: ownDiscount.toFixed(2),
           totalAmount: ownFinalTotal,
-          status: "completed",
+          // Own products are handed over in person at the till, so they are delivered the moment they are paid.
+          status: "delivered",
+          deliveredAt: new Date(),
           channel: "reseller_epos_own",
           vendorId: vendor ? vendor.id : null,
           notes: `Reseller EPOS — Own products (in-person sale) — ${reseller?.businessName || 'Reseller Store'} [split from ${baseRef}]`,
@@ -13664,7 +13670,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           subtotal: verifiedSubtotal,
           discountAmount: orderDiscountAmount.toFixed(2),
           totalAmount: finalOrderTotal,
-          status: isExternalPayment ? "processing" : (allItemsAreOwnProducts ? "completed" : "pending"),
+          // Own products are handed over in person at the till -> delivered as soon as they are paid, whatever the payment route.
+          status: allItemsAreOwnProducts ? "delivered" : (isExternalPayment ? "processing" : "pending"),
+          ...(allItemsAreOwnProducts ? { deliveredAt: new Date() } : {}),
           channel: allItemsAreOwnProducts ? "reseller_epos_own" : "reseller_epos",
           vendorId: (hasVendorProducts && vendor) ? vendor.id : null,
           notes: `Reseller EPOS Purchase — ${reseller?.businessName || 'Reseller Store'} — ${isCollection ? 'Collection' : 'Delivery'}${hasVendorProducts ? ' (own products)' : ''}${squareRef ? ` — Square Payment (${squareRef})` : ''}`,
@@ -13985,7 +13993,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             paymentIntentId: squarePaymentId,
             resellerId: reseller.id,
             commissionRateApplied: reseller.commissionRate || '10.00',
-            status: 'processing',
+            status: allItemsAreOwnProducts ? 'delivered' : 'processing',
+            ...(allItemsAreOwnProducts ? { deliveredAt: new Date() } : {}),
             channel: allItemsAreOwnProducts ? 'reseller_epos_own' : 'reseller_epos',
             vendorId: null,
             notes: `RECOVERED by reconciliation — EPOS Payment ref ${session.referenceId} — Square ${squarePaymentId}`,

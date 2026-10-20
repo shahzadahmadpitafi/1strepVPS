@@ -138,7 +138,9 @@ export async function autoCreateEposOrderFromPending(opts: {
     await db.insert(customerOrders).values({
       id: orderId,
       orderNumber,
-      status: 'processing',
+      // A reseller's own products are handed over in person at the till, so they are delivered the moment they are paid.
+      status: channel === 'reseller_epos_own' ? 'delivered' : 'processing',
+      deliveredAt: channel === 'reseller_epos_own' ? (opts.paidAt ?? new Date()) : null,
       customerEmail: pending.customerEmail || 'no-email@epos.local',
       customerFirstName: pending.customerFirstName || 'EPOS',
       customerLastName: pending.customerLastName || 'Customer',
