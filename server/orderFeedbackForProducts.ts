@@ -74,7 +74,7 @@ function commentMentionsProduct(comment: string, productName: string): boolean {
 function displayName(first: string | null, last: string | null): { first: string; last: string } {
   const f = (first || "").trim();
   const l = (last || "").trim();
-  const firstName = f ? f.charAt(0).toUpperCase() + f.slice(1) : "Verified";
+  const firstName = f ? f.charAt(0).toUpperCase() + f.slice(1).toLowerCase() : "Verified";
   const lastInitial = l ? `${l.charAt(0).toUpperCase()}.` : f ? "" : "Customer";
   return { first: firstName, last: lastInitial };
 }
