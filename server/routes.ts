@@ -233,6 +233,29 @@ function clearCache(key: string): void {
   apiCache.delete(key);
 }
 
+/**
+ * Name of the reseller / wholesaler an order came from, for CSV reports.
+ * Orders store either the reseller profile id or the reseller's user id, so both are mapped.
+ */
+async function buildPartnerNameLookup(): Promise<(order: { resellerId?: string | null; vendorId?: string | null; channel?: string | null }) => string> {
+  const names = new Map<string, string>();
+  const allResellers = await db.select().from(resellers);
+  for (const r of allResellers) {
+    if (r.id) names.set(r.id, r.businessName);
+    if (r.userId) names.set(r.userId, r.businessName);
+  }
+  const allVendors = await db.select().from(vendors);
+  for (const v of allVendors) {
+    if (v.id) names.set(v.id, v.businessName);
+  }
+  return (order) => {
+    const found = (order.resellerId && names.get(order.resellerId)) || (order.vendorId && names.get(order.vendorId));
+    if (found) return found;
+    const channel = order.channel || 'website';
+    return ['website', 'admin', 'exchange', 'customer_epos'].includes(channel) ? '1stRep (direct)' : 'Not recorded';
+  };
+}
+
 function invalidateCache(keyPattern?: string): void {
   if (!keyPattern) {
     apiCache.clear();
@@ -27121,9 +27144,10 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
             .where(and(gte(customerOrders.orderDate, start), lte(customerOrders.orderDate, end)))
             .orderBy(desc(customerOrders.orderDate));
 
-          csvData = 'Order ID,Order Number,Date,Status,Channel,Total Amount,Customer Email,Paid\n';
+          const partnerOf = await buildPartnerNameLookup();
+          csvData = 'Order ID,Order Number,Date,Status,Channel,Reseller / Partner,Total Amount,Customer Email,Paid\n';
           for (const order of allOrders) {
-            csvData += `"${order.id}","${order.orderNumber}","${order.orderDate}","${order.status}","${order.channel || 'website'}","${order.totalAmount}","${order.customerEmail}","${order.isPaid ? 'Paid' : 'Unpaid'}"\n`;
+            csvData += `"${order.id}","${order.orderNumber}","${order.orderDate}","${order.status}","${order.channel || 'website'}","${partnerOf(order).replace(/"/g, '""')}","${order.totalAmount}","${order.customerEmail}","${order.isPaid ? 'Paid' : 'Unpaid'}"\n`;
           }
           filename = `sales-report-${start.toISOString().split('T')[0]}-to-${end.toISOString().split('T')[0]}.csv`;
           break;
@@ -27137,10 +27161,11 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
             .where(and(gte(customerOrders.orderDate, start), lte(customerOrders.orderDate, end)))
             .orderBy(desc(customerOrders.orderDate));
 
-          csvData = 'Order Number,Date,Customer Name,Customer Email,Status,Subtotal,Shipping,Tax,Total,Payment Method,Channel\n';
+          const partnerOf = await buildPartnerNameLookup();
+          csvData = 'Order Number,Date,Customer Name,Customer Email,Status,Subtotal,Shipping,Tax,Total,Payment Method,Channel,Reseller / Partner\n';
           allOrders.forEach(order => {
             const name = `${order.customerFirstName || ''} ${order.customerLastName || ''}`.trim() || 'Guest';
-            csvData += `"${order.orderNumber}","${order.orderDate}","${name}","${order.customerEmail}","${order.status}","${order.subtotal}","${order.shippingCost}","${order.taxAmount}","${order.totalAmount}","${order.paymentMethod}","${order.channel || 'website'}"\n`;
+            csvData += `"${order.orderNumber}","${order.orderDate}","${name}","${order.customerEmail}","${order.status}","${order.subtotal}","${order.shippingCost}","${order.taxAmount}","${order.totalAmount}","${order.paymentMethod}","${order.channel || 'website'}","${partnerOf(order).replace(/"/g, '""')}"\n`;
           });
           filename = `orders-report-${start.toISOString().split('T')[0]}-to-${end.toISOString().split('T')[0]}.csv`;
           break;

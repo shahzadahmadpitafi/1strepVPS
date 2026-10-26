@@ -837,24 +837,48 @@ export default function AdminOrders() {
   };
 
   const handleExportCSV = () => {
-    const headers = ["Order Number", "Date", "Customer", "Email", "Status", "Source", "Total", "Payment Status", "Tracking"];
+    const sourceLabels: Record<string, string> = {
+      website: "1stRep Website",
+      customer_epos: "1stRep EPOS",
+      reseller_storefront: "Reseller Store",
+      reseller_epos: "Reseller EPOS (1stRep products)",
+      reseller_epos_own: "Reseller EPOS (reseller's own products)",
+      vendor_storefront: "Wholesaler Store",
+      vendor_epos: "Wholesaler EPOS",
+      admin: "Admin",
+      exchange: "Exchange (free)",
+    };
+    const partnerFor = (order: Order) => {
+      const name = order.resellerName || order.vendorName;
+      if (name) return name;
+      const channel = order.channel || "website";
+      return channel === "website" || channel === "admin" || channel === "exchange" || channel === "customer_epos"
+        ? "1stRep (direct)"
+        : "Not recorded";
+    };
+    const headers = ["Order Number", "Date", "Customer", "Email", "Status", "Source", "Reseller / Partner", "Total", "Payment Status", "Tracking", "Items"];
     const rows = filteredOrders.map(order => [
       order.orderNumber,
       format(new Date(order.orderDate), "yyyy-MM-dd HH:mm"),
       `${order.customerFirstName} ${order.customerLastName}`,
-      order.customerEmail,
+      /@epos\.local$|@1strep\.internal$/i.test(order.customerEmail || "") ? "" : order.customerEmail,
       order.status,
-      order.channel || "website",
+      sourceLabels[order.channel || "website"] || order.channel || "1stRep Website",
+      partnerFor(order),
       `£${parseFloat(order.totalAmount).toFixed(2)}`,
       order.isPaid ? "Paid" : "Unpaid",
-      order.trackingNumber || ""
+      order.trackingNumber || "",
+      (order.items || [])
+        .map((i: any) => `${i.quantity} x ${i.productName}${i.size || i.color ? ` (${[i.size, i.color].filter(Boolean).join("/")})` : ""}`)
+        .join("; ")
     ]);
 
     const csvContent = [headers, ...rows]
-      .map(row => row.map(cell => `"${cell}"`).join(","))
+      .map(row => row.map(cell => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
       .join("\n");
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    // BOM so Excel reads the file as UTF-8 (otherwise £ shows as "Â£")
+    const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = `orders_${format(new Date(), "yyyy-MM-dd")}.csv`;
