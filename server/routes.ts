@@ -27041,31 +27041,63 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
         }
         
         case 'products': {
-          const allProducts = await db.select().from(products);
-          const allVariants = await db.select().from(productVariants);
+          // Deleted products are left out; counts use live variants; price is the retail price (the old
+          // code read product.price, which doesn't exist, so every row said "undefined").
+          const allProducts = await db.select().from(products).where(eq(products.isDeleted, false));
+          const allVariants = await db.select().from(productVariants).where(eq(productVariants.isActive, true));
           
-          csvData = 'Product ID,Product Name,Category,Price,Total Stock,Variants Count,Status\n';
+          csvData = 'Product ID,Product Name,Category,Retail Price,Total Stock,Variants Count,Status\n';
           allProducts.forEach(product => {
             const variants = allVariants.filter(v => v.productId === product.id);
             const totalStock = variants.reduce((sum, v) => sum + (v.stockQuantity || 0), 0);
-            csvData += `"${product.id}","${product.name}","${product.category}","${product.price}","${totalStock}","${variants.length}","${product.isActive ? 'Active' : 'Inactive'}"\n`;
+            csvData += `"${product.id}","${product.name}","${product.category}","${product.retailPrice}","${totalStock}","${variants.length}","${product.isActive ? 'Active' : 'Inactive'}"\n`;
           });
           filename = `products-report-${new Date().toISOString().split('T')[0]}.csv`;
           break;
         }
         
         case 'inventory': {
-          const allVariants = await db.select({
+          // Same list as the Inventory screen: live variants of products that still exist (deleted/old
+          // products are left out). Products switched off on the website are included and labelled.
+          // Add ?inStockOnly=1 to leave out anything with no stock.
+          // (Previously read variant.stock / variant.price, which don't exist - every row showed "undefined" -
+          // and it included every variant of every deleted product.)
+          const inStockOnly = req.query.inStockOnly === '1';
+          const rows = await db.select({
             variant: productVariants,
-            productName: products.name
+            productName: products.name,
+            category: products.category,
+            productIsActive: products.isActive,
+            availability: products.availabilityStatus,
           })
             .from(productVariants)
-            .leftJoin(products, eq(productVariants.productId, products.id));
-          
-          csvData = 'SKU,Product Name,Size,Color,Stock,Price\n';
-          allVariants.forEach(({ variant, productName }) => {
-            csvData += `"${variant.sku}","${productName}","${variant.size}","${variant.color}","${variant.stock}","${variant.price}"\n`;
-          });
+            .innerJoin(products, eq(productVariants.productId, products.id))
+            .where(and(
+              eq(productVariants.isActive, true),
+              eq(products.isDeleted, false),
+              inStockOnly ? sql`${productVariants.stockQuantity} > 0` : sql`true`,
+            ));
+
+          const sizeOrder = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', 'XXXL', '3XL', 'ONE SIZE', 'OS'];
+          const sizeRank = (s: string | null) => {
+            const i = sizeOrder.indexOf(String(s || '').trim().toUpperCase());
+            return i === -1 ? 99 : i;
+          };
+          rows.sort((a, b) =>
+            String(a.productName || '').localeCompare(String(b.productName || '')) ||
+            String(a.variant.color || '').localeCompare(String(b.variant.color || '')) ||
+            sizeRank(a.variant.size) - sizeRank(b.variant.size) ||
+            String(a.variant.size || '').localeCompare(String(b.variant.size || ''), undefined, { numeric: true }));
+
+          const q = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+          csvData = 'SKU,Product Name,Category,Colour,Size,Stock,Retail Price (GBP),Wholesale Price (GBP),On Website\n';
+          for (const { variant, productName, category, productIsActive, availability } of rows) {
+            const onWebsite = productIsActive ? (availability === 'upcoming' ? 'Yes (upcoming)' : 'Yes') : 'No';
+            csvData += [
+              q(variant.sku), q(productName), q(category), q(variant.color), q(variant.size),
+              q(variant.stockQuantity ?? 0), q(variant.retailPrice), q(variant.wholesalePrice), q(onWebsite),
+            ].join(',') + '\n';
+          }
           filename = `inventory-report-${new Date().toISOString().split('T')[0]}.csv`;
           break;
         }
