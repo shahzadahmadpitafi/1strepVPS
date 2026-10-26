@@ -19,7 +19,7 @@ export default function FAQ() {
         },
         {
           q: "Can I modify or cancel my order?",
-          a: "Orders can be modified or cancelled within 1 hour of placement. After this, the order enters our fulfilment system. Please contact support immediately if you need to make changes."
+          a: "Yes, as long as your order hasn't been dispatched. We can change the size or colour of an item, or the delivery address, or cancel the order. Our team starts picking orders quickly, so please contact us as soon as possible with your order number (ideally within an hour of ordering). Once an order has been dispatched it can't be changed, but you can exchange or return it after delivery."
         },
         {
           q: "Do you offer gift cards?",
@@ -67,10 +67,7 @@ export default function FAQ() {
           q: "Can I exchange an item?",
           a: "Yes. Exchanges are free within the UK. Choose \"Exchange\" on our Returns & Exchanges page, pick the new size or colour of the same item (we only show what's in stock) and send your item back. As soon as we receive it, we dispatch your replacement. If the new size has sold out by then, we'll refund you instead. To swap for a different product, return the item for a refund and place a new order."
         },
-        {
-          q: "Can I change my order after I've placed it?",
-          a: "Yes, as long as it hasn't been dispatched yet. We can change the size or colour of an item, or the delivery address. Contact us as soon as possible with your order number. Once an order has been dispatched it can't be changed, but you can exchange or return it after delivery."
-        },
+
         {
           q: "When will I receive my refund?",
           a: "Refunds are processed within 5-7 business days after we receive your return. It may take an additional 3-5 days for your bank to process the refund."
