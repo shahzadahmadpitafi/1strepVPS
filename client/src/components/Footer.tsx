@@ -64,7 +64,7 @@ export default function Footer() {
         { label: "Size Guide", href: "/size-guide" },
         { label: "Shipping & Returns", href: "/shipping-returns" },
         { label: "Order Tracking", href: "/order-tracking" },
-        { label: "Request a Return", href: "/returns" },
+        { label: "Returns & Exchanges", href: "/returns" },
         { label: "Leave Feedback", href: "/feedback" },
         { label: "Contact Support", href: "/contact-support" },
         { label: "FAQ", href: "/faq" }

@@ -61,11 +61,15 @@ export default function FAQ() {
         },
         {
           q: "How do I return an item?",
-          a: "Log into your account, select the items to return, and print your prepaid return label. Pack securely and drop off at any Royal Mail location."
+          a: "Go to our Returns & Exchanges page, enter your order number and email, select the items and tell us why. We'll email you return instructions within 1-2 business days. Pack the items securely with tags attached and drop them off at any Royal Mail location."
         },
         {
           q: "Can I exchange an item?",
-          a: "Yes! We accept exchanges for different sizes or colours. Return the original item and place a new order for the item you want to ensure availability."
+          a: "Yes. Exchanges are free within the UK. Choose \"Exchange\" on our Returns & Exchanges page, pick the new size or colour of the same item (we only show what's in stock) and send your item back. As soon as we receive it, we dispatch your replacement. If the new size has sold out by then, we'll refund you instead. To swap for a different product, return the item for a refund and place a new order."
+        },
+        {
+          q: "Can I change my order after I've placed it?",
+          a: "Yes, as long as it hasn't been dispatched yet. We can change the size or colour of an item, or the delivery address. Contact us as soon as possible with your order number. Once an order has been dispatched it can't be changed, but you can exchange or return it after delivery."
         },
         {
           q: "When will I receive my refund?",

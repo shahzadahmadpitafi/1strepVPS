@@ -21,6 +21,10 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
 interface OrderItem {
+  id?: string;
+  productId?: string | null;
+  size?: string | null;
+  color?: string | null;
   name: string;
   quantity: number;
   variant: string | null;
@@ -57,6 +61,8 @@ export default function ReturnRequest() {
   const [reason, setReason] = useState("");
   const [reasonDetails, setReasonDetails] = useState("");
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
+  const [requestType, setRequestType] = useState<"return" | "exchange">("return");
+  const [exchangeChoices, setExchangeChoices] = useState<Record<string, string>>({});
 
   const { data: orderData, isLoading: isSearching, error: searchError } = useQuery<TrackedOrder>({
     queryKey: ["/api/orders/track", orderNumber, email],
@@ -71,6 +77,21 @@ export default function ReturnRequest() {
     retry: false,
   });
 
+  // Other sizes/colours of the same items that are in stock right now (for exchanges)
+  const { data: exchangeData } = useQuery<{ items: Array<{ orderItemId: string; options: Array<{ variantId: string; size: string; color: string }> }> }>({
+    queryKey: ["/api/returns/exchange-options", orderNumber, email],
+    queryFn: async () => {
+      const res = await apiRequest("POST", "/api/returns/exchange-options", {
+        orderNumber: orderNumber.trim(),
+        email: email.trim(),
+      });
+      return res.json();
+    },
+    enabled: !!orderData && orderData.status === "delivered",
+    retry: false,
+  });
+  const optionsFor = (item: OrderItem) => exchangeData?.items.find((i) => i.orderItemId === item.id)?.options ?? [];
+
   const submitMutation = useMutation({
     mutationFn: async (data: any) => {
       const res = await apiRequest("POST", "/api/returns/request", data);
@@ -80,7 +101,7 @@ export default function ReturnRequest() {
       setSubmitted(true);
       setAccessToken(data.accessToken);
       toast({
-        title: "Return Request Submitted",
+        title: requestType === "exchange" ? "Exchange Request Submitted" : "Return Request Submitted",
         description: "We'll review your request and get back to you soon.",
       });
     },
@@ -129,12 +150,34 @@ export default function ReturnRequest() {
 
     const itemsToReturn = selectedItems.map((index) => orderData?.items[index]);
 
+    let exchangeItems: Array<{ orderItemId: string; newVariantId: string }> | undefined;
+    if (requestType === "exchange") {
+      const missing = selectedItems.find((index) => {
+        const it = orderData?.items[index];
+        return !it?.id || !exchangeChoices[it.id];
+      });
+      if (missing !== undefined) {
+        toast({
+          title: "Choose your new size or colour",
+          description: "Please pick the size/colour you'd like instead for each item you're exchanging.",
+          variant: "destructive",
+        });
+        return;
+      }
+      exchangeItems = selectedItems.map((index) => {
+        const it = orderData!.items[index];
+        return { orderItemId: it.id as string, newVariantId: exchangeChoices[it.id as string] };
+      });
+    }
+
     submitMutation.mutate({
       orderNumber: orderNumber.trim().toUpperCase(),
       email: email.trim(),
       reason,
       reasonDetails: reasonDetails || undefined,
       itemsToReturn,
+      requestType,
+      exchangeItems,
     });
   };
 
@@ -159,9 +202,10 @@ export default function ReturnRequest() {
             <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="h-8 w-8 text-green-500" />
             </div>
-            <h2 className="text-2xl font-bold mb-2">Return Request Submitted</h2>
+            <h2 className="text-2xl font-bold mb-2">{requestType === "exchange" ? "Exchange Request Submitted" : "Return Request Submitted"}</h2>
             <p className="text-muted-foreground mb-4">
               We'll review your request and send you instructions within 1-2 business days.
+              {requestType === "exchange" && " Once we receive your item back, we'll send your replacement free of charge."}
             </p>
             <div className="bg-muted/50 rounded-lg p-4 mb-6 text-left">
               <p className="text-sm text-muted-foreground mb-1">Reference Number</p>
@@ -192,9 +236,9 @@ export default function ReturnRequest() {
         </Button>
         <div className="text-center mb-8">
           <RotateCcw className="h-12 w-12 text-primary mx-auto mb-4" />
-          <h1 className="text-3xl font-bold mb-2">Request a Return</h1>
+          <h1 className="text-3xl font-bold mb-2">Return or Exchange</h1>
           <p className="text-muted-foreground">
-            Start your return within 30 days of delivery
+            Return for a refund, or exchange for a different size or colour, within 30 days of delivery
           </p>
         </div>
 
@@ -203,7 +247,7 @@ export default function ReturnRequest() {
             <CardHeader>
               <CardTitle>Find Your Order</CardTitle>
               <CardDescription>
-                Enter your order details to start a return
+                Enter your order details to start a return or exchange
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -295,13 +339,34 @@ export default function ReturnRequest() {
                 Order {orderData.orderNumber}
               </CardTitle>
               <CardDescription>
-                Select items to return and provide a reason
+                Choose what you'd like to do, select your items and tell us why
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setRequestType("return")}
+                    className={`rounded-lg border p-3 text-left transition-colors ${requestType === "return" ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"}`}
+                    data-testid="button-type-return"
+                  >
+                    <p className="font-semibold">Return for a refund</p>
+                    <p className="text-xs text-muted-foreground">Send it back and get your money back</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRequestType("exchange")}
+                    className={`rounded-lg border p-3 text-left transition-colors ${requestType === "exchange" ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"}`}
+                    data-testid="button-type-exchange"
+                  >
+                    <p className="font-semibold">Exchange</p>
+                    <p className="text-xs text-muted-foreground">Different size or colour, free of charge</p>
+                  </button>
+                </div>
+
                 <div className="space-y-2">
-                  <Label>Select Items to Return *</Label>
+                  <Label>{requestType === "exchange" ? "Select Items to Exchange *" : "Select Items to Return *"}</Label>
                   <div className="space-y-2">
                     {orderData.items.map((item, index) => (
                       <div
@@ -333,11 +398,45 @@ export default function ReturnRequest() {
                         </div>
                       </div>
                     ))}
+                    {requestType === "exchange" &&
+                      selectedItems.map((index) => {
+                        const item = orderData.items[index];
+                        const options = optionsFor(item);
+                        return (
+                          <div key={`ex-${index}`} className="rounded-lg border border-dashed p-3 space-y-2" data-testid={`exchange-choice-${index}`}>
+                            <Label className="text-sm">
+                              Swap {item.name}
+                              {item.size || item.color ? ` (${[item.size, item.color].filter(Boolean).join(" / ")})` : ""} for:
+                            </Label>
+                            {options.length === 0 ? (
+                              <p className="text-sm text-muted-foreground">
+                                No other sizes or colours of this item are in stock right now. You can return it for a refund instead.
+                              </p>
+                            ) : (
+                              <Select
+                                value={item.id ? exchangeChoices[item.id] || "" : ""}
+                                onValueChange={(v) => item.id && setExchangeChoices((prev) => ({ ...prev, [item.id as string]: v }))}
+                              >
+                                <SelectTrigger data-testid={`select-exchange-${index}`}>
+                                  <SelectValue placeholder="Choose new size / colour" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {options.map((o) => (
+                                    <SelectItem key={o.variantId} value={o.variantId}>
+                                      {o.size} / {o.color}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="reason">Reason for Return *</Label>
+                  <Label htmlFor="reason">{requestType === "exchange" ? "Reason for Exchange *" : "Reason for Return *"}</Label>
                   <Select value={reason} onValueChange={setReason}>
                     <SelectTrigger data-testid="select-reason">
                       <SelectValue placeholder="Select a reason" />
@@ -365,12 +464,13 @@ export default function ReturnRequest() {
                 </div>
 
                 <div className="bg-muted/50 rounded-lg p-4">
-                  <h4 className="font-semibold mb-2">Return Policy</h4>
+                  <h4 className="font-semibold mb-2">Returns &amp; Exchanges Policy</h4>
                   <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• Items must be unworn with original tags attached</li>
-                    <li>• Returns must be requested within 30 days of delivery</li>
-                    <li>• Refunds are processed within 5-7 business days</li>
-                    <li>• Free returns on all orders over £50</li>
+                    <li>• Items must be unworn, unwashed, with original tags attached</li>
+                    <li>• Requests must be made within 30 days of delivery</li>
+                    <li>• Free returns and exchanges within the UK</li>
+                    <li>• Refunds are processed within 5-7 business days of us receiving your return</li>
+                    <li>• Exchanges are for a different size or colour of the same item. Your replacement is sent once we receive your return. If your new size has sold out, we'll refund you instead.</li>
                   </ul>
                 </div>
 
@@ -398,6 +498,8 @@ export default function ReturnRequest() {
                     ? "Select Items to Continue" 
                     : !reason 
                     ? "Select a Reason to Continue"
+                    : requestType === "exchange"
+                    ? "Submit Exchange Request"
                     : "Submit Return Request"}
                 </Button>
               </form>
@@ -419,13 +521,19 @@ export default function ReturnRequest() {
             <div>
               <h4 className="font-semibold mb-1">Can I exchange instead of return?</h4>
               <p className="text-sm text-muted-foreground">
-                We currently process returns only. For exchanges, please return the item and place a new order.
+                Yes. Choose "Exchange" above to swap an item for a different size or colour, free of charge within the UK. We send your replacement as soon as your return reaches us. To swap for a different product, return the item for a refund and place a new order.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-1">Need to change an order that hasn't arrived yet?</h4>
+              <p className="text-sm text-muted-foreground">
+                If your order hasn't been dispatched, we can change the size, colour or delivery address. Contact us as soon as possible with your order number. Once an order has been dispatched it can't be changed, but you can exchange or return it after delivery.
               </p>
             </div>
             <div>
               <h4 className="font-semibold mb-1">Where can I find my order number?</h4>
               <p className="text-sm text-muted-foreground">
-                Your order number is in your order confirmation email, starting with "ORD-".
+                Your order number is in your order confirmation email.
               </p>
             </div>
           </CardContent>

@@ -350,6 +350,13 @@ app.use((req, res, next) => {
     }
 
     try {
+      const { ensureExchangeColumns } = await import("./exchanges");
+      await ensureExchangeColumns();
+    } catch (err) {
+      console.error("[Exchanges] Column setup failed:", err);
+    }
+
+    try {
       const { ensureReturnStockColumn } = await import("./returnRestock");
       await ensureReturnStockColumn();
     } catch (err) {

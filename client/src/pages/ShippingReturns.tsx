@@ -33,7 +33,7 @@ export default function ShippingReturns() {
     {
       step: "1",
       title: "Initiate Return",
-      description: "Enter your order number and email to find your order and select the items you wish to return"
+      description: "Enter your order number and email, select your items and choose Return (refund) or Exchange (different size or colour)"
     },
     {
       step: "2",
@@ -229,6 +229,46 @@ export default function ShippingReturns() {
 
           <Separator />
 
+          {/* Exchanges & Changes */}
+          <div>
+            <div className="flex items-center gap-3 mb-6">
+              <RotateCcw className="w-8 h-8 text-primary" />
+              <h2 className="text-3xl font-bold">Exchanges &amp; Changing Your Order</h2>
+            </div>
+            <div className="grid md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Exchanges</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm text-muted-foreground">
+                  <p>Need a different size or colour? Exchanges are free within the UK, within 30 days of delivery.</p>
+                  <ul className="space-y-2">
+                    <li>• Choose "Exchange" when you start your return and pick the new size or colour (we show what's in stock).</li>
+                    <li>• Send your original item back with the tags attached.</li>
+                    <li>• We dispatch your replacement as soon as your return reaches us.</li>
+                    <li>• If your new size has sold out by then, we'll refund you instead.</li>
+                    <li>• Exchanges are for the same item. For a different product, return for a refund and place a new order.</li>
+                  </ul>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Changing an order before it's dispatched</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm text-muted-foreground">
+                  <p>Spotted a mistake? Contact us as soon as possible with your order number.</p>
+                  <ul className="space-y-2">
+                    <li>• Until your order is dispatched we can change the size, colour or delivery address.</li>
+                    <li>• We'll email you to confirm the change.</li>
+                    <li>• Once an order has been dispatched it can't be changed, but you can exchange or return it after delivery.</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          <Separator />
+
           {/* Contact Section */}
           <Card className="bg-primary/5 border-primary/20">
             <CardContent className="py-8">
@@ -250,7 +290,7 @@ export default function ShippingReturns() {
                     className="inline-flex items-center justify-center h-11 px-8 rounded-md bg-card border border-card-border font-medium hover-elevate active-elevate-2"
                     data-testid="link-start-return"
                   >
-                    Start a Return
+                    Return or Exchange
                   </a>
                   <a 
                     href="/contact-support" 

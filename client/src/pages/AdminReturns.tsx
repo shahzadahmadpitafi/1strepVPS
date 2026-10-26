@@ -44,6 +44,10 @@ interface ReturnRequest {
   status: string;
   adminNotes: string | null;
   stockHandledAt?: string | null;
+  requestType?: string;
+  exchangeItems?: string | null;
+  exchangeOrderId?: string | null;
+  exchangeOrderNumber?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -83,6 +87,7 @@ export default function AdminReturns() {
   const [selectedReturn, setSelectedReturn] = useState<ReturnRequest | null>(null);
   const [newStatus, setNewStatus] = useState("");
   const [restockItems, setRestockItems] = useState(true);
+  const [sendReplacement, setSendReplacement] = useState(true);
   const [adminNotes, setAdminNotes] = useState("");
 
   const { data: returns = [], isLoading } = useQuery<ReturnRequest[]>({
@@ -90,11 +95,12 @@ export default function AdminReturns() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, status, adminNotes, restock }: { id: string; status: string; adminNotes: string; restock: boolean }) => {
+    mutationFn: async ({ id, status, adminNotes, restock, createReplacement }: { id: string; status: string; adminNotes: string; restock: boolean; createReplacement: boolean }) => {
       const res = await apiRequest("PATCH", `/api/admin/returns/${id}`, {
         status,
         adminNotes,
         restock,
+        createReplacement,
       });
       return res.json();
     },
@@ -110,10 +116,16 @@ export default function AdminReturns() {
       const skippedText = r?.skipped?.length
         ? "Please add by hand: " + r.skipped.map((x: any) => `${x.quantity} x ${x.name} (${x.reason})`).join("; ") + "."
         : "";
+      const rep = data?.replacementResult;
+      const replacementText = rep
+        ? rep.created
+          ? `Replacement order ${rep.orderNumber} created (free) - it is in Orders, ready to dispatch. `
+          : `Replacement NOT created: ${rep.reason} `
+        : "";
       toast({
-        title: "Return Updated",
-        description: (restockedText + skippedText + (r?.error || "")).trim() || "The return request has been updated successfully.",
-        variant: r?.skipped?.length || r?.error ? "destructive" : undefined,
+        title: data?.requestType === "exchange" ? "Exchange Updated" : "Return Updated",
+        description: (replacementText + restockedText + skippedText + (r?.error || "")).trim() || "The return request has been updated successfully.",
+        variant: r?.skipped?.length || r?.error || (rep && !rep.created) ? "destructive" : undefined,
       });
     },
     onError: () => {
@@ -137,6 +149,7 @@ export default function AdminReturns() {
     setSelectedReturn(returnRequest);
     setNewStatus(returnRequest.status);
     setRestockItems(true);
+    setSendReplacement(true);
     setAdminNotes(returnRequest.adminNotes || "");
   };
 
@@ -147,6 +160,7 @@ export default function AdminReturns() {
       status: newStatus,
       adminNotes,
       restock: restockItems,
+      createReplacement: sendReplacement,
     });
   };
 
@@ -246,6 +260,9 @@ export default function AdminReturns() {
                     <TableRow key={returnReq.id}>
                       <TableCell className="font-mono text-sm">
                         {returnReq.orderNumber}
+                        {returnReq.requestType === "exchange" && (
+                          <Badge className="ml-2 bg-indigo-600" data-testid={`badge-exchange-${returnReq.id}`}>Exchange</Badge>
+                        )}
                       </TableCell>
                       <TableCell>{returnReq.customerEmail}</TableCell>
                       <TableCell>
@@ -289,7 +306,7 @@ export default function AdminReturns() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <RotateCcw className="h-5 w-5" />
-              Return Request - {selectedReturn?.orderNumber}
+              {selectedReturn?.requestType === "exchange" ? "Exchange Request" : "Return Request"} - {selectedReturn?.orderNumber}
             </DialogTitle>
             <DialogDescription>
               Review and update this return request
@@ -347,6 +364,24 @@ export default function AdminReturns() {
                 </div>
               </div>
 
+              {selectedReturn.requestType === "exchange" && (
+                <div className="rounded-lg border border-indigo-500/40 bg-indigo-500/5 p-3 space-y-2" data-testid="exchange-details">
+                  <p className="text-sm font-semibold">Customer wants instead (free exchange)</p>
+                  {parseItems(selectedReturn.exchangeItems || "[]").map((x: any, i: number) => (
+                    <p key={i} className="text-sm">
+                      {x.quantity} x {x.productName}: {x.fromSize} / {x.fromColor} &rarr; <strong>{x.newSize} / {x.newColor}</strong>
+                    </p>
+                  ))}
+                  {selectedReturn.exchangeOrderNumber ? (
+                    <p className="text-sm text-green-600">Replacement order created: <span className="font-mono">{selectedReturn.exchangeOrderNumber}</span></p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      When you set the status to "Items Received", the returned item goes back into stock and the replacement order is created automatically.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Update Status</label>
@@ -379,6 +414,27 @@ export default function AdminReturns() {
                         Put the returned items back into stock
                         <span className="block text-xs text-muted-foreground">
                           Untick if they are damaged or can't be resold.
+                        </span>
+                      </span>
+                    </label>
+                  )}
+
+                {selectedReturn.requestType === "exchange" &&
+                  !selectedReturn.exchangeOrderId &&
+                  newStatus === "received" &&
+                  selectedReturn.status !== "received" && (
+                    <label className="flex items-start gap-2 text-sm rounded-md border p-3 cursor-pointer" data-testid="label-send-replacement">
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={sendReplacement}
+                        onChange={(e) => setSendReplacement(e.target.checked)}
+                        data-testid="checkbox-send-replacement"
+                      />
+                      <span>
+                        Create the free replacement order now
+                        <span className="block text-xs text-muted-foreground">
+                          Takes the new size/colour out of stock. Untick if you want to refund instead.
                         </span>
                       </span>
                     </label>

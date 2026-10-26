@@ -5949,6 +5949,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           country: order.shippingCountry,
         },
         items: items.map(item => ({
+          id: item.id,
+          productId: item.productId,
           name: item.productName,
           quantity: item.quantity,
           variant: item.variant,
@@ -17444,10 +17446,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Exchange options for the return form (public, verified by order number + email like the return request itself):
+  // for each item, the other sizes/colours of the same product that are in stock right now.
+  app.post("/api/returns/exchange-options", async (req, res) => {
+    try {
+      const { orderNumber, email } = req.body || {};
+      if (!orderNumber || !email) {
+        return res.status(400).json({ error: "Order number and email are required" });
+      }
+      const [order] = await db
+        .select()
+        .from(customerOrders)
+        .where(
+          and(
+            eq(customerOrders.orderNumber, String(orderNumber).trim().toUpperCase()),
+            sql`LOWER(${customerOrders.customerEmail}) = LOWER(${String(email).trim()})`
+          )
+        );
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      const { getVariantOptionsForOrder } = await import("./exchanges");
+      const items = await getVariantOptionsForOrder(order.id, { inStockOnly: true });
+      res.json({ items: items.map((i) => ({ orderItemId: i.orderItemId, options: i.options.map((o) => ({ variantId: o.variantId, size: o.size, color: o.color })) })) });
+    } catch (error) {
+      console.error("Exchange options error:", error);
+      res.status(500).json({ error: "Failed to load exchange options" });
+    }
+  });
+
+  // Admin: size/colour choices (with stock) for amending an order that has not shipped
+  app.get("/api/admin/orders/:id/amend-options", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { getVariantOptionsForOrder } = await import("./exchanges");
+      res.json(await getVariantOptionsForOrder(req.params.id, { inStockOnly: false }));
+    } catch (error) {
+      console.error("Amend options error:", error);
+      res.status(500).json({ error: "Failed to load options" });
+    }
+  });
+
+  // Admin: change an item's size/colour before dispatch (stock moves old -> new, customer is emailed)
+  app.post("/api/admin/orders/:id/amend-item", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const adminUser = req.user as User;
+      const { orderItemId, newVariantId } = req.body || {};
+      if (!orderItemId || !newVariantId) return res.status(400).json({ error: "Item and new size/colour are required" });
+      const { amendOrderItem } = await import("./exchanges");
+      const result = await amendOrderItem(req.params.id, orderItemId, newVariantId, {
+        id: adminUser.id,
+        name: `${adminUser.firstName || ''} ${adminUser.lastName || ''}`.trim() || 'Admin',
+      });
+      if (!result.ok) return res.status(400).json({ error: result.error });
+      invalidateCache('products');
+      res.json(result);
+    } catch (error) {
+      console.error("Amend item error:", error);
+      res.status(500).json({ error: "Failed to amend order" });
+    }
+  });
+
+  // Admin: change the delivery address before dispatch
+  app.post("/api/admin/orders/:id/amend-address", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const adminUser = req.user as User;
+      const { amendOrderAddress } = await import("./exchanges");
+      const result = await amendOrderAddress(req.params.id, req.body || {}, {
+        id: adminUser.id,
+        name: `${adminUser.firstName || ''} ${adminUser.lastName || ''}`.trim() || 'Admin',
+      });
+      if (!result.ok) return res.status(400).json({ error: result.error });
+      res.json(result);
+    } catch (error) {
+      console.error("Amend address error:", error);
+      res.status(500).json({ error: "Failed to amend address" });
+    }
+  });
+
   // Submit return request (public)
   app.post("/api/returns/request", async (req, res) => {
     try {
-      const { orderNumber, email, reason, reasonDetails, itemsToReturn } = req.body;
+      const { orderNumber, email, reason, reasonDetails, itemsToReturn, requestType, exchangeItems } = req.body;
 
       if (!orderNumber || !email || !reason || !itemsToReturn) {
         return res.status(400).json({ error: "Order number, email, reason, and items are required" });
@@ -17497,6 +17576,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "A return request already exists for this order" });
       }
 
+      // Exchange for a different size/colour of the same item: check it against the order and live stock
+      let exchangeJson: string | null = null;
+      const isExchange = requestType === 'exchange';
+      if (isExchange) {
+        const { validateExchangeRequest } = await import("./exchanges");
+        const check = await validateExchangeRequest(order.id, exchangeItems);
+        if (!check.ok) {
+          return res.status(400).json({ error: check.error });
+        }
+        exchangeJson = JSON.stringify(check.items);
+      }
+
       // Generate secure access token using crypto
       const accessToken = `${order.id}-${crypto.randomBytes(16).toString('hex')}`;
 
@@ -17510,6 +17601,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           reason,
           reasonDetails: reasonDetails || null,
           itemsToReturn: JSON.stringify(itemsToReturn),
+          requestType: isExchange ? 'exchange' : 'return',
+          exchangeItems: exchangeJson,
           accessToken,
         })
         .returning();
@@ -17518,8 +17611,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         await db.insert(adminNotifications).values({
           type: 'return_request',
-          title: 'New Return Request',
-          message: `Return request for order ${order.orderNumber} - Reason: ${reason}`,
+          title: isExchange ? 'New Exchange Request' : 'New Return Request',
+          message: `${isExchange ? 'Exchange' : 'Return'} request for order ${order.orderNumber} - Reason: ${reason}`,
           link: '/admin/returns',
           priority: 'high',
         });
@@ -17594,7 +17687,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/admin/returns/:id", requireAuth, requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
-      const { status, adminNotes, returnLabel, totalRefundAmount, restock } = req.body;
+      const { status, adminNotes, returnLabel, totalRefundAmount, restock, createReplacement } = req.body;
       const adminUser = req.user as User;
 
       const [existingReturn] = await db.select().from(returnRequests).where(eq(returnRequests.id, id));
@@ -17650,7 +17743,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      res.json({ ...updated, stockResult });
+      // Exchange: once the original is back, send the free replacement (admin can untick to do it later/refund instead)
+      let replacementResult: any = null;
+      if (status === 'received' && existingReturn.status !== 'received' && (updated as any).requestType === 'exchange' && createReplacement !== false) {
+        try {
+          const { createReplacementOrder } = await import("./exchanges");
+          replacementResult = await createReplacementOrder(id, { id: adminUser.id, name: `${adminUser.firstName || ''} ${adminUser.lastName || ''}`.trim() || 'Admin' });
+        } catch (replacementError) {
+          console.error("Replacement order error:", replacementError);
+          replacementResult = { created: false, reason: "Could not create the replacement order automatically." };
+        }
+      }
+
+      const [fresh] = await db.select().from(returnRequests).where(eq(returnRequests.id, id));
+      res.json({ ...(fresh || updated), stockResult, replacementResult });
     } catch (error) {
       console.error("Update return error:", error);
       res.status(500).json({ error: "Failed to update return request" });
@@ -20615,7 +20721,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const seedData = [
         {
           question: "What is your return policy?",
-          answer: "We offer a 30-day return policy for all unworn, unwashed items with original tags attached. Returns are free within the UK. To initiate a return, please contact our customer service team or visit the Returns page in your account.",
+          answer: "We offer a 30-day return window for all unworn, unwashed items with original tags attached. Returns and exchanges are free within the UK. Start one at 1strep.com/returns with your order number and email. You can return for a refund, or exchange for a different size or colour.",
           category: "returns",
           tags: ["returns", "refunds", "exchange"],
           isActive: true,
@@ -20719,7 +20825,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         {
           question: "What if an item doesn't fit?",
-          answer: "If an item doesn't fit, you can exchange it for a different size within 30 days. Exchanges are free within the UK. Simply initiate a return and specify that you'd like an exchange in the notes.",
+          answer: "If an item doesn't fit, you can exchange it for a different size within 30 days. Exchanges are free within the UK. Choose Exchange on our Returns & Exchanges page (1strep.com/returns) and pick your new size or colour. We send your replacement as soon as your return reaches us.",
           category: "returns",
           tags: ["exchange", "sizing", "fit"],
           isActive: true,

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSocket } from "@/hooks/useSocket";
 import { useSearch } from "wouter";
+import OrderAmendPanel from "@/components/admin/OrderAmendPanel";
 import { format } from "date-fns";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import {
@@ -722,6 +723,7 @@ export default function AdminOrders() {
       vendor_storefront: { label: 'Wholesaler Store', icon: Store, className: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20' },
       vendor_epos: { label: 'Wholesaler EPOS', icon: Monitor, className: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20' },
       admin: { label: 'Admin', icon: Users, className: 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20' },
+      exchange: { label: 'Exchange (free)', icon: Package, className: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20' },
     };
     
     const config = configs[channel] || configs.website;
@@ -1856,6 +1858,20 @@ export default function AdminOrders() {
                   </div>
                 );
               })()}
+
+              <OrderAmendPanel
+                key={selectedOrder.id}
+                orderId={selectedOrder.id}
+                status={selectedOrder.status}
+                channel={selectedOrder.channel}
+                address={{
+                  shippingAddress: selectedOrder.shippingAddress,
+                  shippingCity: selectedOrder.shippingCity,
+                  shippingPostalCode: selectedOrder.shippingPostalCode,
+                  shippingCountry: selectedOrder.shippingCountry,
+                }}
+                onAmended={() => setIsDetailsOpen(false)}
+              />
 
               {/* Order Items */}
               <div>

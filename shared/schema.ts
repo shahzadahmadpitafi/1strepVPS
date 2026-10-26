@@ -5231,6 +5231,10 @@ export const returnRequests = pgTable("return_requests", {
   receivedAt: timestamp("received_at"),
   refundedAt: timestamp("refunded_at"),
   stockHandledAt: timestamp("stock_handled_at"), // set once returned items have been put back in stock (or admin chose not to)
+  requestType: text("request_type").notNull().default("return"), // "return" (refund) or "exchange" (different size/colour)
+  exchangeItems: text("exchange_items"), // JSON: what the customer wants instead (exchange only)
+  exchangeOrderId: varchar("exchange_order_id"), // replacement order created for an exchange
+  exchangeOrderNumber: text("exchange_order_number"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -5244,6 +5248,8 @@ export const insertOrderReviewSchema = createInsertSchema(orderReviews).omit({
 export const insertReturnRequestSchema = createInsertSchema(returnRequests).omit({
   id: true,
   stockHandledAt: true,
+  exchangeOrderId: true,
+  exchangeOrderNumber: true,
   processedAt: true,
   receivedAt: true,
   refundedAt: true,
