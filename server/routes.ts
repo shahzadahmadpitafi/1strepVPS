@@ -252,7 +252,7 @@ async function buildPartnerNameLookup(): Promise<(order: { resellerId?: string |
     const found = (order.resellerId && names.get(order.resellerId)) || (order.vendorId && names.get(order.vendorId));
     if (found) return found;
     const channel = order.channel || 'website';
-    return ['website', 'admin', 'exchange', 'customer_epos'].includes(channel) ? '1stRep (direct)' : 'Not recorded';
+    return ['website', 'admin', 'exchange', 'customer_epos', 'shop_square_pos'].includes(channel) ? '1stRep (direct)' : 'Not recorded';
   };
 }
 

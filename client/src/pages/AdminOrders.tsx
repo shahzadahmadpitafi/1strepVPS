@@ -724,6 +724,7 @@ export default function AdminOrders() {
       vendor_epos: { label: 'Wholesaler EPOS', icon: Monitor, className: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20' },
       admin: { label: 'Admin', icon: Users, className: 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20' },
       exchange: { label: 'Exchange (free)', icon: Package, className: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20' },
+      shop_square_pos: { label: 'Shop - Tap to Pay', icon: Store, className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
     };
     
     const config = configs[channel] || configs.website;
@@ -847,12 +848,13 @@ export default function AdminOrders() {
       vendor_epos: "Wholesaler EPOS",
       admin: "Admin",
       exchange: "Exchange (free)",
+      shop_square_pos: "Shop - Tap to Pay",
     };
     const partnerFor = (order: Order) => {
       const name = order.resellerName || order.vendorName;
       if (name) return name;
       const channel = order.channel || "website";
-      return channel === "website" || channel === "admin" || channel === "exchange" || channel === "customer_epos"
+      return channel === "website" || channel === "admin" || channel === "exchange" || channel === "customer_epos" || channel === "shop_square_pos"
         ? "1stRep (direct)"
         : "Not recorded";
     };

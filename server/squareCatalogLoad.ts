@@ -176,8 +176,8 @@ async function main() {
   }
 
   // 3) save the Square ids in the portal
-  for (const [pid, sid] of itemIds) await db.execute(sql`UPDATE products SET square_item_id = ${sid} WHERE id = ${pid}`);
-  for (const [vid, sid] of variationIds) await db.execute(sql`UPDATE product_variants SET square_variation_id = ${sid} WHERE id = ${vid}`);
+  for (const [pid, sid] of Array.from(itemIds)) await db.execute(sql`UPDATE products SET square_item_id = ${sid} WHERE id = ${pid}`);
+  for (const [vid, sid] of Array.from(variationIds)) await db.execute(sql`UPDATE product_variants SET square_variation_id = ${sid} WHERE id = ${vid}`);
 
   // 4) stock counts (portal is the master)
   const counts = rows

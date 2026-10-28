@@ -363,6 +363,14 @@ app.use((req, res, next) => {
       console.error("[Returns] Stock column setup failed:", err);
     }
 
+    // Square Tap to Pay / in-person shop sales -> portal orders + stock (see squarePosSync.ts)
+    try {
+      const { startSquarePosSync } = await import("./squarePosSync");
+      startSquarePosSync();
+    } catch (err) {
+      console.error("[SquarePOS] Failed to start:", err);
+    }
+
     // Payment reconciler: finds till/QR payments that were paid in Square but never became a
     // portal order (browser closed / polling stopped) and creates the order. See paymentReconciler.ts.
     try {
