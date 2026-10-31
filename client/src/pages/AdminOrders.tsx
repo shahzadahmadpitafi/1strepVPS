@@ -413,6 +413,10 @@ export default function AdminOrders() {
   // this page, whether or not the list has loaded yet, and even for orders brand new or very old.
   const urlSearch = useSearch();
   const handledDeepLinkRef = useRef<string | null>(null);
+  // Only stop work if this page itself is closed. (Cleaning the URL below changes urlSearch, which re-runs the
+  // effect - that must NOT cancel the lookup that is still in flight, or the order would never open.)
+  const pageMountedRef = useRef(true);
+  useEffect(() => () => { pageMountedRef.current = false; }, []);
   useEffect(() => {
     const params = new URLSearchParams(urlSearch);
     const orderId = params.get("order");
@@ -424,7 +428,6 @@ export default function AdminOrders() {
     const wantsSms = params.get("sms") === "1";
     window.history.replaceState(null, "", window.location.pathname);
 
-    let cancelled = false;
     (async () => {
       let found: Order | null = null;
       let lastError = "";
@@ -440,7 +443,7 @@ export default function AdminOrders() {
         }
         if (!found && attempt === 0) await new Promise((r) => setTimeout(r, 800));
       }
-      if (cancelled) return;
+      if (!pageMountedRef.current) return;
       if (!found) {
         toast({
           title: lastError === "not found" ? "Order not found" : "Could not open the order",
@@ -463,7 +466,6 @@ export default function AdminOrders() {
         setTimeout(scrollToSms, 250);
       }
     })();
-    return () => { cancelled = true; };
   }, [urlSearch]);
 
   const { data: orderSummary } = useQuery<OrderSummary>({
