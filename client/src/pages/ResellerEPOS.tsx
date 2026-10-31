@@ -125,6 +125,7 @@ interface ResellerProfile {
   stripePayoutsEnabled: boolean;
   ownSquareSetup: boolean;
   eposBankDetails: { accountName: string; sortCode: string; accountNumber: string } | null;
+  ownProductsLabel?: string | null; // custom tab name for this reseller's own products (e.g. "Running Junkie")
 }
 
 export default function ResellerEPOS() {
@@ -461,17 +462,19 @@ export default function ResellerEPOS() {
     }
   }, [showCheckout, toast]);
 
-  // Get unique categories from products + add "Own Products" filter if any exist
+  // Get unique categories from products + add the own-products tab. Most resellers see "Own Products" (only when they
+  // have some); a reseller with a custom label (1st Rep HQ: "Running Junkie") always sees its own named tab in that place.
   const hasOwnProducts = products.some(p => p.productType === 'own_product');
+  const ownLabel = resellerProfile?.ownProductsLabel || "Own Products";
   const baseCategories = Array.from(new Set(products.map(p => p.category).filter(Boolean)));
-  const categories = ["all", ...(hasOwnProducts ? ["Own Products"] : []), ...baseCategories];
+  const categories = ["all", ...(hasOwnProducts || resellerProfile?.ownProductsLabel ? [ownLabel] : []), ...baseCategories];
 
   // Filter products
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          p.sku.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === "all" || 
-                           (selectedCategory === "Own Products" && p.productType === 'own_product') ||
+                           (selectedCategory === ownLabel && p.productType === 'own_product') ||
                            p.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -2290,8 +2293,16 @@ export default function ResellerEPOS() {
         ) : filteredProducts.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-center">
             <Search className="w-16 h-16 text-white/20 mb-4" />
-            <p className="text-white/60 text-xl">No products found</p>
-            <p className="text-white/40 mt-2">Try adjusting your search or category</p>
+            <p className="text-white/60 text-xl">
+              {resellerProfile?.ownProductsLabel && selectedCategory === ownLabel && !searchTerm
+                ? `No ${ownLabel} items added yet`
+                : "No products found"}
+            </p>
+            <p className="text-white/40 mt-2">
+              {resellerProfile?.ownProductsLabel && selectedCategory === ownLabel && !searchTerm
+                ? "Items will appear here as soon as they are added"
+                : "Try adjusting your search or category"}
+            </p>
           </div>
         ) : (
           <div className={`grid gap-6 ${
@@ -2351,7 +2362,7 @@ export default function ResellerEPOS() {
                       )}
                       {product.productType === 'own_product' && (
                         <Badge className="absolute top-2 left-2 bg-purple-600 text-white border-0 text-xs px-2 py-0.5">
-                          Own Product
+                          {resellerProfile?.ownProductsLabel || "Own Product"}
                         </Badge>
                       )}
                     </div>

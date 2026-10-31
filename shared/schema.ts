@@ -204,6 +204,8 @@ export const resellers = pgTable("resellers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
   businessName: text("business_name").notNull(),
+  // Custom name for the "Own Products" tab in this reseller's EPOS (e.g. "Running Junkie"). NULL = standard "Own Products".
+  ownProductsLabel: text("own_products_label"),
   contactPerson: text("contact_person").notNull(),
   businessAddress: text("business_address").notNull(),
   phoneNumber: text("phone_number").notNull(),

@@ -350,6 +350,15 @@ app.use((req, res, next) => {
     }
 
     try {
+      // Per-reseller name for the "Own Products" tab in their EPOS (NULL = standard wording)
+      const { db: labelDb } = await import("./db");
+      const { sql: labelSql } = await import("drizzle-orm");
+      await labelDb.execute(labelSql`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS own_products_label TEXT`);
+    } catch (err) {
+      console.error("[EPOS] own_products_label column setup failed:", err);
+    }
+
+    try {
       const { ensureExchangeColumns } = await import("./exchanges");
       await ensureExchangeColumns();
     } catch (err) {
