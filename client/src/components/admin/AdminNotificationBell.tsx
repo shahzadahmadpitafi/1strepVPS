@@ -83,13 +83,19 @@ const ORDER_NUMBER = /\b((?:RSL|1ST|ORD|EXC|SQ)-[A-Z0-9][A-Z0-9-]*)\b/i;
  * (and several creation paths) only linked to the plain Orders list, so the order number is read from the
  * notification text. ?search=<order number> links are treated the same way.
  */
-export function resolveNotificationLink(n: { link: string | null; title?: string | null; message?: string | null }): string | null {
+export function resolveNotificationLink(n: { link: string | null; title?: string | null; message?: string | null; metadata?: string | null }): string | null {
   if (!n.link) return null;
   const link = normaliseAdminLink(n.link);
   const [path, query] = link.split("?");
   if (path !== "/admin/orders") return link;
   const params = new URLSearchParams(query || "");
   if (params.get("order") || params.get("number")) return link;
+  // The notification's own saved details (SMS replies store the order id / number)
+  try {
+    const meta = n.metadata ? JSON.parse(n.metadata) : null;
+    if (meta?.orderId) return `/admin/orders?order=${encodeURIComponent(meta.orderId)}${meta.kind === "sms" || n.title?.includes("SMS") ? "&sms=1" : ""}`;
+    if (meta?.orderNumber) return `/admin/orders?number=${encodeURIComponent(meta.orderNumber)}`;
+  } catch { /* not JSON - fall through to the text */ }
   const fromSearch = params.get("search");
   const number = fromSearch && ORDER_NUMBER.test(fromSearch) ? fromSearch : (`${n.title || ""} ${n.message || ""}`.match(ORDER_NUMBER)?.[1] ?? null);
   return number ? `/admin/orders?number=${encodeURIComponent(number)}` : link;
