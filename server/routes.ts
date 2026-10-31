@@ -16381,10 +16381,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all customer orders (admin only) with source info
+  // Adds items, phone fallback and reseller name/address to raw order rows (shared by the list and the single-order lookup).
+  // Items are fetched in ONE query (the list used to run one query per order - 2,300+ queries per page load).
+  async function enrichAdminOrders(orders: Array<typeof customerOrders.$inferSelect>) {
+    if (orders.length === 0) return [];
+
+    // Reseller names: orders store either the reseller profile id or the auth user id, so map both
+    const allResellers = await db.select().from(resellers);
+    const resellerMap = new Map<string, string>();
+    const resellerAddressMap = new Map<string, string>();
+    for (const r of allResellers) {
+      if (r.id) {
+        resellerMap.set(r.id, r.businessName);
+        if (r.businessAddress) resellerAddressMap.set(r.id, r.businessAddress);
+      }
+      if (r.userId) {
+        resellerMap.set(r.userId, r.businessName);
+        if (r.businessAddress) resellerAddressMap.set(r.userId, r.businessAddress);
+      }
+    }
+
+    // Phone fallback: only look up users for orders that have a user but no phone on the order
+    const needPhoneUserIds = Array.from(new Set(orders.filter((o) => !o.customerPhone && o.userId).map((o) => o.userId as string)));
+    const userPhone = new Map<string, string | null>();
+    for (let i = 0; i < needPhoneUserIds.length; i += 500) {
+      const part = needPhoneUserIds.slice(i, i + 500);
+      const rows = await db.select({ id: users.id, phoneNumber: users.phoneNumber }).from(users).where(inArray(users.id, part));
+      for (const u of rows) userPhone.set(u.id, u.phoneNumber);
+    }
+
+    const itemsByOrder = new Map<string, Array<typeof customerOrderItems.$inferSelect>>();
+    const orderIds = orders.map((o) => o.id);
+    for (let i = 0; i < orderIds.length; i += 1000) {
+      const part = orderIds.slice(i, i + 1000);
+      const rows = await db.select().from(customerOrderItems).where(inArray(customerOrderItems.orderId, part));
+      for (const it of rows) {
+        const list = itemsByOrder.get(it.orderId);
+        if (list) list.push(it); else itemsByOrder.set(it.orderId, [it]);
+      }
+    }
+
+    return orders.map((order) => ({
+      ...order,
+      items: itemsByOrder.get(order.id) || [],
+      phoneNumber: order.customerPhone || (order.userId ? userPhone.get(order.userId) : null) || null,
+      resellerName: order.resellerId ? resellerMap.get(order.resellerId) || null : null,
+      resellerBusinessAddress: order.resellerId ? resellerAddressMap.get(order.resellerId) || null : null,
+    }));
+  }
+
   app.get("/api/admin/orders", requireAuth, requireAdmin, async (req, res) => {
     try {
       const { startDate, endDate, channel, resellerId } = req.query;
-      
+
       // Build query conditions
       const conditions: any[] = [];
       if (startDate) {
@@ -16399,58 +16448,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (resellerId && resellerId !== 'all') {
         conditions.push(eq(customerOrders.resellerId, resellerId as string));
       }
-      
-      // Get all customer orders with items
+
       const orders = conditions.length > 0
         ? await db.select().from(customerOrders).where(and(...conditions)).orderBy(desc(customerOrders.orderDate))
         : await db.select().from(customerOrders).orderBy(desc(customerOrders.orderDate));
-      
-      // Get all resellers for name lookup — build dual map covering both
-      // reseller profile ID (resellers.id) and auth user ID (resellers.userId)
-      // because different code paths store either value as customerOrders.resellerId
-      const allResellers = await db.select().from(resellers);
-      const resellerMap = new Map<string, string>();
-      const resellerAddressMap = new Map<string, string>();
-      for (const r of allResellers) {
-        if (r.id) {
-          resellerMap.set(r.id, r.businessName);
-          if (r.businessAddress) resellerAddressMap.set(r.id, r.businessAddress);
-        }
-        if (r.userId) {
-          resellerMap.set(r.userId, r.businessName);
-          if (r.businessAddress) resellerAddressMap.set(r.userId, r.businessAddress);
-        }
-      }
 
-      // Get all users for phone number fallback
-      const allUsers = await db.select().from(users);
-      const userMap = new Map(allUsers.map(u => [u.id, u.phoneNumber]));
-
-      // Get order items for each order
-      const ordersWithItems = await Promise.all(
-        orders.map(async (order) => {
-          const items = await db
-            .select()
-            .from(customerOrderItems)
-            .where(eq(customerOrderItems.orderId, order.id));
-
-          // Use customerPhone, or fallback to user's phone if order has userId
-          const phoneNumber = order.customerPhone || (order.userId ? userMap.get(order.userId) : null) || null;
-
-          return {
-            ...order,
-            items,
-            phoneNumber, // Map customerPhone to phoneNumber for frontend compatibility
-            resellerName: order.resellerId ? resellerMap.get(order.resellerId) || null : null,
-            resellerBusinessAddress: order.resellerId ? resellerAddressMap.get(order.resellerId) || null : null,
-          };
-        })
-      );
-
-      res.json(ordersWithItems);
+      res.json(await enrichAdminOrders(orders));
     } catch (error) {
       console.error("Get all orders error:", error);
       res.status(500).json({ error: "Failed to fetch orders" });
+    }
+  });
+
+  // One order by id or by order number (used when a notification link opens an order, so it works
+  // no matter what filters the Orders page has or whether the order is in the loaded list yet)
+  app.get("/api/admin/orders/lookup", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const id = typeof req.query.id === "string" ? req.query.id : "";
+      const number = typeof req.query.number === "string" ? req.query.number.trim() : "";
+      if (!id && !number) return res.status(400).json({ error: "id or number is required" });
+      const [row] = id
+        ? await db.select().from(customerOrders).where(eq(customerOrders.id, id)).limit(1)
+        : await db.select().from(customerOrders).where(sql`UPPER(${customerOrders.orderNumber}) = UPPER(${number})`).limit(1);
+      if (!row) return res.status(404).json({ error: "Order not found" });
+      const [order] = await enrichAdminOrders([row]);
+      res.json(order);
+    } catch (error) {
+      console.error("Order lookup error:", error);
+      res.status(500).json({ error: "Failed to look up order" });
     }
   });
 

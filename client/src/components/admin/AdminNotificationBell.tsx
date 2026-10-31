@@ -75,6 +75,26 @@ export function normaliseAdminLink(link: string): string {
   return query ? `${target}?${query}` : target;
 }
 
+// Order numbers look like RSL-1793021153662-9D9FWM, 1ST-MVP2SZNY-WI80, EXC-..., SQ-8O0TRAGU, ORD-...
+const ORDER_NUMBER = /\b((?:RSL|1ST|ORD|EXC|SQ)-[A-Z0-9][A-Z0-9-]*)\b/i;
+
+/**
+ * Where a notification should take you. Order notifications are sent to the exact order: older notifications
+ * (and several creation paths) only linked to the plain Orders list, so the order number is read from the
+ * notification text. ?search=<order number> links are treated the same way.
+ */
+export function resolveNotificationLink(n: { link: string | null; title?: string | null; message?: string | null }): string | null {
+  if (!n.link) return null;
+  const link = normaliseAdminLink(n.link);
+  const [path, query] = link.split("?");
+  if (path !== "/admin/orders") return link;
+  const params = new URLSearchParams(query || "");
+  if (params.get("order") || params.get("number")) return link;
+  const fromSearch = params.get("search");
+  const number = fromSearch && ORDER_NUMBER.test(fromSearch) ? fromSearch : (`${n.title || ""} ${n.message || ""}`.match(ORDER_NUMBER)?.[1] ?? null);
+  return number ? `/admin/orders?number=${encodeURIComponent(number)}` : link;
+}
+
 /** Mark all cached admin data stale so the page we open refetches instead of showing old data. */
 function refreshAdminData() {
   queryClient.invalidateQueries({
@@ -221,7 +241,7 @@ export function AdminNotificationBell() {
       // The page we are about to open may hold data cached up to a minute ago (before this
       // event happened), which looked like a blank/old page until a manual refresh.
       refreshAdminData();
-      setLocation(normaliseAdminLink(notification.link));
+      setLocation(resolveNotificationLink(notification) || normaliseAdminLink(notification.link));
     }
   };
 

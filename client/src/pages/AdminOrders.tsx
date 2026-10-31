@@ -408,30 +408,63 @@ export default function AdminOrders() {
     refetchInterval: 15000,
   });
 
-  // Deep link from a "Customer replied by SMS" notification: /admin/orders?order=<id>&sms=1
-  // opens that exact order and scrolls to its SMS conversation.
+  // Deep links from notifications: /admin/orders?order=<id>[&sms=1]  or  /admin/orders?number=<order number>
+  // The order is fetched from the server by id/number, so it opens every time - whatever filters are set on
+  // this page, whether or not the list has loaded yet, and even for orders brand new or very old.
   const urlSearch = useSearch();
   const handledDeepLinkRef = useRef<string | null>(null);
   useEffect(() => {
-    const orderId = new URLSearchParams(urlSearch).get("order");
-    if (!orderId) { handledDeepLinkRef.current = null; return; }
-    if (isLoading || handledDeepLinkRef.current === orderId) return;
-    const target = orders.find((o) => o.id === orderId);
-    handledDeepLinkRef.current = orderId;
+    const params = new URLSearchParams(urlSearch);
+    const orderId = params.get("order");
+    const orderNumber = params.get("number") || params.get("search");
+    if (!orderId && !orderNumber) { handledDeepLinkRef.current = null; return; }
+    const key = `${orderId || ""}|${orderNumber || ""}`;
+    if (handledDeepLinkRef.current === key) return;
+    handledDeepLinkRef.current = key;
+    const wantsSms = params.get("sms") === "1";
     window.history.replaceState(null, "", window.location.pathname);
-    if (!target) {
-      toast({ title: "Order not found", description: "That order is not in the current list — clear any filters and try again.", variant: "destructive" });
-      return;
-    }
-    handleViewOrder(target);
-    let tries = 0;
-    const scrollToSms = () => {
-      const el = document.getElementById("order-sms-section");
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-      else if (tries++ < 10) setTimeout(scrollToSms, 150);
-    };
-    setTimeout(scrollToSms, 250);
-  }, [urlSearch, orders, isLoading]);
+
+    let cancelled = false;
+    (async () => {
+      let found: Order | null = null;
+      let lastError = "";
+      for (let attempt = 0; attempt < 2 && !found; attempt++) {
+        try {
+          const qs = orderId ? `id=${encodeURIComponent(orderId)}` : `number=${encodeURIComponent(orderNumber as string)}`;
+          const res = await fetch(`/api/admin/orders/lookup?${qs}`, { credentials: "include" });
+          if (res.ok) found = await res.json();
+          else if (res.status === 404) { lastError = "not found"; break; }
+          else lastError = `server error ${res.status}`;
+        } catch (e: any) {
+          lastError = e?.message || "network error";
+        }
+        if (!found && attempt === 0) await new Promise((r) => setTimeout(r, 800));
+      }
+      if (cancelled) return;
+      if (!found) {
+        toast({
+          title: lastError === "not found" ? "Order not found" : "Could not open the order",
+          description: lastError === "not found"
+            ? "That order no longer exists. Try searching for the order number."
+            : "Please try clicking the notification again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (orderNumber) setSearchQuery(found.orderNumber);
+      handleViewOrder(found);
+      if (wantsSms) {
+        let tries = 0;
+        const scrollToSms = () => {
+          const el = document.getElementById("order-sms-section");
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+          else if (tries++ < 10) setTimeout(scrollToSms, 150);
+        };
+        setTimeout(scrollToSms, 250);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [urlSearch]);
 
   const { data: orderSummary } = useQuery<OrderSummary>({
     queryKey: ["/api/admin/orders/summary", startDate?.toISOString(), endDate?.toISOString()],
