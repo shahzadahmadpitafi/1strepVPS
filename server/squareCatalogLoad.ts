@@ -4,6 +4,7 @@
  *   npx tsx server/squareCatalogLoad.ts                 -> DRY RUN: shows exactly what would be created, writes nothing
  *   npx tsx server/squareCatalogLoad.ts --apply         -> creates categories, items, variations (SKU + price) and stock counts in Square
  *   add --include-hidden to also load products switched off on the website (still excludes discontinued items)
+ *   add --only="Stealth Tank|Ridge Bobble Hat" to load just those products (matched on name, case-insensitive, partial ok)
  *
  * Safe to re-run: variations already in Square (matched by SKU, or by the saved Square id) are skipped.
  * The Square ids are saved in the portal (products.square_item_id / product_variants.square_variation_id)
@@ -17,24 +18,29 @@ import { sql } from "drizzle-orm";
 
 const APPLY = process.argv.includes("--apply");
 const INCLUDE_HIDDEN = process.argv.includes("--include-hidden");
+const ONLY_ARG = process.argv.find((a) => a.startsWith("--only="));
+const ONLY = ONLY_ARG ? ONLY_ARG.slice(7).split("|").map((n) => n.trim()).filter(Boolean) : [];
 
 type Row = {
   product_id: string; product_name: string; category: string | null; product_sku: string | null;
-  variant_id: string; size: string; color: string; sku: string | null; retail_price: string; stock: number;
+  variant_id: string; size: string; color: string; sku: string | null; retail_price: string; stock: number; square_variation_id: string | null;
 };
+
+// Portal SKUs that were never filled in ("TO BE CONFIRMED -BLA-L", "NOT YET KNOWN-BLA-Large", "AWAITED -...", "TBC-...").
+// They are not sent to Square as SKUs - the variation is matched through its saved Square id instead.
+const PLACEHOLDER_SKU = /to be confirmed|not yet known|awaited|^tbc\b/i;
+const tidy = (s: string) => String(s).replace(/\s+/g, " ").trim();
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const chunk = <T,>(arr: T[], n: number) => Array.from({ length: Math.ceil(arr.length / n) }, (_, i) => arr.slice(i * n, i * n + n));
 
 async function main() {
-  if (APPLY) {
-    await db.execute(sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS square_item_id TEXT`);
-    await db.execute(sql`ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS square_variation_id TEXT`);
-  }
+  await db.execute(sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS square_item_id TEXT`);
+  await db.execute(sql`ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS square_variation_id TEXT`);
 
   const res = await db.execute(sql`
     SELECT p.id AS product_id, trim(p.name) AS product_name, p.category, p.sku AS product_sku,
-           v.id AS variant_id, v.size, v.color, v.sku, v.retail_price::text, GREATEST(COALESCE(v.stock_quantity,0),0) AS stock
+           v.id AS variant_id, v.size, v.color, v.sku, v.retail_price::text, GREATEST(COALESCE(v.stock_quantity,0),0) AS stock, v.square_variation_id
       FROM product_variants v
       JOIN products p ON p.id = v.product_id
      WHERE v.is_active AND NOT p.is_deleted
@@ -43,6 +49,7 @@ async function main() {
        AND v.sku IS NOT NULL AND trim(v.sku) <> ''
        AND v.stock_quantity < 100000
        ${INCLUDE_HIDDEN ? sql`` : sql`AND p.is_active`}
+       ${ONLY.length ? sql`AND (${sql.join(ONLY.map((n) => sql`trim(p.name) ILIKE ${"%" + n + "%"}`), sql` OR `)})` : sql``}
      ORDER BY trim(p.name), v.color, v.size
   `);
   const rows = res.rows as unknown as Row[];
@@ -78,8 +85,8 @@ async function main() {
 
   console.log(`\n${APPLY ? "APPLYING" : "DRY RUN"}: ${products.size} items, ${rows.length} variations (size/colour), ${categories.length} categories, ${units} units of stock`);
   console.log(`Scope: ${INCLUDE_HIDDEN ? "all live products incl. hidden-on-website (not discontinued)" : "products live on the website"}`);
-  console.log(`Left out (${excluded.rows.length} products):`);
-  for (const e of excluded.rows as any[]) console.log(`  - ${e.name} [${e.status}, ${e.variants} variations]: ${e.reason}`);
+  if (!ONLY.length) console.log(`Left out (${excluded.rows.length} products):`);
+  if (!ONLY.length) for (const e of excluded.rows as any[]) console.log(`  - ${e.name} [${e.status}, ${e.variants} variations]: ${e.reason}`);
 
   if (!APPLY) {
     const [first] = Array.from(products.values());
@@ -133,8 +140,9 @@ async function main() {
   for (const group of chunk(pending, 15)) {
     const objects: any[] = [];
     for (const [productId, vars] of group) {
-      const fresh = vars.filter((v) => !existingBySku.has(v.sku!));
-      for (const v of vars) if (existingBySku.has(v.sku!)) { variationIds.set(v.variant_id, existingBySku.get(v.sku!)!); skipped++; }
+      const inSquare = (v: Row) => !!v.square_variation_id || (!PLACEHOLDER_SKU.test(v.sku || "") && existingBySku.has(v.sku!));
+      const fresh = vars.filter((v) => !inSquare(v));
+      for (const v of vars) if (inSquare(v)) { variationIds.set(v.variant_id, v.square_variation_id || existingBySku.get(v.sku!)!); skipped++; }
       if (fresh.length === 0) continue;
       const name = itemName(vars[0]);
       if (existingItemByName.has(name)) { itemIds.set(productId, existingItemByName.get(name)!); }
@@ -153,8 +161,8 @@ async function main() {
             presentAtAllLocations: true,
             itemVariationData: {
               itemId: `#item-${productId}`,
-              name: `${v.size} / ${v.color}`,
-              sku: v.sku,
+              name: `${tidy(v.size)} / ${tidy(v.color)}`,
+              ...(PLACEHOLDER_SKU.test(v.sku || "") ? {} : { sku: v.sku }),
               ordinal: i,
               pricingType: "FIXED_PRICING",
               priceMoney: { amount: BigInt(Math.round(Number(v.retail_price) * 100)), currency: "GBP" },
