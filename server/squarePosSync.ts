@@ -17,6 +17,7 @@ import crypto from "crypto";
 import { SquareClient, SquareEnvironment } from "square";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
+import { getBuyerDetails, buyerNotesLine } from "./squareBuyerDetails";
 
 const POS_PRODUCTS = new Set(["RETAIL", "SQUARE_POS"]);
 export const SHOP_CHANNEL = "shop_square_pos";
@@ -162,21 +163,27 @@ export async function importPayment(payment: any, orderStatus: string, orderOver
     }
 
     const method = payment.sourceType === "CASH" ? "cash" : payment.cardDetails?.entryMethod === "CONTACTLESS" ? "square_tap_to_pay" : "square_card_in_person";
-    const email = payment.buyerEmailAddress && String(payment.buyerEmailAddress).includes("@") ? String(payment.buyerEmailAddress) : "no-email@epos.local";
+    // Who paid / how: email + phone if they took a receipt or paid via the Square page, card brand + last 4, receipt link
+    let buyer = null as Awaited<ReturnType<typeof getBuyerDetails>> | null;
+    try { buyer = await getBuyerDetails(client(), paymentId, payment.orderId); } catch { /* fall back to what the payment already holds */ }
+    const buyerEmail = (buyer?.email || payment.buyerEmailAddress || "").trim();
+    const email = buyerEmail.includes("@") ? buyerEmail : "no-email@epos.local";
+    const buyerNote = buyer ? buyerNotesLine(buyer) : "";
+    if (buyerNote) flags.push(`INFO ${buyerNote}`);
     const orderNumber = `SQ-${paymentId.replace(/[^A-Za-z0-9]/g, "").slice(-8).toUpperCase()}`;
     const when = new Date(payment.createdAt || Date.now());
     const delivered = orderStatus === "delivered";
 
     const inserted = (await db.execute(sql`
-      INSERT INTO customer_orders (order_number, status, customer_email, customer_first_name, customer_last_name,
+      INSERT INTO customer_orders (order_number, status, customer_email, customer_first_name, customer_last_name, customer_phone,
         shipping_address, shipping_city, shipping_postal_code, shipping_country,
         subtotal, shipping_cost, tax_amount, total_amount, discount_amount,
         payment_method, payment_intent_id, is_paid, channel, notes, order_date, paid_at, delivered_at)
-      VALUES (${orderNumber}, ${orderStatus}::customer_order_status, ${email}, 'Shop', 'Customer',
+      VALUES (${orderNumber}, ${orderStatus}::customer_order_status, ${email}, ${buyer?.firstName || 'Shop'}, ${buyer?.lastName || 'Customer'}, ${buyer?.phone || null},
         'In-Store Pickup', 'Store Collection', 'N/A', 'UK',
         ${subtotal.toFixed(2)}, '0.00', ${tax.toFixed(2)}, ${total.toFixed(2)}, ${discount.toFixed(2)},
         ${method}, ${paymentId}, true, ${SHOP_CHANNEL},
-        ${`Square in-person payment ${paymentId}${flags.length ? " | NEEDS ATTENTION: " + flags.join("; ") : ""}`},
+        ${`Square in-person payment ${paymentId}${buyerNote ? " | " + buyerNote : ""}${flags.filter((f) => !f.startsWith("INFO ")).length ? " | NEEDS ATTENTION: " + flags.filter((f) => !f.startsWith("INFO ")).join("; ") : ""}`},
         ${when}, ${when}, ${delivered ? when : null})
       RETURNING id`)).rows[0] as any;
     const orderId: string = inserted.id;
@@ -207,10 +214,11 @@ export async function importPayment(payment: any, orderStatus: string, orderOver
     await db.execute(sql`INSERT INTO customer_order_status_history (order_id, previous_status, new_status, changed_by_name, notes)
       VALUES (${orderId}, NULL, ${orderStatus}::customer_order_status, 'Square Tap to Pay', ${`Created automatically from Square payment ${paymentId}`})`);
 
-    await db.execute(sql`UPDATE square_pos_payments SET order_id = ${orderId}, order_number = ${orderNumber}, result = ${flags.length ? "needs_attention" : "ok"}, flags = ${flags.join(" | ") || null} WHERE payment_id = ${paymentId}`);
+    const problems = flags.filter((f) => !f.startsWith("INFO "));
+    await db.execute(sql`UPDATE square_pos_payments SET order_id = ${orderId}, order_number = ${orderNumber}, result = ${problems.length ? "needs_attention" : "ok"}, flags = ${problems.join(" | ") || null} WHERE payment_id = ${paymentId}`);
     if (touched.length) await pushStockToSquare(Array.from(new Set(touched)));
-    if (flags.length) await notifyAdmin("Shop sale needs attention", `Order ${orderNumber} (£${total.toFixed(2)}): ${flags.join("; ")}`, orderNumber);
-    console.log(`[SquarePOS] ${orderNumber} created from payment ${paymentId}: £${total.toFixed(2)}, ${items.length} line(s)${flags.length ? " - needs attention" : ""}`);
+    if (problems.length) await notifyAdmin("Shop sale needs attention", `Order ${orderNumber} (£${total.toFixed(2)}): ${problems.join("; ")}`, orderNumber);
+    console.log(`[SquarePOS] ${orderNumber} created from payment ${paymentId}: £${total.toFixed(2)}, ${items.length} line(s)${problems.length ? " - needs attention" : ""}`);
   } catch (err: any) {
     // Release the claim so the next pass retries this payment
     await db.execute(sql`DELETE FROM square_pos_payments WHERE payment_id = ${paymentId} AND result = 'processing'`);
@@ -254,6 +262,35 @@ export async function processRefund(refund: any): Promise<void> {
       await notifyAdmin("Shop partial refund - check stock", `Order ${ord.order_number}: £${refunded.toFixed(2)} of £${Number(ord.total).toFixed(2)} was refunded in Square. Please adjust stock for any returned item by hand.`, ord.order_number);
     }
   }
+}
+
+/** Re-read Square for shop orders created before buyer details were captured and fill in any gaps. Safe to re-run. */
+export async function backfillShopOrderDetails(): Promise<{ checked: number; updated: number }> {
+  const rows = (await db.execute(sql`
+    SELECT o.id, o.order_number, o.payment_intent_id AS pid, o.customer_email, o.customer_first_name, o.customer_phone, o.notes, p.payment_id
+      FROM customer_orders o JOIN square_pos_payments p ON p.order_id = o.id
+     WHERE o.channel = ${SHOP_CHANNEL}
+  `)).rows as any[];
+  let updated = 0;
+  for (const r of rows) {
+    const b = await getBuyerDetails(client(), r.payment_id, null);
+    const note = buyerNotesLine(b);
+    const needEmail = r.customer_email === "no-email@epos.local" && !!b.email;
+    const needName = r.customer_first_name === "Shop" && !!(b.firstName || b.lastName);
+    const needPhone = !r.customer_phone && !!b.phone;
+    const needNote = !!note && !String(r.notes || "").includes(note);
+    if (!(needEmail || needName || needPhone || needNote)) continue;
+    await db.execute(sql`
+      UPDATE customer_orders SET
+        customer_email = ${needEmail ? b.email : r.customer_email},
+        customer_first_name = ${needName ? (b.firstName || "Shop") : r.customer_first_name},
+        customer_last_name = CASE WHEN ${needName} THEN ${b.lastName || ""} ELSE customer_last_name END,
+        customer_phone = ${needPhone ? b.phone : r.customer_phone},
+        notes = ${needNote ? `${r.notes || ""} | ${note}` : r.notes}
+       WHERE id = ${r.id}`);
+    updated++;
+  }
+  return { checked: rows.length, updated };
 }
 
 export async function runPosSyncOnce(): Promise<{ imported: number }> {

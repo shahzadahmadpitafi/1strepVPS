@@ -126,6 +126,7 @@ interface ResellerProfile {
   ownSquareSetup: boolean;
   eposBankDetails: { accountName: string; sortCode: string; accountNumber: string } | null;
   ownProductsLabel?: string | null; // custom tab name for this reseller's own products (e.g. "Running Junkie")
+  quickQrCheckout?: boolean; // shop mode: QR straight away, customer details come from the Square payment / Apple Pay
 }
 
 export default function ResellerEPOS() {
@@ -883,7 +884,9 @@ export default function ResellerEPOS() {
   // True when every item in the cart is the reseller's own product - email not required in this case
   const allOwnProducts = cartItems.length > 0 && cartItems.every(item => item.isResellerProduct || item.productType === 'own_product');
 
-  const isCheckoutInfoComplete = allOwnProducts || (
+  // Shop mode (1st Rep HQ): the QR can be shown straight away, Square collects the customer's details on the payment page
+  const quickQrMode = !!resellerProfile?.quickQrCheckout && paymentMethod === "qr";
+  const isCheckoutInfoComplete = allOwnProducts || quickQrMode || (
     validateEmail(customerEmail) &&
     customerFirstName.trim().length > 0 &&
     customerPhone.trim().length >= 7 &&
@@ -2844,9 +2847,14 @@ export default function ResellerEPOS() {
             {/* Left Column - Customer Details (hidden when all items are reseller's own products) */}
             {!allOwnProducts && (
             <div className="space-y-3">
+              {resellerProfile?.quickQrCheckout && paymentMethod === "qr" && (
+                <div className="p-3 rounded-lg border border-emerald-500/30 bg-emerald-900/20 text-emerald-200 text-sm" data-testid="note-quick-qr">
+                  No need to fill these in. The customer enters (or Apple Pay supplies) their name, phone and email on the payment page after scanning.
+                </div>
+              )}
               {/* Customer Name */}
               <div className="space-y-2">
-                <Label className="text-white/60 text-sm">Customer Name *</Label>
+                <Label className="text-white/60 text-sm">Customer Name{quickQrMode ? " (optional)" : " *"}</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <Input
                     type="text"

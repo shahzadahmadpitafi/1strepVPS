@@ -12620,6 +12620,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         businessAddress: reseller.businessAddress,
         logoUrl: reseller.logoUrl || null,
         ownProductsLabel: (reseller as any).ownProductsLabel || null,
+        quickQrCheckout: (reseller as any).quickQrCheckout === true,
         tier: reseller.tier,
         discountPercentage: reseller.discountPercentage,
         couponCode: couponResult?.code || null,

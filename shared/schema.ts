@@ -206,6 +206,9 @@ export const resellers = pgTable("resellers", {
   businessName: text("business_name").notNull(),
   // Custom name for the "Own Products" tab in this reseller's EPOS (e.g. "Running Junkie"). NULL = standard "Own Products".
   ownProductsLabel: text("own_products_label"),
+  // Shop mode: the EPOS shows the payment QR straight away (no customer fields to fill in) and the customer's
+  // details are taken from the Square payment page / Apple Pay instead. FALSE for everyone except 1st Rep HQ.
+  quickQrCheckout: boolean("quick_qr_checkout").notNull().default(false),
   contactPerson: text("contact_person").notNull(),
   businessAddress: text("business_address").notNull(),
   phoneNumber: text("phone_number").notNull(),

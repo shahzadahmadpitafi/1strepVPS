@@ -9,6 +9,7 @@ import { sendOrderConfirmation } from './email-service';
 import { emitOrderEvent } from './socketServer';
 import { requireAuth, requireReseller } from './middleware/auth';
 import { isPromoActive, DISCOUNT_PCT as PROMO_DISCOUNT_PCT } from '../shared/promo';
+import { getBuyerDetails, buyerNotesLine } from './squareBuyerDetails';
 
 const squareClient = new SquareClient({
   token: process.env.SQUARE_ACCESS_TOKEN,
@@ -135,16 +136,42 @@ export async function autoCreateEposOrderFromPending(opts: {
       commissionRateApplied = resellerRows[0]?.commissionRate || '10.00';
     }
 
+    // Customer details the till did not collect (shop mode): read them from the Square payment instead
+    let squareBuyerNote = '';
+    let buyerEmail = pending.customerEmail;
+    let buyerPhone = pending.customerPhone;
+    let buyerFirst = pending.customerFirstName;
+    let buyerLast = pending.customerLastName;
+    try {
+      const needsDetails = !buyerEmail || !buyerFirst || !buyerPhone;
+      let detailsClient: SquareClient = squareClient;
+      if (pending.ownSquare && pending.resellerId) {
+        const rr = await db.select().from(resellers).where(eq(resellers.id, pending.resellerId)).limit(1);
+        const own = rr[0] ? makeOwnSquareClient(rr[0] as any) : null;
+        if (own) detailsClient = own;
+      }
+      const details = await getBuyerDetails(detailsClient, opts.squarePaymentId, (pending as any).squareOrderId);
+      if (needsDetails) {
+        buyerEmail = buyerEmail || details.email;
+        buyerPhone = buyerPhone || details.phone;
+        buyerFirst = buyerFirst || details.firstName;
+        buyerLast = buyerLast || details.lastName;
+      }
+      squareBuyerNote = buyerNotesLine(details);
+    } catch (detailsErr: any) {
+      console.warn('autoCreateEposOrder: could not read buyer details from Square:', detailsErr?.message);
+    }
+
     await db.insert(customerOrders).values({
       id: orderId,
       orderNumber,
       // A reseller's own products are handed over in person at the till, so they are delivered the moment they are paid.
       status: channel === 'reseller_epos_own' ? 'delivered' : 'processing',
       deliveredAt: channel === 'reseller_epos_own' ? (opts.paidAt ?? new Date()) : null,
-      customerEmail: pending.customerEmail || 'no-email@epos.local',
-      customerFirstName: pending.customerFirstName || 'EPOS',
-      customerLastName: pending.customerLastName || 'Customer',
-      customerPhone: pending.customerPhone || null,
+      customerEmail: buyerEmail || 'no-email@epos.local',
+      customerFirstName: buyerFirst || 'EPOS',
+      customerLastName: buyerLast || 'Customer',
+      customerPhone: buyerPhone || null,
       shippingAddress: isCollection ? 'Collect from Store' : (deliveryAddr?.address || 'Not provided'),
       shippingCity: isCollection ? 'Store Collection' : (deliveryAddr?.city || ''),
       shippingPostalCode: isCollection ? 'N/A' : (deliveryAddr?.postcode || ''),
@@ -162,7 +189,7 @@ export async function autoCreateEposOrderFromPending(opts: {
       channel,
       resellerId: pending.resellerId || null,
       commissionRateApplied,
-      notes: `Auto-recovered: Square QR payment ${opts.squarePaymentId} confirmed server-side. Ref: ${pending.referenceId}`,
+      notes: `Auto-recovered: Square QR payment ${opts.squarePaymentId} confirmed server-side. Ref: ${pending.referenceId}${squareBuyerNote ? ' | ' + squareBuyerNote : ''}`,
       orderDate: opts.paidAt ?? new Date(),
     } as any);
 
@@ -1639,6 +1666,15 @@ export function registerSquareRoutes(app: Express) {
       const host = req.headers['x-forwarded-host'] || req.headers.host;
       const baseUrl = `${protocol}://${host}`;
 
+      // Shop mode (1st Rep HQ): let Square collect name / phone / email on the payment page instead of the till
+      let collectContactOnPage = false;
+      if (resellerId) {
+        try {
+          const flag = await db.execute(sql`SELECT quick_qr_checkout FROM resellers WHERE id = ${resellerId}`);
+          collectContactOnPage = (flag.rows[0] as any)?.quick_qr_checkout === true;
+        } catch { /* flag column not there yet: normal behaviour */ }
+      }
+
       const checkoutOptions: any = {
         acceptedPaymentMethods: {
           applePay: true,
@@ -1646,7 +1682,7 @@ export function registerSquareRoutes(app: Express) {
           cashAppPay: false,
           afterpayClearpay: false,
         },
-        askForShippingAddress: false,
+        askForShippingAddress: collectContactOnPage,
         redirectUrl: `${baseUrl}/payment-confirmed`,
       };
 
