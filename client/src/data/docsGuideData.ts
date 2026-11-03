@@ -1480,7 +1480,147 @@ export const doc8: GuideData = {
   ],
 };
 
+// ═════════════════════════════════════════════════════════════════
+// DOC 9 — Reseller Own Payment Gateway Complete Guide
+// ═════════════════════════════════════════════════════════════════
+export const doc9: GuideData = {
+  slug: 'reseller-own-gateway',
+  docNum: '9', docTotal: '9',
+  title: 'Reseller Own Payment', titleAccent: 'Gateway Guide',
+  subtitle: 'How to move a reseller onto their own payment gateway (their own Square account) so customers pay them directly, and how to check it works.',
+  chips: ['9 Chapters', 'Reseller & Admin', 'Last Updated Nov 2026'],
+  nav: [
+    { id: 'ch1', num: '1', title: 'What "Own Gateway" Means' },
+    { id: 'ch2', num: '2', title: 'Before You Start' },
+    { id: 'ch3', num: '3', title: 'Connecting Square (Reseller Steps)' },
+    { id: 'ch4', num: '4', title: 'Admin Checks & Test Sale', sub: [
+      { id: 'ch4-check', num: '4.1', title: 'Check the Connection' },
+      { id: 'ch4-test', num: '4.2', title: 'Run a Test Sale' },
+    ]},
+    { id: 'ch5', num: '5', title: 'How Orders & Money Behave', sub: [
+      { id: 'ch5-carts', num: '5.1', title: 'Own, Catalogue and Mixed Carts' },
+      { id: 'ch5-records', num: '5.2', title: 'What Shows in the Portal' },
+    ]},
+    { id: 'ch6', num: '6', title: 'Other Payment Options' },
+    { id: 'ch7', num: '7', title: 'Changing or Disconnecting' },
+    { id: 'ch8', num: '8', title: 'Troubleshooting' },
+    { id: 'ch9', num: '9', title: 'Quick Checklist & FAQ' },
+  ],
+  chapters: [
+    { id: 'ch1', num: '1', title: 'What "Own Gateway" Means', blocks: [
+      { type: 'p', text: 'By default every card payment taken at a reseller EPOS goes into the 1stRep Square account, and 1stRep pays the reseller what they have earned. Moving a reseller to their own gateway means that, for the reseller\'s OWN products, the customer\'s payment goes straight into the reseller\'s own Square account instead. 1stRep never holds that money, so nothing is owed to the reseller for those sales.' },
+      { type: 'grid', items: [
+        'Customer pays by card, Apple Pay or Google Pay through a QR code at the EPOS',
+        'Money lands in the reseller\'s own Square account, then their bank (usually 1-2 working days)',
+        'The order is created in the portal automatically and marked Delivered',
+        'No commission, payout or 1stRep cut applies to the reseller\'s own products',
+      ]},
+      { type: 'warning', text: 'The gateway only applies to the reseller\'s OWN products. Products from the 1stRep range always go through the 1stRep account, and the reseller earns commission on them as normal.' },
+    ]},
+    { id: 'ch2', num: '2', title: 'Before You Start', blocks: [
+      { type: 'p', text: 'Check each of these first. Most failed set-ups come from one of them being missing.' },
+      { type: 'numbered', items: [
+        { label: 'The reseller can add their own products', detail: 'they need the own-products permission (it is switched on when a licence request is approved, or by an admin using the "Can add own products" switch on their wholesaler profile). If they have no own products, there is nothing to route to their gateway.' },
+        { label: 'They have a Square account', detail: 'free to create at squareup.com. It must be a UK account taking GBP, fully verified, with their bank account added so payouts arrive.' },
+        { label: 'The reseller does the connecting themselves', detail: 'it needs their own Square login. An admin cannot connect it on their behalf, but can sit with them or screen-share.' },
+        { label: 'They log into Square in the same browser first', detail: 'this avoids being sent to the wrong Square account or getting stuck on a login loop.' },
+      ]},
+      { type: 'note', text: 'Square currently charges about 1.75% per in-person card payment in the UK with no monthly fee. Check squareup.com for the latest rates before telling a reseller.' },
+    ]},
+    { id: 'ch3', num: '3', title: 'Connecting Square (Reseller Steps)', blocks: [
+      { type: 'numbered', items: [
+        { label: 'Log into the reseller portal', detail: '1strep.com/reseller-login' },
+        { label: 'Open the Settings tab' },
+        { label: 'Find the box called "Square — EPOS Card Payments"', detail: 'it shows a grey "Not connected" badge before set-up' },
+        { label: 'Log into their Square account in the same browser', detail: 'or create the account now if they do not have one' },
+        { label: 'Click "Connect with Square"' },
+        { label: 'On the Square screen click "Allow"', detail: 'this only lets 1stRep take payments for them. It cannot see their personal details or move money without a customer payment.' },
+        { label: 'They are sent back to Settings', detail: 'a green "Connected" badge and a success message appear. Their Square location is picked up automatically. There is nothing to copy or paste.' },
+      ]},
+      { type: 'note', text: 'If the Square account has more than one location, the portal uses the first active one. Make sure the location the reseller wants the money in is their main, active location.' },
+      { type: 'warning', text: 'Never ask a reseller to send you their Square password or access token. The Connect button is the only safe way to link an account.' },
+    ]},
+    { id: 'ch4', num: '4', title: 'Admin Checks & Test Sale', blocks: [
+      { type: 'sub', id: 'ch4-check', num: '4.1', title: 'Check the Connection' },
+      { type: 'bullets', items: [
+        { label: 'Admin > B2B Partners', detail: 'the reseller\'s card shows "Own Square connected" with the date. Before set-up it says "Own Square not connected".' },
+        { label: 'Reseller portal > Settings', detail: 'the Square box shows the green Connected badge and the connection date.' },
+      ]},
+      { type: 'sub', id: 'ch4-test', num: '4.2', title: 'Run a Test Sale' },
+      { type: 'numbered', items: [
+        { label: 'Open the reseller EPOS' },
+        { label: 'Add ONE of their own products to the basket', detail: 'a small-value item is best. Do not mix in a 1stRep product.' },
+        { label: 'Choose the Square QR payment' },
+        { label: 'Scan the QR code on a phone and pay', detail: 'the payment is real, so refund it afterwards if it was only a test' },
+        { label: 'Check the reseller\'s Square dashboard', detail: 'the payment should appear there within a minute' },
+        { label: 'Check Admin > Orders', detail: 'a new order appears as "Reseller EPOS (reseller\'s own products)", status Delivered' },
+      ]},
+    ]},
+    { id: 'ch5', num: '5', title: 'How Orders & Money Behave', blocks: [
+      { type: 'sub', id: 'ch5-carts', num: '5.1', title: 'Own, Catalogue and Mixed Carts' },
+      { type: 'table', headers: ['Basket contains', 'Where the payment goes', 'What the reseller earns'], rows: [
+        ['Only the reseller\'s own products', 'The reseller\'s own Square account', '100% (minus Square\'s fee). Nothing owed by 1stRep'],
+        ['Only 1stRep range products', 'The 1stRep Square account', 'Commission on the sale, paid out by 1stRep as usual'],
+        ['Both together', 'Split into TWO orders, each paid to the right place', 'Own items 100% direct, 1stRep items earn commission'],
+      ]},
+      { type: 'sub', id: 'ch5-records', num: '5.2', title: 'What Shows in the Portal' },
+      { type: 'bullets', items: [
+        { label: 'Orders list', detail: 'own-product sales show as "Reseller EPOS (reseller\'s own products)", automatically Delivered, because the goods are handed over at the till' },
+        { label: 'Payouts', detail: 'sales paid straight into the reseller\'s own Square are not added to what 1stRep owes them' },
+        { label: 'Reports', detail: 'revenue still appears in the orders reports, with the reseller\'s name in the Reseller / Partner column' },
+        { label: 'Customer emails', detail: 'own-product orders do not trigger review requests' },
+        { label: 'Refunds', detail: 'the money is in the reseller\'s own Square, so a card refund is made from their Square account. Let an admin know so the order can be updated.' },
+      ]},
+    ]},
+    { id: 'ch6', num: '6', title: 'Other Payment Options', blocks: [
+      { type: 'bullets', items: [
+        { label: 'Square (recommended)', detail: 'the only option a reseller can set up themselves today. Card, Apple Pay and Google Pay with automatic confirmation.' },
+        { label: 'Bank transfer at the EPOS', detail: 'the EPOS can show customers the reseller\'s bank details and a reference, and staff confirm once it arrives. At the time of writing there is no screen for a reseller to enter these bank details, so ask Shahzad if a reseller needs this.' },
+        { label: 'Stripe Connect', detail: 'a Stripe box appears in the Settings tab, but Stripe is not switched on for 1stRep, so it will not work. Do not use it.' },
+        { label: 'Cash', detail: 'always available at the EPOS and does not use a gateway' },
+      ]},
+    ]},
+    { id: 'ch7', num: '7', title: 'Changing or Disconnecting', blocks: [
+      { type: 'numbered', items: [
+        { label: 'Reseller portal > Settings > Square box', detail: 'click Disconnect (red button)' },
+        { label: 'To use a different Square account', detail: 'disconnect, log into the other Square account in the browser, then click Connect with Square again' },
+        { label: 'After disconnecting', detail: 'own-product sales go back to the 1stRep account and the reseller is paid through the normal payout route' },
+      ]},
+      { type: 'note', text: 'Orders already paid into the reseller\'s own Square stay there. Disconnecting only affects future sales.' },
+    ]},
+    { id: 'ch8', num: '8', title: 'Troubleshooting', blocks: [
+      { type: 'table', headers: ['What they see', 'Meaning', 'What to do'], rows: [
+        ['"You cancelled the Square authorisation" (access_denied)', 'They clicked Cancel or Deny on Square', 'Try again and click Allow'],
+        ['Error: not_configured', 'The 1stRep Square connection is missing on the server', 'Tell Shahzad straight away'],
+        ['Error: token_exchange_failed', 'Square did not accept the authorisation (often a timed-out page or wrong account)', 'Log into the right Square account and try again from the start'],
+        ['Error: no_locations', 'The Square account has no active location', 'Finish setting up their Square account, then reconnect'],
+        ['Error: invalid_state, missing_state or no_code', 'The connection page was opened or refreshed part-way', 'Go back to Settings and click Connect with Square again'],
+        ['Error: callback_failed', 'Something failed on our side after Square approved', 'Try once more, then tell Shahzad'],
+        ['Still says "Own Square not connected"', 'The set-up did not finish, or the page is out of date', 'Refresh the page, then check the reseller\'s Settings tab. Reconnect if still grey.'],
+        ['Payment takes money into 1stRep\'s account instead', 'The basket included a 1stRep product, or Square is not connected', 'Check the basket is own products only and the Connected badge is green'],
+      ]},
+    ]},
+    { id: 'ch9', num: '9', title: 'Quick Checklist & FAQ', blocks: [
+      { type: 'grid', items: [
+        'Reseller has the own-products permission and at least one own product',
+        'Reseller has a verified UK Square account with a bank account added',
+        'Reseller logged into Square, then clicked Connect with Square and Allow',
+        'Green Connected badge in their Settings; "Own Square connected" in Admin > B2B Partners',
+        'One own-product test sale paid by QR, seen in their Square and in Admin > Orders',
+        'Test payment refunded if it was only a test',
+      ]},
+      { type: 'sub', id: 'ch9-faq', num: '', title: 'Frequently asked questions' },
+      { type: 'bullets', items: [
+        { label: 'Can we move their 1stRep product sales to their own gateway too?', detail: 'No. 1stRep range sales always go through the 1stRep account because 1stRep pays the commission. Only the reseller\'s own products use their own gateway.' },
+        { label: 'Can an admin connect it for them?', detail: 'No, it needs their own Square login. An admin can sit with them or screen-share.' },
+        { label: 'Does 1stRep take a cut?', detail: 'No. Own-product sales paid into the reseller\'s own Square carry no 1stRep commission or fee. Square charges its own processing fee.' },
+        { label: 'Which resellers can use it?', detail: 'Any reseller who has own products. Moving one reseller does not change any other reseller.' },
+      ]},
+    ]},
+  ],
+};
+
 // ─── Index ───────────────────────────────────────────────────────────────────
-export const ALL_GUIDES: GuideData[] = [doc1, doc2, doc3, doc4, doc5, doc6, doc7, doc8];
+export const ALL_GUIDES: GuideData[] = [doc1, doc2, doc3, doc4, doc5, doc6, doc7, doc8, doc9];
 
 export const GUIDE_BY_SLUG = Object.fromEntries(ALL_GUIDES.map(g => [g.slug, g]));

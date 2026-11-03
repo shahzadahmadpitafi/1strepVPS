@@ -449,6 +449,7 @@ export default function AdminDocuments() {
                               "influencer-programme-guide.pdf": "/admin/docs/influencer-programme",
                               "crm-marketing-support-guide.pdf": "/admin/docs/crm-marketing",
                               "platform-admin-settings-guide.pdf": "/admin/docs/platform-admin-settings",
+                              "reseller-own-payment-gateway-guide.pdf": "/admin/docs/reseller-own-gateway",
                             };
                             const webUrl = WEB_GUIDES[doc.fileName];
                             return webUrl ? (
