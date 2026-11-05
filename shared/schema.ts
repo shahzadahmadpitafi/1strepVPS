@@ -209,6 +209,9 @@ export const resellers = pgTable("resellers", {
   // Shop mode: the EPOS shows the payment QR straight away (no customer fields to fill in) and the customer's
   // details are taken from the Square payment page / Apple Pay instead. FALSE for everyone except 1st Rep HQ.
   quickQrCheckout: boolean("quick_qr_checkout").notNull().default(false),
+  // This reseller's till sells from the MAIN stock (product_variants), not from a separate reseller stock allocation.
+  // TRUE only for 1st Rep HQ (the shop).
+  eposUsesMainStock: boolean("epos_uses_main_stock").notNull().default(false),
   contactPerson: text("contact_person").notNull(),
   businessAddress: text("business_address").notNull(),
   phoneNumber: text("phone_number").notNull(),

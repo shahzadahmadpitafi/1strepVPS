@@ -2965,6 +2965,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Stock history: every change to a size/colour's stock number (old -> new, when). Use ?variantId=, ?sku= or ?product=name
+  // to see exactly what moved when a spot check disagrees with the system.
+  app.get("/api/admin/inventory/history", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const variantId = typeof req.query.variantId === "string" ? req.query.variantId : "";
+      const sku = typeof req.query.sku === "string" ? req.query.sku : "";
+      const product = typeof req.query.product === "string" ? req.query.product.trim() : "";
+      const days = Math.min(Math.max(parseInt(String(req.query.days || "14"), 10) || 14, 1), 120);
+      const rows = await db.execute(sql`
+        SELECT to_char(a.changed_at AT TIME ZONE 'Europe/London', 'YYYY-MM-DD HH24:MI:SS') AS at,
+               trim(p.name) AS product, v.size, v.color, v.sku, a.old_qty AS "from", a.new_qty AS "to", a.delta
+          FROM stock_audit a
+          JOIN product_variants v ON v.id = a.variant_id
+          JOIN products p ON p.id = v.product_id
+         WHERE a.changed_at > NOW() - (${days} || ' days')::interval
+           AND (${variantId} = '' OR a.variant_id = ${variantId})
+           AND (${sku} = '' OR v.sku = ${sku})
+           AND (${product} = '' OR p.name ILIKE ${"%" + product + "%"})
+         ORDER BY a.changed_at DESC
+         LIMIT 500`);
+      res.json(rows.rows);
+    } catch (error) {
+      console.error("Stock history error:", error);
+      res.status(500).json({ error: "Failed to load stock history" });
+    }
+  });
+
   app.get("/api/product-variants/:productId", requireAuth, requireAdmin, async (req, res) => {
     try {
       const { productId } = req.params;
@@ -13606,6 +13633,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }));
 
         // Step 3: update stock for all items in parallel
+        // (a till flagged "sells from main stock", i.e. 1st Rep HQ, takes catalogue items off the MAIN stock instead)
+        const mainStockItems: any[] = [];
         await Promise.all(enriched.map(({ item, isVendorProduct }) => {
           if (isVendorProduct) {
             return db.update(vendorProductVariants)
@@ -13615,6 +13644,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 item.size ? eq(vendorProductVariants.size, item.size) : sql`true`,
                 item.color ? eq(vendorProductVariants.color, item.color) : sql`true`
               ));
+          } else if (reseller && (reseller as any).eposUsesMainStock === true) {
+            mainStockItems.push(item);
+            return Promise.resolve();
           } else if (reseller) {
             return db.update(resellerInventory)
               .set({ quantity: sql`quantity - ${item.quantity}`, updatedAt: new Date() })
@@ -13627,6 +13659,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           return Promise.resolve();
         }));
+        if (mainStockItems.length) {
+          try {
+            const { deductMainStock } = await import("./stockDeduct");
+            const changed = await deductMainStock(mainStockItems.map((i: any) => ({ productId: i.productId, size: i.size || null, color: i.color || null, quantity: Number(i.quantity) || 1 })));
+            if (changed.length) import("./squarePosSync").then((m) => m.pushStockToSquare(changed)).catch(() => {});
+          } catch (mainStockErr) {
+            console.error("EPOS main-stock deduction failed (order kept, check stock):", mainStockErr);
+          }
+        }
       };
 
       // ── Shared base fields for order insert ───────────────────────────────────

@@ -355,6 +355,9 @@ app.use((req, res, next) => {
       const { sql: labelSql } = await import("drizzle-orm");
       await labelDb.execute(labelSql`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS own_products_label TEXT`);
       await labelDb.execute(labelSql`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS quick_qr_checkout BOOLEAN NOT NULL DEFAULT FALSE`);
+      await labelDb.execute(labelSql`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS epos_uses_main_stock BOOLEAN NOT NULL DEFAULT FALSE`);
+      const { ensureStockAudit } = await import("./stockDeduct");
+      await ensureStockAudit();
     } catch (err) {
       console.error("[EPOS] own_products_label column setup failed:", err);
     }

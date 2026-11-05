@@ -10,6 +10,7 @@ import { emitOrderEvent } from './socketServer';
 import { requireAuth, requireReseller } from './middleware/auth';
 import { isPromoActive, DISCOUNT_PCT as PROMO_DISCOUNT_PCT } from '../shared/promo';
 import { getBuyerDetails, buyerNotesLine } from './squareBuyerDetails';
+import { deductMainStock } from './stockDeduct';
 
 const squareClient = new SquareClient({
   token: process.env.SQUARE_ACCESS_TOKEN,
@@ -214,6 +215,26 @@ export async function autoCreateEposOrderFromPending(opts: {
         totalPrice: String(unitPrice * qty),
         locationNote: 'In-store',
       } as any);
+    }
+
+    // 5b. A till that sells from the shop's MAIN stock (1st Rep HQ): take the catalogue items off product_variants.
+    //     (Before this, QR/card sales at that till never reduced stock at all.)
+    try {
+      if (pending.resellerId) {
+        const flag = await db.execute(sql`SELECT epos_uses_main_stock FROM resellers WHERE id = ${pending.resellerId}`);
+        if ((flag.rows[0] as any)?.epos_uses_main_stock === true) {
+          const catalogueItems = items.filter((i: any) => !(i.isResellerProduct === true || (i.productId && !catalogueProductIds.has(i.productId))));
+          const changed = await deductMainStock(catalogueItems.map((i: any) => ({
+            productId: i.productId, size: i.size || null, color: i.color || null, quantity: parseInt(i.quantity || '1', 10),
+          })));
+          if (changed.length) {
+            console.log(`📦 Shop till sale ${orderNumber}: took ${catalogueItems.length} line(s) off main stock`);
+            import('./squarePosSync').then((m) => m.pushStockToSquare(changed)).catch(() => {});
+          }
+        }
+      }
+    } catch (stockErr: any) {
+      console.error('EPOS main-stock deduction failed (order kept, check stock):', stockErr?.message);
     }
 
     // 6. Auto-calculate commission for catalogue items (reseller_epos only — not own-product sales)
