@@ -358,6 +358,9 @@ app.use((req, res, next) => {
       await labelDb.execute(labelSql`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS epos_uses_main_stock BOOLEAN NOT NULL DEFAULT FALSE`);
       const { ensureStockAudit } = await import("./stockDeduct");
       await ensureStockAudit();
+      const { ensureStockIntegrityTables, startStockIntegrityMonitor } = await import("./stockIntegrity");
+      await ensureStockIntegrityTables();
+      startStockIntegrityMonitor();
     } catch (err) {
       console.error("[EPOS] own_products_label column setup failed:", err);
     }

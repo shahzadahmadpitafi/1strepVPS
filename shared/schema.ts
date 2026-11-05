@@ -787,6 +787,9 @@ export const customerOrders = pgTable("customer_orders", {
   shippedAt: timestamp("shipped_at"),
   deliveredAt: timestamp("delivered_at"),
 
+  // Set when a cancelled order's items were put back into stock (so it only ever happens once)
+  stockRestoredAt: timestamp("stock_restored_at"),
+
   // Post-delivery review request tracking
   reviewEmailSentAt: timestamp("review_email_sent_at"),
   reviewSmsSentAt: timestamp("review_sms_sent_at"),

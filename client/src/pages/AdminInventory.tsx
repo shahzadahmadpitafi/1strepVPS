@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Plus, Pencil, Barcode } from "lucide-react";
+import { Search, Plus, Pencil, Barcode, History } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import BarcodeGenerator from "@/components/BarcodeGenerator";
@@ -45,6 +45,11 @@ export default function AdminInventory() {
   const [searchQuery, setSearchQuery] = useState("");
   const [editingVariant, setEditingVariant] = useState<InventoryItem | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [historyVariant, setHistoryVariant] = useState<InventoryItem | null>(null);
+  const { data: stockHistory = [], isLoading: loadingHistory } = useQuery<Array<{ at: string; from: number | null; to: number | null; delta: number | null }>>({
+    queryKey: [`/api/admin/inventory/history?variantId=${historyVariant?.id ?? ""}&days=60`],
+    enabled: !!historyVariant,
+  });
   const [stockQuantity, setStockQuantity] = useState("");
   const [barcodeDescriptor, setBarcodeDescriptor] = useState("");
   const [locationNote, setLocationNote] = useState("");
@@ -362,6 +367,15 @@ export default function AdminInventory() {
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Stock history"
+                            onClick={() => setHistoryVariant(variant)}
+                            data-testid={`button-stock-history-${variant.id}`}
+                          >
+                            <History className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -382,6 +396,44 @@ export default function AdminInventory() {
           <InventoryManager />
         </TabsContent>
       </Tabs>
+
+      {/* Stock history dialog: every change to this size/colour's stock number */}
+      <Dialog open={!!historyVariant} onOpenChange={(open) => { if (!open) setHistoryVariant(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Stock history{historyVariant ? ` - ${historyVariant.productName} ${historyVariant.size} / ${historyVariant.color}` : ""}</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">Last 60 days. Every change to this stock number, whether from a sale, return, stock take or edit.</p>
+          <div className="max-h-[50vh] overflow-y-auto">
+            {loadingHistory ? (
+              <p className="text-sm text-muted-foreground py-4">Loading...</p>
+            ) : stockHistory.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4">No changes recorded yet. History is recorded from 5 Nov 2026.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>When</TableHead>
+                    <TableHead className="text-right">From</TableHead>
+                    <TableHead className="text-right">To</TableHead>
+                    <TableHead className="text-right">Change</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {stockHistory.map((h, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="text-xs">{h.at}</TableCell>
+                      <TableCell className="text-right">{h.from}</TableCell>
+                      <TableCell className="text-right">{h.to}</TableCell>
+                      <TableCell className={`text-right font-medium ${(h.delta ?? 0) < 0 ? "text-red-500" : "text-green-600"}`}>{(h.delta ?? 0) > 0 ? "+" : ""}{h.delta}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Variant Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>

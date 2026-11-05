@@ -16581,6 +16581,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Order not found" });
       }
 
+      // Cancelling gives the items back to stock (once); un-cancelling takes them off again
+      if (status && status !== previousStatus) {
+        try {
+          const { adjustStockForStatusChange } = await import("./stockIntegrity");
+          await adjustStockForStatusChange(id, previousStatus, status);
+        } catch (stockErr) {
+          console.error("Stock adjustment on status change failed (check stock by hand):", stockErr);
+        }
+      }
+
       // Send shipping notification email + SMS when status changes to shipped
       if (status === "shipped" && status !== previousStatus) {
         try {
