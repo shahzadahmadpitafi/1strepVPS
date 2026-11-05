@@ -45,9 +45,9 @@ const stockOf = async (id: string) => Number(((await db.execute(sql`SELECT stock
     // 2. Tap to Pay sale
     const payId = "SMOKETAP" + tag;
     await importPayment(
-      { id: payId, status: "COMPLETED", createdAt: new Date().toISOString(), sourceType: "CARD", cardDetails: { entryMethod: "CONTACTLESS" }, totalMoney: { amount: 100n }, applicationDetails: { squareProduct: "RETAIL" } },
+      { id: payId, status: "COMPLETED", createdAt: new Date().toISOString(), sourceType: "CARD", cardDetails: { entryMethod: "CONTACTLESS" }, totalMoney: { amount: BigInt(100) }, applicationDetails: { squareProduct: "RETAIL" } },
       "delivered",
-      { totalMoney: { amount: 100n }, lineItems: [{ name: v.name, variationName: `${v.size} / ${v.color}`, quantity: "1", catalogObjectId: v.sid, basePriceMoney: { amount: 100n }, totalMoney: { amount: 100n } }] },
+      { totalMoney: { amount: BigInt(100) }, lineItems: [{ name: v.name, variationName: `${v.size} / ${v.color}`, quantity: "1", catalogObjectId: v.sid, basePriceMoney: { amount: BigInt(100) }, totalMoney: { amount: BigInt(100) } }] },
     );
     const afterTap = await stockOf(v.id);
     check("Tap to Pay sale", afterTap === afterQr - 1, `stock ${afterQr} -> ${afterTap} (expected ${afterQr - 1})`);
