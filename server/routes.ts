@@ -5561,6 +5561,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // A JS list as a Postgres text[] literal. (Passing a JS array straight into a raw sql`` template makes
+  // Drizzle expand it to a tuple - "()" when empty - which is what made adding a store fail with a 500.)
+  const toPgTextArray = (arr: unknown): string =>
+    "{" + (Array.isArray(arr) ? arr : []).map((x) => '"' + String(x).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"').join(",") + "}";
+
   // Admin - Get all company stores
   app.get("/api/admin/company-stores", requireAuth, requireAdmin, async (req, res) => {
     try {
@@ -5586,7 +5591,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const result = await db.execute(sql`
         INSERT INTO company_stores (name, address, phone, hours, features, image_url, map_url, display_order, is_active)
-        VALUES (${name}, ${address}, ${phone || null}, ${hours || null}, ${features || []}, ${imageUrl || null}, ${mapUrl || null}, ${displayOrder || 0}, ${isActive !== false})
+        VALUES (${name}, ${address}, ${phone || null}, ${hours || null}, ${toPgTextArray(features)}::text[], ${imageUrl || null}, ${mapUrl || null}, ${displayOrder || 0}, ${isActive !== false})
         RETURNING *
       `);
       
@@ -5617,7 +5622,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             address = ${address !== undefined ? address : current.address},
             phone = ${phone !== undefined ? phone : current.phone},
             hours = ${hours !== undefined ? hours : current.hours},
-            features = ${features !== undefined ? features : current.features},
+            features = ${toPgTextArray(features !== undefined ? features : current.features)}::text[],
             image_url = ${imageUrl !== undefined ? imageUrl : current.image_url},
             map_url = ${mapUrl !== undefined ? mapUrl : current.map_url},
             display_order = ${displayOrder !== undefined ? displayOrder : current.display_order},
