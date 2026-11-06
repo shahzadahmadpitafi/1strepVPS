@@ -428,6 +428,39 @@ export default function ResellerEPOS() {
     };
   }, [activeAd, resellerProfile?.id]);
 
+  // Back to the home screen after a period of inactivity. If the till is left on a basket, the checkout, a
+  // receipt, a product pop-up or a search/category filter, then after 5 minutes with no touch (12 minutes while
+  // the checkout is open, e.g. waiting for a customer to scan the QR) the screen returns to the main product
+  // screen. Never while a payment is actually being processed. A QR payment that is still completed afterwards
+  // is picked up by the server (pending payment record), so no sale is lost.
+  const lastTouchRef = useRef(Date.now());
+  const homeStateRef = useRef({ atHome: true, showCheckout: false, busy: false });
+  homeStateRef.current = {
+    atHome:
+      cartItems.length === 0 && !showCheckout && !showReceipt && !showProductModal && !selectedProduct &&
+      !searchTerm && selectedCategory === "all" && terminalStatus === "idle",
+    showCheckout,
+    busy: isPaymentProcessing || terminalStatus === "pending",
+  };
+  useEffect(() => {
+    const touch = () => { lastTouchRef.current = Date.now(); };
+    const events = ["pointerdown", "touchstart", "keydown", "wheel", "mousemove"];
+    events.forEach((e) => window.addEventListener(e, touch, { passive: true }));
+    const check = setInterval(() => {
+      const st = homeStateRef.current;
+      if (st.atHome || st.busy) return;
+      const limit = st.showCheckout ? 12 * 60 * 1000 : 5 * 60 * 1000;
+      if (Date.now() - lastTouchRef.current >= limit) {
+        lastTouchRef.current = Date.now();
+        window.location.reload(); // clean home screen: empty basket, no pop-ups, all categories
+      }
+    }, 10000);
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, touch));
+      clearInterval(check);
+    };
+  }, []);
+
   useSocket({
     room: "epos",
     resellerId: resellerProfile?.id,
