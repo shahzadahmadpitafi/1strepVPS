@@ -149,6 +149,9 @@ interface Order {
   paymentMethod: string;
   isPaid: boolean;
   trackingNumber?: string;
+  clickDropOrderId?: string | null;
+  clickDropSentAt?: string | null;
+  clickDropError?: string | null;
   notes?: string;
   orderDate: string;
   paidAt?: string;
@@ -546,6 +549,26 @@ export default function AdminOrders() {
     refetchInterval: 30000,
     staleTime: 25000,
   });
+
+  // Royal Mail Click & Drop: send paid online orders over so the label can be printed there
+  const { data: clickDropStatus } = useQuery<{ configured: boolean }>({ queryKey: ["/api/admin/click-drop/status"] });
+  const sendClickDropMutation = useMutation({
+    mutationFn: async (orderIds: string[]) => {
+      const res = await apiRequest("POST", "/api/admin/click-drop/send", { orderIds });
+      return res.json() as Promise<{ sent: number; results: Array<{ orderNumber: string; ok: boolean; error?: string }> }>;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/orders"] });
+      const failed = data.results.filter((r) => !r.ok);
+      toast({
+        title: failed.length ? `Sent ${data.sent}, ${failed.length} not sent` : `Sent ${data.sent} order${data.sent === 1 ? "" : "s"} to Click & Drop`,
+        description: failed.length ? failed.slice(0, 3).map((f) => `${f.orderNumber}: ${f.error}`).join(" | ") : "Print the labels in Click & Drop. Tracking comes back here automatically.",
+        variant: failed.length ? "destructive" : undefined,
+      });
+    },
+    onError: (e: any) => toast({ title: "Could not send to Click & Drop", description: String(e?.message || e), variant: "destructive" }),
+  });
+  const waitingForClickDrop = orders.filter((o) => o.channel === "website" && o.status === "processing" && !o.clickDropOrderId);
 
   const updateOrderMutation = useMutation({
     mutationFn: (data: { id: string; status?: string; trackingNumber?: string; notes?: string }) =>
@@ -1208,6 +1231,18 @@ export default function AdminOrders() {
                   <PlusCircle className="h-4 w-4" />
                   Manual Order
                 </Button>
+                {clickDropStatus?.configured && (
+                  <Button
+                    onClick={() => sendClickDropMutation.mutate(waitingForClickDrop.slice(0, 50).map((o) => o.id))}
+                    variant="outline"
+                    className="gap-2 border-red-500/40 text-red-600 dark:text-red-400"
+                    disabled={waitingForClickDrop.length === 0 || sendClickDropMutation.isPending}
+                    data-testid="button-send-all-click-drop"
+                  >
+                    <Truck className="h-4 w-4" />
+                    {sendClickDropMutation.isPending ? "Sending..." : `Send to Click & Drop (${waitingForClickDrop.length})`}
+                  </Button>
+                )}
                 <Button
                   onClick={handleExportCSV}
                   variant="outline"
@@ -2198,6 +2233,27 @@ export default function AdminOrders() {
                       <div>
                         <span className="text-muted-foreground">Tracking: </span>
                         <span className="font-medium">{selectedOrder.trackingNumber}</span>
+                      </div>
+                    )}
+                    {clickDropStatus?.configured && selectedOrder.channel === "website" && (
+                      <div className="rounded-lg border p-3 space-y-2" data-testid="click-drop-panel">
+                        <div className="flex items-center gap-2 font-medium"><Truck className="h-4 w-4" /> Royal Mail Click & Drop</div>
+                        {selectedOrder.clickDropOrderId ? (
+                          <p className="text-muted-foreground">
+                            Sent{selectedOrder.clickDropSentAt ? ` ${format(new Date(selectedOrder.clickDropSentAt), "MMM dd, HH:mm")}` : ""} (Click & Drop order {selectedOrder.clickDropOrderId}).
+                            {selectedOrder.trackingNumber ? " Tracking received." : " Waiting for the label to be printed - tracking then appears here by itself."}
+                          </p>
+                        ) : selectedOrder.status === "processing" ? (
+                          <>
+                            {selectedOrder.clickDropError && <p className="text-destructive text-xs">Last attempt: {selectedOrder.clickDropError}</p>}
+                            <Button size="sm" variant="outline" disabled={sendClickDropMutation.isPending}
+                              onClick={() => sendClickDropMutation.mutate([selectedOrder.id])} data-testid="button-send-click-drop">
+                              {sendClickDropMutation.isPending ? "Sending..." : "Send to Click & Drop"}
+                            </Button>
+                          </>
+                        ) : (
+                          <p className="text-muted-foreground">Only paid orders waiting to be posted can be sent.</p>
+                        )}
                       </div>
                     )}
                     {selectedOrder.notes && (

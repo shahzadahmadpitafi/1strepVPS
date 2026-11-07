@@ -16469,14 +16469,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
 
+    // Royal Mail Click & Drop status for each order (raw columns, see royalMailClickDrop.ts)
+    const clickDrop = new Map<string, { clickDropOrderId: string | null; clickDropSentAt: string | null; clickDropError: string | null }>();
+    try {
+      for (let i = 0; i < orderIds.length; i += 1000) {
+        const part = orderIds.slice(i, i + 1000);
+        const cd = await db.execute(sql`SELECT id, click_drop_order_id, click_drop_sent_at, click_drop_error FROM customer_orders WHERE id = ANY(${toPgTextArray(part)}::text[]) AND (click_drop_order_id IS NOT NULL OR click_drop_error IS NOT NULL)`);
+        for (const r of cd.rows as any[]) clickDrop.set(r.id, { clickDropOrderId: r.click_drop_order_id, clickDropSentAt: r.click_drop_sent_at, clickDropError: r.click_drop_error });
+      }
+    } catch { /* columns are created at start-up; ignore until they exist */ }
+
     return orders.map((order) => ({
       ...order,
+      ...(clickDrop.get(order.id) || {}),
       items: itemsByOrder.get(order.id) || [],
       phoneNumber: order.customerPhone || (order.userId ? userPhone.get(order.userId) : null) || null,
       resellerName: order.resellerId ? resellerMap.get(order.resellerId) || null : null,
       resellerBusinessAddress: order.resellerId ? resellerAddressMap.get(order.resellerId) || null : null,
     }));
   }
+
+  // ---- Royal Mail Click & Drop (see royalMailClickDrop.ts) ----
+  app.get("/api/admin/click-drop/status", requireAuth, requireAdmin, async (_req, res) => {
+    const { isClickDropConfigured } = await import("./royalMailClickDrop");
+    res.json({ configured: isClickDropConfigured() });
+  });
+  app.post("/api/admin/click-drop/send", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { isClickDropConfigured, sendOrderToClickDrop } = await import("./royalMailClickDrop");
+      if (!isClickDropConfigured()) return res.status(400).json({ error: "Royal Mail Click & Drop is not connected yet (API key missing on the server)" });
+      const ids: string[] = Array.isArray(req.body?.orderIds) ? req.body.orderIds.map(String).slice(0, 50) : [];
+      if (!ids.length) return res.status(400).json({ error: "No orders selected" });
+      const results = [];
+      for (const id of ids) results.push(await sendOrderToClickDrop(id));
+      res.json({ sent: results.filter((r) => r.ok && r.error !== "Already sent").length, results });
+    } catch (e: any) {
+      console.error("[ClickDrop] send route error:", e);
+      res.status(500).json({ error: e?.message || "Could not send to Click & Drop" });
+    }
+  });
+  app.post("/api/admin/click-drop/sync", requireAuth, requireAdmin, async (_req, res) => {
+    const { syncTrackingFromClickDrop } = await import("./royalMailClickDrop");
+    res.json(await syncTrackingFromClickDrop());
+  });
 
   app.get("/api/admin/orders", requireAuth, requireAdmin, async (req, res) => {
     try {

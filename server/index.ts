@@ -379,6 +379,15 @@ app.use((req, res, next) => {
       console.error("[Returns] Stock column setup failed:", err);
     }
 
+    // Royal Mail Click & Drop: send orders out, pull tracking numbers back (see royalMailClickDrop.ts)
+    try {
+      const { ensureClickDropColumns, startClickDropSync } = await import("./royalMailClickDrop");
+      await ensureClickDropColumns();
+      startClickDropSync();
+    } catch (err) {
+      console.error("[ClickDrop] Failed to start:", err);
+    }
+
     // Square Tap to Pay / in-person shop sales -> portal orders + stock (see squarePosSync.ts)
     try {
       const { startSquarePosSync } = await import("./squarePosSync");
