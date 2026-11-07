@@ -43,10 +43,15 @@ export default function StoreLocatorPage() {
         
         <div className="relative z-10 text-center text-white px-4 max-w-5xl mx-auto py-20">
           <ScrollReveal>
-            <div className="inline-flex items-center gap-2 mb-6 px-6 py-2 bg-white/10 backdrop-blur-sm border border-white/20 text-sm font-semibold tracking-wider uppercase">
+            <a
+              href="#our-stores"
+              onClick={(e) => { e.preventDefault(); document.getElementById('our-stores')?.scrollIntoView({ behavior: 'smooth' }); }}
+              className="inline-flex items-center gap-2 mb-6 px-6 py-2 bg-white/10 backdrop-blur-sm border border-white/20 text-sm font-semibold tracking-wider uppercase hover:bg-white/20 transition-colors"
+              data-testid="link-find-us"
+            >
               <MapPin className="w-4 h-4" />
               Find Us
-            </div>
+            </a>
           </ScrollReveal>
           <ScrollReveal delay={0.2}>
             <h1 className="text-6xl md:text-7xl font-bold mb-8 leading-tight" data-testid="store-locator-heading">
@@ -63,9 +68,7 @@ export default function StoreLocatorPage() {
         <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white to-transparent" />
       </section>
 
-      <StoreLocator />
-
-      <section className="py-24 px-4 bg-white">
+      <section id="our-stores" className="py-24 px-4 bg-white scroll-mt-20">
         <div className="max-w-7xl mx-auto">
           <ScrollReveal>
             <div className="text-center mb-16">
@@ -142,7 +145,7 @@ export default function StoreLocatorPage() {
                         className="w-full"
                         onClick={() => {
                           const query = encodeURIComponent(store.address);
-                          window.open(`https://maps.google.com?q=${query}`, '_blank');
+                          window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
                         }}
                         data-testid={`button-directions-${store.id}`}
                       >
@@ -157,6 +160,8 @@ export default function StoreLocatorPage() {
           )}
         </div>
       </section>
+
+      <StoreLocator />
 
       <section className="py-24 px-4 bg-gradient-to-br from-gray-900 to-black text-white">
         <div className="max-w-4xl mx-auto text-center">
