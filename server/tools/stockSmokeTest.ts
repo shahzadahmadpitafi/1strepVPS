@@ -42,6 +42,17 @@ const stockOf = async (id: string) => Number(((await db.execute(sql`SELECT stock
     const afterQr = await stockOf(v.id);
     check("HQ till QR/card sale", afterQr === S - 2, `stock ${S} -> ${afterQr} (expected ${S - 2})`);
 
+    // 1b. A reseller (non-HQ) till QR/card sale also comes off the MAIN stock (test reseller "Shahzad", inactive)
+    const TESTRES = "4f5b4ff1-fb99-432a-b350-e9391155889e";
+    const flagRow: any = (await db.execute(sql`SELECT epos_uses_main_stock f FROM resellers WHERE id = ${TESTRES}`)).rows[0];
+    check("Reseller flag is on for all tills", !!flagRow && flagRow.f === true, `test reseller epos_uses_main_stock = ${flagRow?.f}`);
+    const ref2 = "SMOKE" + tag + "R";
+    await db.execute(sql`INSERT INTO epos_pending_payments (reference_id, payment_link_id, reseller_id, items, total_amount, subtotal, status, own_square, delivery_method)
+      VALUES (${ref2}, ${"PL" + ref2}, ${TESTRES}, ${JSON.stringify([{ productId: v.product_id, name: v.name, quantity: 1, size: v.size, color: v.color, unitPrice: "1.00", price: 1 }])}::jsonb, '1.00', '1.00', 'pending', false, 'collection')`);
+    await autoCreateEposOrderFromPending({ referenceId: ref2, squarePaymentId: "SMOKEPAY" + ref2, sendEmail: false } as any);
+    const afterRes = await stockOf(v.id);
+    check("Reseller till QR/card sale", afterRes === afterQr - 1, `stock ${afterQr} -> ${afterRes} (expected ${afterQr - 1})`);
+
     // 2. Tap to Pay sale
     const payId = "SMOKETAP" + tag;
     await importPayment(
@@ -50,7 +61,7 @@ const stockOf = async (id: string) => Number(((await db.execute(sql`SELECT stock
       { totalMoney: { amount: BigInt(100) }, lineItems: [{ name: v.name, variationName: `${v.size} / ${v.color}`, quantity: "1", catalogObjectId: v.sid, basePriceMoney: { amount: BigInt(100) }, totalMoney: { amount: BigInt(100) } }] },
     );
     const afterTap = await stockOf(v.id);
-    check("Tap to Pay sale", afterTap === afterQr - 1, `stock ${afterQr} -> ${afterTap} (expected ${afterQr - 1})`);
+    check("Tap to Pay sale", afterTap === afterRes - 1, `stock ${afterRes} -> ${afterTap} (expected ${afterRes - 1})`);
 
     // 3. Website order cancel / un-cancel
     const oid = "smoke-order-" + tag;
@@ -67,14 +78,14 @@ const stockOf = async (id: string) => Number(((await db.execute(sql`SELECT stock
     check("Un-cancelled order takes it off again", afterUncancel === afterCancel - 3, `stock ${afterCancel} -> ${afterUncancel} (expected ${afterCancel - 3})`);
   } finally {
     // Clean up everything the test created and put the stock back exactly as it was
-    const orders = (await db.execute(sql`SELECT id FROM customer_orders WHERE payment_intent_id LIKE ${"SMOKE%" + tag} OR order_number = ${"SMOKE-" + tag} OR id = ${"smoke-order-" + tag}`)).rows as any[];
+    const orders = (await db.execute(sql`SELECT id FROM customer_orders WHERE payment_intent_id LIKE ${"SMOKE%" + tag} OR payment_intent_id LIKE ${"SMOKE%" + tag + "R"} OR order_number = ${"SMOKE-" + tag} OR id = ${"smoke-order-" + tag}`)).rows as any[];
     for (const o of orders) {
       await db.execute(sql`DELETE FROM commissions WHERE order_id = ${o.id}`);
       await db.execute(sql`DELETE FROM customer_order_status_history WHERE order_id = ${o.id}`);
       await db.execute(sql`DELETE FROM customer_order_items WHERE order_id = ${o.id}`);
       await db.execute(sql`DELETE FROM customer_orders WHERE id = ${o.id}`);
     }
-    await db.execute(sql`DELETE FROM epos_pending_payments WHERE reference_id = ${"SMOKE" + tag}`);
+    await db.execute(sql`DELETE FROM epos_pending_payments WHERE reference_id IN (${"SMOKE" + tag}, ${"SMOKE" + tag + "R"})`);
     await db.execute(sql`DELETE FROM square_pos_payments WHERE payment_id = ${"SMOKETAP" + tag}`);
     await db.execute(sql`DELETE FROM admin_notifications WHERE message LIKE ${"%SMOKE%" + tag + "%"}`);
     await db.execute(sql`UPDATE product_variants SET stock_quantity = ${S} WHERE id = ${v.id}`);
