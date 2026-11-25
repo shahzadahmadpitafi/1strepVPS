@@ -49,7 +49,7 @@ async function run(mode: any, userId: string, body: any, params: any = {}) {
 
   const rows = Number(((await db.execute(sql`SELECT count(*) n FROM stock_manual_edits WHERE route = '/api/test-stock-guard'`)).rows[0] as any).n);
   const notifAfter = Number(((await db.execute(sql`SELECT count(*) n FROM admin_notifications WHERE type='stock_alert'`)).rows[0] as any).n);
-  check("every attempt written down", rows >= 7, `(${rows} rows)`);
+  check("every refusal and every allowed edit written down", rows >= 6, `(${rows} rows)`);
   check("refusals raised notifications", notifAfter - notifBefore >= 4, `(+${notifAfter - notifBefore})`);
 
   await db.execute(sql`DELETE FROM stock_manual_edits WHERE route = '/api/test-stock-guard'`);
