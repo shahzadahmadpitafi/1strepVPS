@@ -11,6 +11,7 @@ import { emitInventoryUpdate, emitOrderEvent, emitResellerLicenceEvent, emitStoc
 import { db } from "./db";
 import { eq, desc, asc, sql, gte, lte, and, ne, or, isNull, isNotNull, inArray } from "drizzle-orm";
 import { requireAuth, requireAdmin, requireReseller, requireVendor, optionalAuth } from "./middleware/auth";
+import { stockEditGuard } from "./stockGuard";
 import { 
   insertUserSchema, 
   insertResellerSchema, 
@@ -3005,7 +3006,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/product-variants", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/product-variants", requireAuth, requireAdmin, stockEditGuard("strip"), async (req, res) => {
     try {
       const variantData = req.body;
       const variant = await storage.createProductVariant(variantData);
@@ -3016,7 +3017,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/product-variants/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.patch("/api/product-variants/:id", requireAuth, requireAdmin, stockEditGuard("variantEdit"), async (req, res) => {
     try {
       const { id } = req.params;
       const updates = req.body;
@@ -3033,7 +3034,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/product-variants/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.delete("/api/product-variants/:id", requireAuth, requireAdmin, stockEditGuard("block"), async (req, res) => {
     try {
       const { id } = req.params;
       const success = await storage.deleteProductVariant(id);
@@ -3586,7 +3587,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin Product Management Routes (Protected)
-  app.post("/api/admin/products", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/admin/products", requireAuth, requireAdmin, stockEditGuard("strip"), async (req, res) => {
     try {
       const { colorImages, colorHoverImages, colorAdditionalImages, colorSizeAvailability, variantPricing, warehouseStock, ...productData } = req.body;
       
@@ -3877,7 +3878,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/admin/products/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.patch("/api/admin/products/:id", requireAuth, requireAdmin, stockEditGuard("strip"), async (req, res) => {
     try {
       const { id } = req.params;
       const { colorImages, colorHoverImages, colorAdditionalImages, colorSizeAvailability, variantPricing, additionalImages, warehouseStock, createdAt, updatedAt, ...productData } = req.body;
@@ -4406,7 +4407,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Import products from export data (for production sync)
   // Uses upsert logic - adds new products, updates existing by SKU
-  app.post("/api/admin/products/import", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/admin/products/import", requireAuth, requireAdmin, stockEditGuard("block"), async (req, res) => {
     try {
       const { data } = req.body;
       
@@ -4752,7 +4753,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/products/:productId/variants", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/admin/products/:productId/variants", requireAuth, requireAdmin, stockEditGuard("strip"), async (req, res) => {
     try {
       const { productId } = req.params;
       const variant = await storage.createProductVariant({
@@ -4772,7 +4773,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/admin/products/:productId/variants/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.patch("/api/admin/products/:productId/variants/:id", requireAuth, requireAdmin, stockEditGuard("variantEdit"), async (req, res) => {
     try {
       const { id, productId } = req.params;
       
@@ -4793,7 +4794,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/products/:productId/variants/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.delete("/api/admin/products/:productId/variants/:id", requireAuth, requireAdmin, stockEditGuard("block"), async (req, res) => {
     try {
       const { id, productId } = req.params;
       
@@ -4928,12 +4929,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // split across sizes S/M/L would become ~20/20/20). Removed rather than
   // "fixed" — there's no correct direction to sync in, since
   // productVariants.stockQuantity is already the real, live-updated source.
-  app.post("/api/admin/sync-inventory-to-variants", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/admin/sync-inventory-to-variants", requireAuth, requireAdmin, stockEditGuard("block"), async (req, res) => {
     return res.status(410).json({ error: "This sync has been removed — it corrupted real stock data. productVariants.stockQuantity is already the live, correct source and needs no syncing." });
   });
 
   // Seed initial products (Admin only - one-time setup)
-  app.post("/api/admin/seed-products", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/admin/seed-products", requireAuth, requireAdmin, stockEditGuard("block"), async (req, res) => {
     try {
 
       // Initial product data to seed
@@ -22904,7 +22905,7 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
   });
 
   // Add inventory (incoming stock)
-  app.post("/api/admin/inventory/add", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/admin/inventory/add", requireAuth, requireAdmin, stockEditGuard("receive"), async (req, res) => {
     try {
       const { variantId, quantity, batchNumber, supplier, location, costPerUnit, notes } = req.body;
       
@@ -22990,7 +22991,7 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
   });
 
   // Bulk import inventory from CSV
-  app.post("/api/admin/inventory/bulk-import", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/admin/inventory/bulk-import", requireAuth, requireAdmin, stockEditGuard("block"), async (req, res) => {
     try {
       const { items } = req.body; // Array of { sku, quantity, supplier, costPerUnit }
       
@@ -24927,7 +24928,7 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
   });
 
   // Add inventory to warehouse
-  app.post("/api/admin/warehouses/:id/inventory", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/admin/warehouses/:id/inventory", requireAuth, requireAdmin, stockEditGuard("block"), async (req, res) => {
     try {
       const { id } = req.params;
       const validation = insertWarehouseInventorySchema.safeParse({ ...req.body, warehouseId: id });
@@ -24966,7 +24967,7 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
   });
 
   // Update warehouse inventory item
-  app.patch("/api/admin/warehouse-inventory/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.patch("/api/admin/warehouse-inventory/:id", requireAuth, requireAdmin, stockEditGuard("block"), async (req, res) => {
     try {
       const { id } = req.params;
       const validation = insertWarehouseInventorySchema.partial().safeParse(req.body);
@@ -25107,7 +25108,7 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
   });
 
   // Create stock transfer
-  app.post("/api/admin/stock-transfers", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/admin/stock-transfers", requireAuth, requireAdmin, stockEditGuard("block"), async (req, res) => {
     try {
       const { items, ...transferData } = req.body;
       
@@ -25150,7 +25151,7 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
   });
 
   // Update stock transfer status
-  app.patch("/api/admin/stock-transfers/:id/status", requireAuth, requireAdmin, async (req, res) => {
+  app.patch("/api/admin/stock-transfers/:id/status", requireAuth, requireAdmin, stockEditGuard("block"), async (req, res) => {
     try {
       const { id } = req.params;
       const { status } = req.body;
@@ -25684,7 +25685,7 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
   });
 
   // Update stock request status (admin)
-  app.patch("/api/admin/b2b/stock-requests/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.patch("/api/admin/b2b/stock-requests/:id", requireAuth, requireAdmin, stockEditGuard("block"), async (req, res) => {
     try {
       const { id } = req.params;
       const { status, adminNotes } = req.body;
@@ -32527,7 +32528,7 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
   });
 
   // Create bulk stock adjustment
-  app.post("/api/admin/smart-inventory/bulk-operations/stock-adjustment", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/admin/smart-inventory/bulk-operations/stock-adjustment", requireAuth, requireAdmin, stockEditGuard("block"), async (req, res) => {
     try {
       const { adjustments, warehouseId, name } = req.body;
       const user = req.user as User;

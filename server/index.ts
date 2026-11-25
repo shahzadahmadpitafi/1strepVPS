@@ -363,6 +363,9 @@ app.use((req, res, next) => {
       const { ensureStockIntegrityTables, startStockIntegrityMonitor } = await import("./stockIntegrity");
       await ensureStockIntegrityTables();
       startStockIntegrityMonitor();
+      const { ensureStockGuardTables, startManualStockWatch } = await import("./stockGuard");
+      await ensureStockGuardTables();
+      startManualStockWatch();
     } catch (err) {
       console.error("[EPOS] own_products_label column setup failed:", err);
     }
