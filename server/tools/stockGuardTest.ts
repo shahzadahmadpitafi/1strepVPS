@@ -9,6 +9,7 @@
  * Everything it writes is removed again.
  */
 import "dotenv/config";
+process.env.STOCK_ALERT_EMAIL_DISABLED = "1"; // the test must not email anyone
 import { db } from "../db";
 import { sql } from "drizzle-orm";
 import { stockEditGuard, stockEditors } from "../stockGuard";
@@ -27,7 +28,7 @@ async function run(mode: any, userId: string, body: any, params: any = {}) {
 }
 
 (async () => {
-  const other: any = (await db.execute(sql`SELECT id FROM users WHERE role = 'admin' AND id <> ${OWNER} LIMIT 1`)).rows[0];
+  const other: any = (await db.execute(sql`SELECT id FROM users WHERE role = 'admin' AND id <> ${OWNER} AND email NOT LIKE 'dennis%' LIMIT 1`)).rows[0];
   const v: any = (await db.execute(sql`SELECT id, stock_quantity FROM product_variants WHERE stock_quantity > 0 LIMIT 1`)).rows[0];
   if (!other || !v) { console.error("Need a second admin account and one variant to test"); process.exit(2); }
   const notifBefore = Number(((await db.execute(sql`SELECT count(*) n FROM admin_notifications WHERE type='stock_alert'`)).rows[0] as any).n);

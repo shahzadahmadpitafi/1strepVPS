@@ -9,13 +9,16 @@
  *  - A watcher flags any stock DECREASE that has no matching sale, return, cancellation or recorded editor action
  *    (so a change made behind the app's back, e.g. straight in the database, still shows up).
  *
- * Who may edit: env STOCK_EDITOR_USER_IDS (comma separated user ids). Default: the owner's admin account only.
+ * Who may edit: env STOCK_EDITOR_USER_IDS (comma separated user ids). Default: Dennis's admin account only.
+ * Alerts: an admin-bell notification (every admin sees it) AND an email to STOCK_ALERT_EMAILS (comma separated),
+ * default = the email of each stock editor account.
  */
 import type { Request, Response, NextFunction } from "express";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
 
-const DEFAULT_EDITORS = ["cee4400c-cf9a-401a-a155-1d48ccdfaa24"];
+// Dennis's admin account. Change with the STOCK_EDITOR_USER_IDS environment variable (comma separated user ids).
+const DEFAULT_EDITORS = ["6260f553-2058-412b-8144-0f4b31c42cf9"];
 
 export function stockEditors(): string[] {
   const v = (process.env.STOCK_EDITOR_USER_IDS || "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -29,6 +32,25 @@ export async function ensureStockGuardTables() {
   await db.execute(sql`CREATE INDEX IF NOT EXISTS stock_manual_edits_at_idx ON stock_manual_edits (at DESC)`);
   await db.execute(sql`CREATE TABLE IF NOT EXISTS stock_watch_state (id INTEGER PRIMARY KEY DEFAULT 1, last_audit_id BIGINT NOT NULL DEFAULT 0, last_run_at TIMESTAMPTZ, last_summary TEXT)`);
   await db.execute(sql`INSERT INTO stock_watch_state (id, last_audit_id) SELECT 1, COALESCE(MAX(id), 0) FROM stock_audit ON CONFLICT (id) DO NOTHING`);
+}
+
+/** Admin bell notification + email to the stock editors (or STOCK_ALERT_EMAILS). Never throws. */
+export async function alertAdmins(title: string, message: string) {
+  try {
+    await db.execute(sql`INSERT INTO admin_notifications (type, title, message, link, is_read) VALUES ('stock_alert', ${title}, ${message.slice(0, 480)}, '/admin/inventory', false)`);
+  } catch (e) { console.error("[StockGuard] bell notification failed:", e); }
+  if (process.env.STOCK_ALERT_EMAIL_DISABLED) return; // used by the test script
+  try {
+    let to = (process.env.STOCK_ALERT_EMAILS || "").split(",").map((x) => x.trim()).filter(Boolean);
+    if (!to.length) {
+      const r = (await db.execute(sql`SELECT email FROM users WHERE id = ANY(${"{" + stockEditors().join(",") + "}"}::text[]) AND email IS NOT NULL`)).rows as any[];
+      to = r.map((x) => x.email);
+    }
+    if (!to.length) return;
+    const { sendEmail } = await import("./email");
+    const html = `<div style="font-family:Arial,sans-serif;font-size:15px;color:#222"><h3 style="margin:0 0 8px">${title}</h3><p>${message.replace(/</g, "&lt;")}</p><p style="color:#666;font-size:13px">1stRep stock lock. Open the admin portal, Inventory, to check.</p></div>`;
+    for (const addr of to) await sendEmail(addr, `1stRep stock alert: ${title}`, html).catch((e) => console.error("[StockGuard] alert email failed:", e));
+  } catch (e) { console.error("[StockGuard] alert email error:", e); }
 }
 
 async function userLabel(req: Request): Promise<string> {
@@ -45,10 +67,7 @@ async function record(req: Request, allowed: boolean, detail: string, label?: st
     const route = req.originalUrl.split("?")[0];
     await db.execute(sql`INSERT INTO stock_manual_edits (user_id, user_label, method, route, allowed, detail)
       VALUES (${req.user?.id || null}, ${who}, ${req.method}, ${route}, ${allowed}, ${detail.slice(0, 500)})`);
-    if (!allowed) {
-      await db.execute(sql`INSERT INTO admin_notifications (type, title, message, link, is_read)
-        VALUES ('stock_alert', 'Stock change blocked', ${`${who} tried to change stock by hand (${req.method} ${route}). ${detail}`.slice(0, 480)}, '/admin/inventory', false)`);
-    }
+    if (!allowed) await alertAdmins("Stock change blocked", `${who} tried to change stock by hand (${req.method} ${route}). ${detail}`);
   } catch (e) { console.error("[StockGuard] could not record edit:", e); }
 }
 
@@ -128,7 +147,7 @@ export async function runManualStockWatch(): Promise<{ checked: number; flagged:
     if (linked) continue;
     flagged++;
     const msg = `${r.product} ${r.size || ""}/${r.color || ""}: stock went ${r.old_qty} -> ${r.new_qty} with no sale, return or recorded owner edit. It was not made through the admin screens.`.replace(/\s+/g, " ");
-    await db.execute(sql`INSERT INTO admin_notifications (type, title, message, link, is_read) VALUES ('stock_alert', 'Unexplained stock decrease', ${msg.slice(0, 480)}, '/admin/inventory', false)`);
+    await alertAdmins("Unexplained stock decrease", msg);
     console.warn("[StockWatch]", msg);
   }
   if (rows.length) {
