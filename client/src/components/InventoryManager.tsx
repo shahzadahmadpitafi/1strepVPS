@@ -191,13 +191,15 @@ export default function InventoryManager() {
       costPerUnit?: string;
       notes?: string;
     }) => {
-      return await apiRequest("POST", "/api/admin/inventory/add", data);
+      const res = await apiRequest("POST", "/api/admin/inventory/add", data);
+      return res.json().catch(() => ({}));
     },
-    onSuccess: () => {
+    onSuccess: (result: any) => {
       toast({
-        title: "Success",
-        description: "Inventory updated successfully"
+        title: result?.pending ? "Sent for approval" : "Success",
+        description: result?.pending ? "Sent to Dennis to check and approve. The stock is added once he approves." : "Inventory updated successfully"
       });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stock-requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/inventory/variants"] });
       setScannedProduct(null);
       setScanQuantity("1");
@@ -263,14 +265,17 @@ export default function InventoryManager() {
     
     let successCount = 0;
     let failCount = 0;
+    let pendingCount = 0;
     
     for (const item of hardwareScanQueue) {
       try {
-        await apiRequest("POST", "/api/admin/inventory/add", {
+        const addRes = await apiRequest("POST", "/api/admin/inventory/add", {
           variantId: item.product.id,
           quantity: item.quantity,
           location: "Main Warehouse"
         });
+        const addJson: any = await addRes.json().catch(() => ({}));
+        if (addJson?.pending) pendingCount++;
         successCount++;
       } catch (error) {
         failCount++;
@@ -280,7 +285,9 @@ export default function InventoryManager() {
     
     toast({
       title: failCount > 0 ? "Partial Success" : "Success",
-      description: `Added ${successCount} items to inventory. ${failCount > 0 ? `${failCount} failed.` : ''}`,
+      description: pendingCount > 0
+        ? `${pendingCount} item(s) sent to Dennis to check and approve. The stock is added once he approves. ${failCount > 0 ? `${failCount} failed.` : ''}`
+        : `Added ${successCount} items to inventory. ${failCount > 0 ? `${failCount} failed.` : ''}`,
       variant: failCount > 0 ? "destructive" : "default"
     });
     

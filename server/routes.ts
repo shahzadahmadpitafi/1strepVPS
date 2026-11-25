@@ -22905,6 +22905,119 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
   });
 
   // Add inventory (incoming stock)
+  // ---- Add Stock requests from other members: Dennis checks the amount and approves (see stockGuard.ts) ----
+  app.get("/api/admin/stock-requests", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { stockEditors } = await import("./stockGuard");
+      const status = req.query.status === "all" ? null : "pending";
+      const rows = (await db.execute(sql`
+        SELECT r.id, r.quantity, r.status, r.approved_quantity, r.supplier, r.batch_number, r.notes, r.requested_by_label, r.created_at,
+               r.decided_by_label, r.decided_at, r.decision_note, trim(p.name) AS product, v.size, v.color, v.stock_quantity
+          FROM stock_add_requests r JOIN product_variants v ON v.id = r.variant_id JOIN products p ON p.id = v.product_id
+         WHERE (${status}::text IS NULL OR r.status = ${status}::text)
+         ORDER BY r.id DESC LIMIT 200`)).rows;
+      res.json({ canDecide: stockEditors().includes(req.user!.id), requests: rows });
+    } catch (e) { console.error("stock-requests list error:", e); res.status(500).json({ error: "Could not load stock requests" }); }
+  });
+  const stockActorLabel = async (userId: string) => { const u: any = (await db.execute(sql`SELECT first_name, last_name, username, email FROM users WHERE id = ${userId}`)).rows[0]; return `${u?.first_name || ""} ${u?.last_name || ""}`.trim() || u?.username || u?.email || userId; };
+  app.post("/api/admin/stock-requests/:id/approve", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { approveStockRequest } = await import("./stockGuard");
+      const override = req.body?.quantity !== undefined && req.body?.quantity !== "" ? parseInt(req.body.quantity) : null;
+      const label = await stockActorLabel(req.user!.id);
+      const r = await approveStockRequest(parseInt(req.params.id), { id: req.user!.id, label }, override, async (c) => {
+        await applyStockReceipt({ variantId: c.variant_id, quantity: c.approved_quantity, batchNumber: c.batch_number, supplier: c.supplier, location: c.location, costPerUnit: c.cost_per_unit, notes: [c.notes, `Requested by ${c.requested_by_label}, approved by ${label}`].filter(Boolean).join(" - "), performedBy: c.requested_by || req.user!.id });
+      });
+      if (!r.ok) return res.status(r.status).json({ error: r.error });
+      res.json({ success: true });
+    } catch (e) { console.error("stock-request approve error:", e); res.status(500).json({ error: "Could not approve this request" }); }
+  });
+  app.post("/api/admin/stock-requests/:id/reject", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { rejectStockRequest } = await import("./stockGuard");
+      const r = await rejectStockRequest(parseInt(req.params.id), { id: req.user!.id, label: await stockActorLabel(req.user!.id) }, String(req.body?.note || ""));
+      if (!r.ok) return res.status(r.status).json({ error: r.error });
+      res.json({ success: true });
+    } catch (e) { console.error("stock-request reject error:", e); res.status(500).json({ error: "Could not reject this request" }); }
+  });
+
+  // Adds a delivery to a variant's stock (transaction record, stock number, live update, back-in-stock emails).
+  // Used by Add Stock for the stock editor and by the approval of other members' Add Stock requests.
+  const applyStockReceipt = async (p: { variantId: string; quantity: number | string; batchNumber?: string | null; supplier?: string | null; location?: string | null; costPerUnit?: string | null; notes?: string | null; performedBy: string }) => {
+    const { variantId, quantity, batchNumber, supplier, location, costPerUnit, notes } = p;
+    const transaction = await storage.addInventoryTransaction({
+      variantId,
+      type: "incoming",
+      quantity: parseInt(String(quantity)),
+      batchNumber: batchNumber || null,
+      supplier: supplier || null,
+      location: location || "Main Warehouse",
+      costPerUnit: costPerUnit || null,
+      notes: notes || null,
+      scannedBarcode: null,
+      performedBy: p.performedBy
+    });
+
+    // Check stock level BEFORE update (for back-in-stock detection)
+    const [variantBefore] = await db.select({ stockQuantity: productVariants.stockQuantity })
+      .from(productVariants).where(eq(productVariants.id, variantId)).limit(1);
+    const wasOutOfStock = !variantBefore || (variantBefore.stockQuantity ?? 0) === 0;
+
+    // Update product variant stock quantity
+    await storage.updateProductVariantStock(variantId, parseInt(String(quantity)));
+    
+    // Emit real-time inventory update
+    const variant = await db.select().from(productVariants).where(eq(productVariants.id, variantId)).limit(1);
+    if (variant.length > 0) {
+      const product = await storage.getProduct(variant[0].productId);
+      emitInventoryUpdate({
+        type: 'stock_increase',
+        variantId: parseInt(variantId),
+        productName: product?.name || '',
+        sku: variant[0].sku || '',
+        color: variant[0].color || undefined,
+        size: variant[0].size || undefined,
+        quantityChange: parseInt(String(quantity)),
+        newQuantity: variant[0].stockQuantity || 0,
+        source: 'admin',
+        timestamp: new Date().toISOString(),
+      });
+
+      // Back-in-stock alerts: email subscribers when stock returns from zero
+      if (wasOutOfStock && (variant[0].stockQuantity ?? 0) > 0 && product) {
+        const productId = variant[0].productId;
+        const variantId2 = variant[0].id;
+        Promise.all([
+          storage.getStockAlertSubscriptionsByProduct(productId, variantId2),
+          storage.getStockAlertSubscriptionsByProduct(productId),
+        ]).then(async ([variantSubs, productSubs]) => {
+          const allSubs = [...variantSubs, ...productSubs];
+          for (const sub of allSubs) {
+            try {
+              const [user] = await db.select({ email: users.email, firstName: users.firstName })
+                .from(users).where(eq(users.id, sub.userId)).limit(1);
+              if (user?.email) {
+                await sendBackInStockEmail({
+                  customerEmail: user.email,
+                  customerName: user.firstName || 'Valued Customer',
+                  productName: product.name,
+                  productUrl: `https://1strep.com/products/${productId}`,
+                  size: variant[0].size || undefined,
+                  color: variant[0].color || undefined,
+                });
+                await storage.markStockAlertNotificationSent(sub.id);
+              }
+            } catch (subErr) {
+              console.error('Back-in-stock email failed for sub', sub.id, subErr);
+            }
+          }
+        }).catch(err => console.error('Back-in-stock alert batch failed:', err));
+      }
+    }
+
+    return transaction;
+  };
+
   app.post("/api/admin/inventory/add", requireAuth, requireAdmin, stockEditGuard("receive"), async (req, res) => {
     try {
       const { variantId, quantity, batchNumber, supplier, location, costPerUnit, notes } = req.body;
@@ -22913,76 +23026,7 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
         return res.status(400).json({ error: "Variant ID and quantity are required" });
       }
 
-      const transaction = await storage.addInventoryTransaction({
-        variantId,
-        type: "incoming",
-        quantity: parseInt(quantity),
-        batchNumber: batchNumber || null,
-        supplier: supplier || null,
-        location: location || "Main Warehouse",
-        costPerUnit: costPerUnit || null,
-        notes: notes || null,
-        scannedBarcode: null,
-        performedBy: req.user!.id
-      });
-
-      // Check stock level BEFORE update (for back-in-stock detection)
-      const [variantBefore] = await db.select({ stockQuantity: productVariants.stockQuantity })
-        .from(productVariants).where(eq(productVariants.id, variantId)).limit(1);
-      const wasOutOfStock = !variantBefore || (variantBefore.stockQuantity ?? 0) === 0;
-
-      // Update product variant stock quantity
-      await storage.updateProductVariantStock(variantId, parseInt(quantity));
-      
-      // Emit real-time inventory update
-      const variant = await db.select().from(productVariants).where(eq(productVariants.id, variantId)).limit(1);
-      if (variant.length > 0) {
-        const product = await storage.getProduct(variant[0].productId);
-        emitInventoryUpdate({
-          type: 'stock_increase',
-          variantId: parseInt(variantId),
-          productName: product?.name || '',
-          sku: variant[0].sku || '',
-          color: variant[0].color || undefined,
-          size: variant[0].size || undefined,
-          quantityChange: parseInt(quantity),
-          newQuantity: variant[0].stockQuantity || 0,
-          source: 'admin',
-          timestamp: new Date().toISOString(),
-        });
-
-        // Back-in-stock alerts: email subscribers when stock returns from zero
-        if (wasOutOfStock && (variant[0].stockQuantity ?? 0) > 0 && product) {
-          const productId = variant[0].productId;
-          const variantId2 = variant[0].id;
-          Promise.all([
-            storage.getStockAlertSubscriptionsByProduct(productId, variantId2),
-            storage.getStockAlertSubscriptionsByProduct(productId),
-          ]).then(async ([variantSubs, productSubs]) => {
-            const allSubs = [...variantSubs, ...productSubs];
-            for (const sub of allSubs) {
-              try {
-                const [user] = await db.select({ email: users.email, firstName: users.firstName })
-                  .from(users).where(eq(users.id, sub.userId)).limit(1);
-                if (user?.email) {
-                  await sendBackInStockEmail({
-                    customerEmail: user.email,
-                    customerName: user.firstName || 'Valued Customer',
-                    productName: product.name,
-                    productUrl: `https://1strep.com/products/${productId}`,
-                    size: variant[0].size || undefined,
-                    color: variant[0].color || undefined,
-                  });
-                  await storage.markStockAlertNotificationSent(sub.id);
-                }
-              } catch (subErr) {
-                console.error('Back-in-stock email failed for sub', sub.id, subErr);
-              }
-            }
-          }).catch(err => console.error('Back-in-stock alert batch failed:', err));
-        }
-      }
-
+      const transaction = await applyStockReceipt({ variantId, quantity, batchNumber, supplier, location, costPerUnit, notes, performedBy: req.user!.id });
       res.json({ success: true, transaction });
     } catch (error) {
       console.error("Error adding inventory:", error);

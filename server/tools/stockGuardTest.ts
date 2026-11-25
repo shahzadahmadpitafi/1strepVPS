@@ -12,7 +12,7 @@ import "dotenv/config";
 process.env.STOCK_ALERT_EMAIL_DISABLED = "1"; // the test must not email anyone
 import { db } from "../db";
 import { sql } from "drizzle-orm";
-import { stockEditGuard, stockEditors } from "../stockGuard";
+import { stockEditGuard, stockEditors, approveStockRequest, rejectStockRequest } from "../stockGuard";
 
 const OWNER = stockEditors()[0];
 let failed = false;
@@ -40,7 +40,30 @@ async function run(mode: any, userId: string, body: any, params: any = {}) {
   r = await run("variantEdit", other.id, { stockQuantity: Number(v.stock_quantity), barcodeDescriptor: "x" }, { id: v.id });
   check("other admin: unchanged stock + other fields still saves", r.nexted && r.body.stockQuantity === undefined && r.body.barcodeDescriptor === "x");
   r = await run("receive", other.id, { variantId: v.id, quantity: 4 });
-  check("other admin: receiving a delivery (+4) allowed", r.nexted);
+  check("other admin: Add Stock (+4) is NOT added, it waits for approval", r.status === 202 && !r.nexted);
+  const pend: any = (await db.execute(sql`SELECT id, status FROM stock_add_requests WHERE variant_id = ${v.id} AND requested_by = ${other.id} ORDER BY id DESC LIMIT 1`)).rows[0];
+  check("request saved as pending", !!pend && pend.status === "pending");
+  const stockBefore = Number(((await db.execute(sql`SELECT stock_quantity s FROM product_variants WHERE id = ${v.id}`)).rows[0] as any).s);
+  check("stock unchanged until approved", stockBefore === Number(v.stock_quantity));
+  const asOther = await approveStockRequest(pend.id, { id: other.id, label: "x" }, null, async () => {});
+  check("other admin cannot approve", !asOther.ok && asOther.status === 403);
+  let applied: any = null;
+  const okRes = await approveStockRequest(pend.id, { id: OWNER, label: "owner" }, 3, async (c) => { applied = c; });
+  check("editor approves with a corrected amount (3 instead of 4)", okRes.ok && applied && applied.approved_quantity === 3 && applied.quantity === 4);
+  const again = await approveStockRequest(pend.id, { id: OWNER, label: "owner" }, null, async () => {});
+  check("a request can only be decided once", !again.ok && again.status === 409);
+  await stockEditGuard("receive")({ user: { id: other.id }, body: { variantId: v.id, quantity: 2 }, params: {}, method: "POST", originalUrl: "/api/test-stock-guard" } as any, { status() { return this; }, json() { return this; } } as any, () => {});
+  const pend2: any = (await db.execute(sql`SELECT id FROM stock_add_requests WHERE variant_id = ${v.id} AND requested_by = ${other.id} AND status = 'pending' ORDER BY id DESC LIMIT 1`)).rows[0];
+  const rej = await rejectStockRequest(pend2.id, { id: OWNER, label: "owner" }, "wrong count");
+  check("editor can reject", rej.ok);
+  const failApply = await approveStockRequest(pend2.id, { id: OWNER, label: "owner" }, null, async () => {}).catch(() => null);
+  check("rejected request cannot be approved later", !!failApply && !failApply.ok);
+  await stockEditGuard("receive")({ user: { id: other.id }, body: { variantId: v.id, quantity: 1 }, params: {}, method: "POST", originalUrl: "/api/test-stock-guard" } as any, { status() { return this; }, json() { return this; } } as any, () => {});
+  const pend3: any = (await db.execute(sql`SELECT id FROM stock_add_requests WHERE variant_id = ${v.id} AND requested_by = ${other.id} AND status = 'pending' ORDER BY id DESC LIMIT 1`)).rows[0];
+  let threw = false;
+  await approveStockRequest(pend3.id, { id: OWNER, label: "owner" }, null, async () => { throw new Error("boom"); }).catch(() => { threw = true; });
+  const back: any = (await db.execute(sql`SELECT status FROM stock_add_requests WHERE id = ${pend3.id}`)).rows[0];
+  check("if adding the stock fails the request goes back to pending", threw && back.status === "pending");
   r = await run("receive", other.id, { variantId: v.id, quantity: -4 });
   check("other admin: removing stock via Add Stock refused", r.status === 403 && !r.nexted);
   r = await run("strip", other.id, { name: "T", warehouseStock: { a: { quantity: 99 } }, variants: [{ size: "S", stockQuantity: 50 }] });
@@ -50,10 +73,12 @@ async function run(mode: any, userId: string, body: any, params: any = {}) {
 
   const rows = Number(((await db.execute(sql`SELECT count(*) n FROM stock_manual_edits WHERE route = '/api/test-stock-guard'`)).rows[0] as any).n);
   const notifAfter = Number(((await db.execute(sql`SELECT count(*) n FROM admin_notifications WHERE type='stock_alert'`)).rows[0] as any).n);
-  check("every refusal and every allowed edit written down", rows >= 6, `(${rows} rows)`);
+  check("every refusal and every allowed edit written down", rows >= 5, `(${rows} rows)`);
   check("refusals raised notifications", notifAfter - notifBefore >= 4, `(+${notifAfter - notifBefore})`);
 
-  await db.execute(sql`DELETE FROM stock_manual_edits WHERE route = '/api/test-stock-guard'`);
+  await db.execute(sql`DELETE FROM stock_add_requests WHERE variant_id = ${v.id} AND requested_by = ${other.id}`);
+  await db.execute(sql`DELETE FROM stock_manual_edits WHERE route = '/api/test-stock-guard' OR route = '/api/admin/stock-requests/approve'`);
+  await db.execute(sql`DELETE FROM admin_notifications WHERE type='stock_alert' AND title='Stock request approved with a different amount' AND message LIKE 'owner approved 3 instead of 4%'`);
   await db.execute(sql`DELETE FROM admin_notifications WHERE type='stock_alert' AND title='Stock change blocked' AND message LIKE '%/api/test-stock-guard%'`);
   console.log(out.join("\n"));
   console.log(failed ? "\nRESULT: FAIL" : "\nRESULT: ALL PASS");

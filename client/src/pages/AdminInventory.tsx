@@ -20,6 +20,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import BarcodeGenerator from "@/components/BarcodeGenerator";
 import InventoryManager from "@/components/InventoryManager";
+import PendingStockAdditions from "@/components/admin/PendingStockAdditions";
 
 type InventoryItem = {
   id: string;
@@ -220,6 +221,8 @@ export default function AdminInventory() {
           </div>
         </div>
       </div>
+
+      <PendingStockAdditions />
 
       <Tabs defaultValue="inventory" className="space-y-4">
         <TabsList>
