@@ -42,7 +42,7 @@ export default function SaleBanner({ compact = false }: { compact?: boolean }) {
           src="/sale/black-friday-desktop.jpg"
           alt="Black Friday. Sale now on. Up to 40% off selected items."
           className={compact
-            ? "block w-full h-[320px] md:h-[360px] object-cover object-center"
+            ? "block w-full h-[320px] md:h-[360px] object-cover object-[center_67%] md:object-[center_83%]"
             : "block w-full max-h-[88vh] object-cover object-top"}
         />
       </picture>
