@@ -384,6 +384,15 @@ app.use((req, res, next) => {
       console.error("[Returns] Stock column setup failed:", err);
     }
 
+    // Website sale campaigns (Black Friday etc.): switch sale prices on and off on schedule (see saleCampaign.ts)
+    try {
+      const { ensureSaleTables, startSaleScheduler } = await import("./saleCampaign");
+      await ensureSaleTables();
+      startSaleScheduler();
+    } catch (err) {
+      console.error("[Sale] Failed to start:", err);
+    }
+
     // Royal Mail Click & Drop: send orders out, pull tracking numbers back (see royalMailClickDrop.ts)
     try {
       const { ensureClickDropColumns, startClickDropSync } = await import("./royalMailClickDrop");

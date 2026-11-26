@@ -12,6 +12,7 @@ import { db } from "./db";
 import { eq, desc, asc, sql, gte, lte, and, ne, or, isNull, isNotNull, inArray } from "drizzle-orm";
 import { requireAuth, requireAdmin, requireReseller, requireVendor, optionalAuth } from "./middleware/auth";
 import { stockEditGuard } from "./stockGuard";
+import { registerSaleCampaignRoutes } from "./saleCampaign";
 import { 
   insertUserSchema, 
   insertResellerSchema, 
@@ -3395,15 +3396,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate effective price using priority: variant salePrice → product salePrice → variant retailPrice → product retailPrice
       // Use validated numeric parsing to ensure prices are valid
       let effectivePrice = product.retailPrice;
+      // Sale prices (e.g. Black Friday) apply to plain website orders only, not reseller storefront carts
+      const isStorefrontCart = !!(storefrontSlug || resellerId);
       
       // Priority 1: Variant sale price (if set)
-      const variantSalePrice = variant.salePrice ? parseFloat(variant.salePrice) : NaN;
+      const variantSalePrice = !isStorefrontCart && variant.salePrice ? parseFloat(variant.salePrice) : NaN;
       if (!isNaN(variantSalePrice) && variantSalePrice > 0) {
         effectivePrice = variant.salePrice;
       }
       // Priority 2: Product-level sale price (if set and no variant sale price)
       else {
-        const productSalePrice = product.salePrice ? parseFloat(product.salePrice) : NaN;
+        const productSalePrice = !isStorefrontCart && product.salePrice ? parseFloat(product.salePrice) : NaN;
         if (!isNaN(productSalePrice) && productSalePrice > 0) {
           effectivePrice = product.salePrice;
         }
@@ -6309,15 +6312,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        // Use server-side price from database
-        const unitPrice = parseFloat(product.retailPrice);
-        const itemTotal = unitPrice * quantity;
-        serverCalculatedSubtotal += itemTotal;
-
         // Find matching cart item from database to get reseller info
         const dbCartItem = dbCartItems.find(
           (dbItem: any) => dbItem.productId === productId && dbItem.size === item.size && dbItem.color === item.color
         );
+
+        // Use server-side price from database. A sale price (variant first, then product) counts for plain website
+        // orders only; reseller storefront orders keep the normal retail price. A sale price at or above retail is ignored.
+        const retailNow = parseFloat(product.retailPrice);
+        const isStorefrontItem = !!(item.storefrontSlug || item.resellerId || (dbCartItem as any)?.storefrontSlug || (dbCartItem as any)?.resellerId);
+        let unitPrice = retailNow;
+        if (!isStorefrontItem) {
+          const vSale = variant.salePrice ? parseFloat(variant.salePrice) : NaN;
+          const pSale = product.salePrice ? parseFloat(product.salePrice) : NaN;
+          if (!isNaN(vSale) && vSale > 0 && vSale < retailNow) unitPrice = vSale;
+          else if (!isNaN(pSale) && pSale > 0 && pSale < retailNow) unitPrice = pSale;
+        }
+        const itemTotal = unitPrice * quantity;
+        serverCalculatedSubtotal += itemTotal;
 
         validatedCartItems.push({
           ...item,
@@ -22905,6 +22917,8 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
   });
 
   // Add inventory (incoming stock)
+  registerSaleCampaignRoutes(app, requireAuth, requireAdmin);
+
   // ---- Add Stock requests from other members: Dennis checks the amount and approves (see stockGuard.ts) ----
   app.get("/api/admin/stock-requests", requireAuth, requireAdmin, async (req, res) => {
     try {
