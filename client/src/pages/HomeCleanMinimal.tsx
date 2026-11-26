@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import HeaderClean from '@/components/HeaderClean';
+import { SaleOrHero } from '@/components/SaleBanner';
 import HeroClean from '@/components/HeroClean';
 import ProductCardClean from '@/components/ProductCardClean';
 import CategoryCardClean from '@/components/CategoryCardClean';
@@ -198,6 +199,8 @@ export default function HomeCleanMinimal() {
   return (
     <div className="min-h-screen bg-gray-900 w-full max-w-full overflow-x-hidden">
       <HeaderClean />
+      {/* While the Black Friday sale is running, its banner replaces the hero (switches itself on and off) */}
+      <SaleOrHero>
       <HeroClean 
         image={currentMedia?.type === 'image' ? currentMedia.src : undefined}
         video={currentMedia?.type === 'video' ? currentMedia.src : undefined}
@@ -207,6 +210,7 @@ export default function HomeCleanMinimal() {
         onVideoEnd={handleVideoEnd}
         slideDuration={slideDuration}
       />
+      </SaleOrHero>
 
       {/* Dynamic Product Sections - Automatically Ordered by Popularity */}
       {orderedSections.map((section, index) => {

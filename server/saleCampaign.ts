@@ -132,6 +132,17 @@ export function startSaleScheduler() {
 }
 
 export function registerSaleCampaignRoutes(app: Express, auth: RequestHandler, admin: RequestHandler) {
+  // Public: is a sale running right now? (drives the Black Friday banner on the website)
+  app.get("/api/sale-banner", async (_req, res) => {
+    try {
+      const c: any = (await db.execute(sql`SELECT id, name, ends_at FROM sale_campaigns WHERE status = 'active' AND starts_at <= NOW() AND ends_at > NOW() ORDER BY id DESC LIMIT 1`)).rows[0];
+      if (!c) return res.json({ active: false });
+      const m: any = (await db.execute(sql`SELECT COALESCE(MAX(pct), 0)::float AS m FROM sale_campaign_items WHERE campaign_id = ${c.id} AND NOT excluded AND applied`)).rows[0];
+      res.setHeader("Cache-Control", "public, max-age=30");
+      res.json({ active: true, name: c.name, endsAt: c.ends_at, maxPct: m?.m ?? 0 });
+    } catch { res.json({ active: false }); }
+  });
+
   app.get("/api/admin/sale-campaigns", auth, admin, async (_req, res) => {
     const rows = (await db.execute(sql`SELECT * FROM sale_campaigns ORDER BY id DESC LIMIT 20`)).rows;
     res.json(rows);

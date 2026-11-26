@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import HeaderClean from "@/components/HeaderClean";
+import SaleBanner from '@/components/SaleBanner';
 import ProductCardClean from "@/components/ProductCardClean";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -345,6 +346,7 @@ export default function ShopCleanMinimal() {
   return (
     <div className="min-h-screen bg-gray-50">
       <HeaderClean />
+      <SaleBanner compact />
 
       <div className="container mx-auto px-4 py-6 md:py-8" data-products-section>
         {/* Filters and Search - Mobile Optimized */}
