@@ -81,7 +81,7 @@ export async function applyCampaign(id: number) {
     await db.execute(sql`UPDATE products SET sale_price = ${price} WHERE id = ${r.product_id}`);
   }
   await db.execute(sql`UPDATE sale_campaigns SET status = 'active', started_at = COALESCE(started_at, NOW()) WHERE id = ${id}`);
-  await db.execute(sql`INSERT INTO admin_notifications (type, title, message, link, is_read) VALUES ('sale_campaign', ${camp.name + " has started"}, ${`${items.length} product(s) are now on sale on the website until ${new Date(camp.ends_at).toISOString()}.`}, '/admin/products', false)`).catch(() => {});
+  await db.execute(sql`INSERT INTO admin_notifications (type, title, message, link, is_read) VALUES ('system', ${camp.name + " has started"}, ${`${items.length} product(s) are now on sale on the website until ${new Date(camp.ends_at).toISOString()}.`}, '/admin/products', false)`).catch(() => {});
   console.log(`[Sale] "${camp.name}" started: ${items.length} product(s) on sale`);
   return items.length;
 }
@@ -102,7 +102,7 @@ export async function revertCampaign(id: number, newStatus: "ended" | "cancelled
     await db.execute(sql`UPDATE sale_campaign_items SET applied = FALSE WHERE id = ${r.id}`);
   }
   await db.execute(sql`UPDATE sale_campaigns SET status = ${newStatus}, ended_at = NOW() WHERE id = ${id}`);
-  await db.execute(sql`INSERT INTO admin_notifications (type, title, message, link, is_read) VALUES ('sale_campaign', ${camp.name + (newStatus === "ended" ? " has ended" : " was cancelled")}, ${`${items.length} product(s) are back to their normal prices.`}, '/admin/products', false)`).catch(() => {});
+  await db.execute(sql`INSERT INTO admin_notifications (type, title, message, link, is_read) VALUES ('system', ${camp.name + (newStatus === "ended" ? " has ended" : " was cancelled")}, ${`${items.length} product(s) are back to their normal prices.`}, '/admin/products', false)`).catch(() => {});
   console.log(`[Sale] "${camp.name}" ${newStatus}: ${items.length} product(s) back to normal`);
   return items.length;
 }

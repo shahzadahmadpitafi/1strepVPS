@@ -57,7 +57,7 @@ const check = (name: string, ok: boolean, detail = "") => { out.push(`${ok ? "PA
 
   await db.execute(sql`DELETE FROM sale_campaign_items WHERE campaign_id IN (${id}, ${c2.id})`);
   await db.execute(sql`DELETE FROM sale_campaigns WHERE id IN (${id}, ${c2.id})`);
-  await db.execute(sql`DELETE FROM admin_notifications WHERE type = 'sale_campaign' AND title LIKE 'TEST %'`);
+  await db.execute(sql`DELETE FROM admin_notifications WHERE type = 'system' AND title LIKE 'TEST %'`);
   console.log(out.join("\n"));
   console.log(failed ? "\nRESULT: FAIL" : "\nRESULT: ALL PASS");
   process.exit(failed ? 1 : 0);
