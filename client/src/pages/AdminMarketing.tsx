@@ -867,17 +867,34 @@ export default function AdminMarketing() {
     },
   });
 
+  // Sending is real now: ask how many people will get it, confirm, then send in the background.
   const sendCampaignMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest("POST", `/api/admin/campaigns/${id}/send`);
+      const aud = await (await apiRequest("GET", `/api/admin/campaigns/${id}/audience`)).json();
+      if (!aud.count) throw new Error("There is nobody to send this to.");
+      if (!window.confirm(`Send this campaign to ${aud.count} people now?\n\nIt cannot be undone. Tip: use the test button first to send yourself a copy.`)) return null;
+      return (await apiRequest("POST", `/api/admin/campaigns/${id}/send`)).json();
     },
-    onSuccess: () => {
-      toast({ title: "Campaign is being sent" });
+    onSuccess: (data: any) => {
+      if (!data) return;
+      toast({ title: "Campaign is being sent", description: `Sending to ${data.recipients} people, about one a second. This page updates when it is done.` });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/campaigns"] });
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: ["/api/admin/campaigns"] }), 30000);
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: ["/api/admin/campaigns"] }), 90000);
     },
-    onError: () => {
-      toast({ title: "Failed to send campaign", variant: "destructive" });
+    onError: (e: any) => {
+      toast({ title: "Could not send the campaign", description: String(e?.message || e), variant: "destructive" });
     },
+  });
+
+  const testCampaignMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const email = window.prompt("Send a test copy to which email address?");
+      if (!email) return null;
+      return (await apiRequest("POST", `/api/admin/campaigns/${id}/test`, { email })).json();
+    },
+    onSuccess: (data: any) => { if (data) toast({ title: "Test email sent", description: "Check that inbox (and spam)." }); },
+    onError: (e: any) => toast({ title: "Test email failed", description: String(e?.message || e), variant: "destructive" }),
   });
 
   const createSegmentMutation = useMutation({
@@ -1825,9 +1842,19 @@ export default function AdminMarketing() {
                                     <Pencil className="h-4 w-4" />
                                   </Button>
                                   <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => testCampaignMutation.mutate(campaign.id)}
+                                    title="Send a test copy to one email address"
+                                    data-testid={`button-test-campaign-${campaign.id}`}
+                                  >
+                                    Test
+                                  </Button>
+                                  <Button
                                     size="icon"
                                     variant="ghost"
                                     onClick={() => sendCampaignMutation.mutate(campaign.id)}
+                                    title="Send to everyone"
                                     data-testid={`button-send-campaign-${campaign.id}`}
                                   >
                                     <Send className="h-4 w-4" />

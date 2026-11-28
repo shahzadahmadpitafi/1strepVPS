@@ -27862,10 +27862,40 @@ If you cannot answer a question, respond with exactly: "I apologize, but I don't
     }
   });
 
+  // Real sending (the old version only wrote "sent" rows and never emailed anyone) - see campaignSender.ts
+  app.get("/api/admin/campaigns/:id/audience", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { getCampaignRecipients } = await import("./campaignSender");
+      const c = await storage.getEmailCampaign(req.params.id);
+      if (!c) return res.status(404).json({ error: "Campaign not found" });
+      const r = await getCampaignRecipients({ segmentId: (c as any).segmentId });
+      res.json({ count: r.length });
+    } catch (error) {
+      console.error("Campaign audience error:", error);
+      res.status(500).json({ error: "Failed to count recipients" });
+    }
+  });
+
+  app.post("/api/admin/campaigns/:id/test", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const email = String(req.body?.email || "").trim();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: "Enter a valid email address" });
+      const { sendCampaignTest } = await import("./campaignSender");
+      const ok = await sendCampaignTest(req.params.id, email);
+      if (!ok) return res.status(502).json({ error: "The mail server did not accept the test email" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Campaign test send error:", error);
+      res.status(500).json({ error: "Failed to send the test email" });
+    }
+  });
+
   app.post("/api/admin/campaigns/:id/send", requireAuth, requireAdmin, async (req, res) => {
     try {
-      const result = await storage.sendEmailCampaign(req.params.id);
-      res.json(result);
+      const { startCampaignSend } = await import("./campaignSender");
+      const result = await startCampaignSend(req.params.id);
+      if (!result.started) return res.status(409).json({ error: result.reason || "Could not start" });
+      res.json({ success: true, started: true, recipients: result.recipients, alreadySent: result.alreadySent });
     } catch (error) {
       console.error("Send campaign error:", error);
       res.status(500).json({ error: "Failed to send campaign" });

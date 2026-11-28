@@ -386,6 +386,8 @@ app.use((req, res, next) => {
 
     // Website sale campaigns (Black Friday etc.): switch sale prices on and off on schedule (see saleCampaign.ts)
     try {
+      const { resumeInterruptedCampaigns } = await import("./campaignSender");
+      setTimeout(() => { resumeInterruptedCampaigns(); }, 20000);
       const { ensureSaleTables, startSaleScheduler } = await import("./saleCampaign");
       await ensureSaleTables();
       startSaleScheduler();
