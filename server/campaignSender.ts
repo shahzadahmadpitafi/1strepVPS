@@ -29,13 +29,17 @@ const properName = (raw: string | null | undefined) => {
   return v && v === v.toUpperCase() ? v.toLowerCase().split(/([\s'-]+)/).map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join("") : v;
 };
 
+// The campaign form stores "All subscribers" as the word "all" (or nothing): that means no segment.
+const realSegment = (id?: string | null) => (id && id !== "all" ? id : null);
+
 export async function getCampaignRecipients(campaign: { segmentId?: string | null }): Promise<Recipient[]> {
   let list: Recipient[];
-  if (campaign.segmentId) {
+  const segmentId = realSegment(campaign.segmentId);
+  if (segmentId) {
     const rows = (await db.execute(sql`
       SELECT lower(trim(u.email)) AS email, u.first_name AS "firstName", u.last_name AS "lastName"
         FROM customer_segment_members m JOIN users u ON u.id = m.user_id
-       WHERE m.segment_id = ${campaign.segmentId} AND u.email IS NOT NULL`)).rows as any[];
+       WHERE m.segment_id = ${segmentId} AND u.email IS NOT NULL`)).rows as any[];
     list = rows;
   } else {
     list = (await getWeeklyRecipients()).map((r) => ({ email: r.email, firstName: r.firstName }));
